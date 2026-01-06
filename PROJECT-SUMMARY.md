@@ -2,7 +2,7 @@
 
 ## 📋 專案概況
 
-**專案名稱**: QAPlus (AnswerGO 重寫版)  
+**專案名稱**: QAPlus  
 **目標**: 專業的前後端架構、可重複使用的架構、Node.js 後端  
 **完成日期**: 2026-01-06  
 **架構模式**: Turborepo Monorepo
@@ -374,7 +374,7 @@ npm run dev
 
 ## 📚 重要文件
 
-- **API 分析**: `docs/API-ANALYSIS.md` - 原 AnswerGO API 分析
+- **API 分析**: `docs/API-ANALYSIS.md` - API 分析文件
 - **資料庫連線**: `DB-INFO.txt` - 快速參考
 - **專案 README**: `README.md` - 專案概述
 - **Prisma Schema**: `apps/backend/prisma/schema.prisma` - 資料庫定義

@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
  * 模型配置管理
  * 從環境變數讀取模型配置
  * 
- * 參考 AnswerGO 的 model_config.py
+ * Model 配置服務
  * 
  * 支援的函數：
  *   - getCurrentEmbeddingModel()  # 獲取 Embedding 模型配置

@@ -146,7 +146,7 @@ qaplus/
 - [x] `QUICK-START.md` - 快速啟動
 - [x] `STAGE-0-CHECKLIST.md` - 階段 0 檢查清單
 - [x] `STAGE-1-GUIDE.md` - 階段 1 指南
-- [x] API 分析文件 (在 answergo 專案)
+- [x] API 分析文件
 
 ### 📝 待建立
 - [ ] DEVELOPMENT.md - 開發指南
@@ -177,8 +177,8 @@ qaplus/
 
 ## 💪 優勢分析
 
-### vs AnswerGO (Python)
-| 項目 | AnswerGO | QAPlus | 優勢 |
+### 技術優勢
+| 項目 | QAPlus | 優勢 |
 |------|----------|---------|------|
 | 語言 | Python | TypeScript | 前後端統一 |
 | 框架 | FastAPI | NestJS | 更好的模組化 |

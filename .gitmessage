@@ -1,0 +1,24 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type 類型:
+#   feat:     新功能
+#   fix:      修復 bug
+#   docs:     文件更新
+#   style:    程式碼格式調整（不影響功能）
+#   refactor: 重構
+#   perf:     效能優化
+#   test:     測試相關
+#   chore:    其他變更（建置、工具等）
+#   i18n:     翻譯更新
+
+# Scope 範圍（可選）:
+#   frontend, backend, chatbot, ui, auth, etc.
+
+# Subject 簡短描述（50字以內）
+# Body 詳細說明（可選，每行72字以內）
+# Footer 關閉 issue 等（可選）
+

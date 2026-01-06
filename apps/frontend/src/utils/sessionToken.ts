@@ -1,6 +1,6 @@
 /**
  * Session Token 管理工具
- * 參考 AnswerGO 的 sessionToken.ts
+ * Session Token 管理工具
  * 用於管理後端簽發的 Session Token
  */
 

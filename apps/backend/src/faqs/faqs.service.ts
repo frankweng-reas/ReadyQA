@@ -211,7 +211,7 @@ export class FaqsService {
 
   /**
    * 保存 FAQ 到 Elasticsearch
-   * 參考 AnswerGO 的實現
+   * 更新 FAQ
    */
   private async saveFaqToElasticsearch(
     chatbotId: string,
@@ -222,7 +222,7 @@ export class FaqsService {
     status: string,
   ): Promise<boolean> {
     try {
-      // 生成 embedding（參考 AnswerGO：使用 question 生成向量）
+      // 生成 embedding（使用 question 生成向量）
       let denseVector: number[];
       const startTime = Date.now();
 
@@ -234,7 +234,7 @@ export class FaqsService {
         );
       } catch (embError: any) {
         this.logger.error(`❌ 生成 embedding 失敗: ${embError.message}`);
-        // 如果 embedding 生成失敗，使用 fallback 向量（參考 AnswerGO 做法）
+        // 如果 embedding 生成失敗，使用 fallback 向量
         this.logger.warn('⚠️ 使用 fallback 向量（全部 0.001）');
         denseVector = new Array(3072).fill(0.001);
       }

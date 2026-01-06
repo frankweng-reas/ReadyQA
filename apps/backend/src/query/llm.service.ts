@@ -4,13 +4,13 @@ import { ModelConfigService } from '../common/model-config.service';
 
 /**
  * LLM 服務
- * 參考 AnswerGO 的實作，處理與 LLM 的交互
+ * 處理與 LLM 的交互
  */
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
 
-  // 預設的 System Prompt（與 AnswerGO 一致）
+  // 預設的 System Prompt
   private readonly DEFAULT_SYSTEM_PROMPT = `根據使用者問題的語意判斷，從知識庫內容挑出可能符合的Q&A項目。
 
 **篩選原則：**
@@ -61,7 +61,7 @@ export class LlmService {
 
   /**
    * 調用 LLM API
-   * 參考 AnswerGO 的 call_llm_openai 方法
+   * 呼叫 OpenAI LLM API
    * 
    * @param messages 對話消息列表
    * @param apiUrl API 基礎 URL
@@ -184,7 +184,7 @@ export class LlmService {
 
   /**
    * 發送 FAQ 搜尋結果給 LLM 並獲取回應
-   * 參考 AnswerGO 的 send_faq_to_llm 方法
+   * 發送 FAQ 到 LLM
    * 
    * @param query 用戶問題
    * @param searchResults Elasticsearch 搜尋結果列表
@@ -296,7 +296,7 @@ export class LlmService {
 
   /**
    * 解析 LLM JSON 回應並轉換為 QABlock
-   * 參考 AnswerGO 的 llm_response_to_qablock 方法
+   * 將 LLM 回應轉換為 QABlock
    * 
    * 注意：會從資料庫查詢完整的 FAQ 數據（包含 layout 和 images）
    * 

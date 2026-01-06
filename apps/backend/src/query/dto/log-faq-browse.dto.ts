@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString } from 'class-validator';
 
 /**
  * 記錄 FAQ 直接瀏覽請求 DTO
- * 參考 AnswerGO 的 LogFaqBrowseRequest
+ * FAQ 瀏覽記錄請求
  */
 export class LogFaqBrowseDto {
   @ApiProperty({

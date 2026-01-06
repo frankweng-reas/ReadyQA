@@ -8,7 +8,7 @@ export class AuthService {
 
   /**
    * 根據 Supabase UUID 獲取或建立對應的 PostgreSQL user_id
-   * 參考 AnswerGO 的實作邏輯
+   * 認證服務
    */
   async getOrCreateUser(dto: GetOrCreateUserDto) {
     try {

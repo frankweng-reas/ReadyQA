@@ -156,7 +156,7 @@ npm run build
 ## 🆘 需要幫助？
 
 查看詳細文檔：
-- [API 分析文件](../answergo/docs/API-ANALYSIS.md)
+- [API 分析文件](docs/API-ANALYSIS.md)
 - [專案 README](./README.md)
 - [階段 0 檢查清單](./docs/STAGE-0-CHECKLIST.md)
 

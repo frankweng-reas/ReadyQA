@@ -39,7 +39,7 @@ export class QueryController {
 
   /**
    * 問答查詢
-   * 參考 AnswerGO 的 /ai/chat-with-context 端點
+   * Chatbot 查詢端點
    * 
    * POST /query/chat
    * 
@@ -152,7 +152,7 @@ export class QueryController {
 
   /**
    * 記錄 FAQ 操作（viewed / like / dislike）
-   * 參考 AnswerGO 的 /process-faq/log-faq-action 端點
+   * 記錄 FAQ 操作端點
    * 
    * POST /query/log-faq-action
    * 
@@ -216,7 +216,7 @@ export class QueryController {
 
   /**
    * 記錄 FAQ 直接瀏覽
-   * 參考 AnswerGO 的 /process-faq/log-faq-browse 端點
+   * 記錄 FAQ 瀏覽端點
    * 
    * POST /query/log-faq-browse
    * 

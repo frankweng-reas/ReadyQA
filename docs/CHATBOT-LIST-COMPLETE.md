@@ -19,29 +19,29 @@
 - ✅ 空狀態顯示
 - ✅ 載入狀態
 
-### 3. **UI 設計** (參考 AnswerGO)
+### 3. **UI 設計**
 - ✅ 精美的卡片設計
 - ✅ Hover 效果
 - ✅ 右上角選單
 - ✅ 狀態切換開關
 - ✅ 時間顯示（剛剛、X小時前）
 
-## 📊 與 AnswerGO 對比
+## 📊 功能特點
 
-### 相同點
+### 核心功能
 - ✅ 卡片式佈局
 - ✅ 右上角選單（刪除等）
 - ✅ 狀態切換開關
 - ✅ 用戶資訊選單
 
-### 不同點（改進）
+### 技術特點
 
-| 項目 | AnswerGO | QAPlus | 改進 |
+| 項目 | QAPlus | 說明 |
 |------|----------|---------|------|
-| 資料存取 | SQLite + Python | Prisma + NestJS | ✅ 更強大的 ORM |
-| API 架構 | FastAPI | NestJS | ✅ TypeScript 統一 |
-| 狀態管理 | Context + Hook | React State | ✅ 更簡潔 |
-| 配額管理 | 複雜邏輯 | 尚未實作 | ⏭ 後續實作 |
+| 資料存取 | Prisma + NestJS | ✅ 更強大的 ORM |
+| API 架構 | NestJS | ✅ TypeScript 統一 |
+| 狀態管理 | React State | ✅ 更簡潔 |
+| 配額管理 | 尚未實作 | ⏭ 後續實作 |
 | Logo 上傳 | 支援 | 尚未實作 | ⏭ 後續實作 |
 
 ## 🚀 測試方式

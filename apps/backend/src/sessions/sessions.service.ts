@@ -179,7 +179,7 @@ export class SessionsService {
 
   /**
    * 驗證 Session Token
-   * 參考 AnswerGO 的 SessionService.verifyToken
+   * 驗證 Session Token
    * 
    * @param token Session Token
    * @param chatbotId Chatbot ID（用於驗證 token 是否屬於該 chatbot）
@@ -229,7 +229,7 @@ export class SessionsService {
 
   /**
    * 增加 Session 的查詢次數
-   * 參考 AnswerGO 的 SessionService.incrementQueryCount
+   * 增加查詢計數
    * 
    * @param sessionId Session ID
    */
@@ -246,7 +246,7 @@ export class SessionsService {
 
   /**
    * 初始化 Session（公開 API）
-   * 參考 AnswerGO 的 SessionService.init_session
+   * 初始化 Session
    * 
    * @param chatbotId Chatbot ID
    * @param ipAddress 來源 IP（可選）

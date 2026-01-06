@@ -54,7 +54,7 @@ export class ChatbotsService {
     });
 
     // 創建 Elasticsearch 索引（如果 ES 可用）
-    // 參考 AnswerGO：ES 索引創建失敗不影響 chatbot 創建
+    // ES 索引創建失敗不影響 chatbot 創建
     if (this.elasticsearchService.isAvailable()) {
       try {
         const esCreated = await this.elasticsearchService.createFaqIndex(chatbotId);

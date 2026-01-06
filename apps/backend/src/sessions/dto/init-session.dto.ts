@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString } from 'class-validator';
 
 /**
  * 初始化 Session 請求 DTO
- * 參考 AnswerGO 的 SessionInitRequest
+ * Session 初始化請求
  */
 export class InitSessionDto {
   @ApiProperty({
@@ -17,7 +17,7 @@ export class InitSessionDto {
 
 /**
  * 初始化 Session 回應 DTO
- * 參考 AnswerGO 的 SessionInitResponse
+ * Session 初始化回應
  */
 export class InitSessionResponseDto {
   @ApiProperty({ description: 'Session Token', example: 'abc123...' })

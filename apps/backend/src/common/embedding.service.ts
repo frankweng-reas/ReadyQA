@@ -2,7 +2,7 @@
  * Embedding 服務模組
  * 
  * 此模組提供文本向量化功能，用於 Elasticsearch 混合搜索。
- * 參考 AnswerGO 的 embedding_service.py
+ * Embedding 服務
  * 
  * 主要功能：
  * - generateEmbedding(): 生成 Dense Embedding（語義向量）

@@ -10,13 +10,13 @@ import { randomUUID } from 'crypto';
 
 /**
  * 查詢服務
- * 參考 AnswerGO 的實作，處理 Chatbot 問答查詢
+ * 處理 Chatbot 問答查詢
  */
 @Injectable()
 export class QueryService {
   private readonly logger = new Logger(QueryService.name);
 
-  // 預設的混合搜尋參數（參考 AnswerGO）
+  // 預設的混合搜尋參數
   private readonly DEFAULT_BM25_WEIGHT = 0.3;
   private readonly DEFAULT_KNN_WEIGHT = 0.7;
   private readonly DEFAULT_TOP_K = 5;
@@ -34,7 +34,6 @@ export class QueryService {
 
   /**
    * 處理查詢請求
-   * 參考 AnswerGO 的 chat_with_context 方法
    * 
    * 流程：
    * 1. 生成查詢的 embedding
@@ -77,7 +76,7 @@ export class QueryService {
       );
     } catch (embError: any) {
       this.logger.error(`[Chat] ❌ 生成 embedding 失敗: ${embError.message}`);
-      // 如果 embedding 生成失敗，使用 fallback 向量（參考 AnswerGO 做法）
+      // 如果 embedding 生成失敗，使用 fallback 向量
       this.logger.warn('⚠️ 使用 fallback 向量（全部 0.001）');
       denseVector = new Array(3072).fill(0.001);
     }
@@ -204,7 +203,6 @@ export class QueryService {
 
   /**
    * 記錄 FAQ 操作
-   * 參考 AnswerGO 的 log_faq_action 方法
    * 
    * @param dto LogFaqActionDto
    */
@@ -311,7 +309,6 @@ export class QueryService {
 
   /**
    * 記錄 FAQ 直接瀏覽
-   * 參考 AnswerGO 的 log_faq_browse 方法
    * 
    * 當用戶直接點擊 FAQ（非搜尋結果）時，記錄到 QueryLog 和 QueryLogDetail
    * 

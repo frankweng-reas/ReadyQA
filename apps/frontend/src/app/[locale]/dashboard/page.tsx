@@ -9,8 +9,6 @@ import { chatbotApi } from '@/lib/api/chatbot'
 
 /**
  * Dashboard/Home 頁面 - Chatbot 列表
- * 
- * 參考 AnswerGO 設計，使用 Prisma API
  */
 
 interface Chatbot {

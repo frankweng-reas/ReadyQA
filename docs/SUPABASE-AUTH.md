@@ -83,7 +83,7 @@ http://localhost:8000/api/docs
 
 ### 優勢
 
-- ✅ 與 AnswerGO 架構一致
+- ✅ 架構清晰
 - ✅ 不需自己管理 JWT 簽發
 - ✅ Supabase 處理 token 過期、刷新等邏輯
 - ✅ 前端可直接使用 Supabase SDK

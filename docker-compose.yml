@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Elasticsearch with IK Analyzer (與 AnswerGO 一致)
+  # Elasticsearch with IK Analyzer
   elasticsearch:
     build:
       context: ./docker/elasticsearch

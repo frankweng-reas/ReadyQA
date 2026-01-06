@@ -128,7 +128,7 @@ chore: 雜項
 
 ## 📚 文檔
 
-- [API 分析文件](../answergo/docs/API-ANALYSIS.md)
+- [API 分析文件](docs/API-ANALYSIS.md)
 - [開發指南](./docs/DEVELOPMENT.md) (待建立)
 - [部署指南](./docs/DEPLOYMENT.md) (待建立)
 
@@ -155,7 +155,7 @@ npm run test:cov
 
 ## 🤝 參考專案
 
-本專案重構自 [AnswerGO](../answergo)，原始技術棧為 Python FastAPI。
+本專案使用現代化的技術棧開發。
 
 ## 📄 授權
 

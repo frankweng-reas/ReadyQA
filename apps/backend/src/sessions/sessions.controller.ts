@@ -22,7 +22,7 @@ export class SessionsController {
 
   /**
    * 初始化 Session（公開 API）
-   * 參考 AnswerGO 的 /public/session/init
+   * 初始化 Session
    * 
    * POST /sessions/init
    * 

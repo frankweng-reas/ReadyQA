@@ -2,7 +2,7 @@
 
 ## 📋 實作概述
 
-參考 AnswerGO 的實作，完整實現了 end user 查詢與 feedback 記錄機制。
+完整實現了 end user 查詢與 feedback 記錄機制。
 
 ---
 
@@ -193,14 +193,14 @@ QueryService.logFaqBrowse()
 
 ---
 
-## 🎯 與 AnswerGO 的對比
+## 🎯 功能對比
 
-| 功能 | AnswerGO | QAPlus | 狀態 |
-|------|----------|--------|------|
-| 查詢記錄 | `search_logs` | `query_logs` | ✅ 已實作 |
-| Feedback 記錄 | `search_faq_actions` | `query_log_details` | ✅ 已實作 |
-| Session 驗證 | `SessionService.verify_token()` | `SessionsService.verifyToken()` | ✅ 已實作 |
-| 查詢次數統計 | `session.query_count` | `session.queryCount` | ✅ 已實作 |
+| 功能 | QAPlus | 狀態 |
+|------|--------|------|
+| 查詢記錄 | `query_logs` | ✅ 已實作 |
+| Feedback 記錄 | `query_log_details` | ✅ 已實作 |
+| Session 驗證 | `SessionsService.verifyToken()` | ✅ 已實作 |
+| 查詢次數統計 | `session.queryCount` | ✅ 已實作 |
 | 直接瀏覽記錄 | `/process-faq/log-faq-browse` | `/query/log-faq-browse` | ✅ 已實作 |
 | FAQ 點擊統計 | `faqs.hit_count` | `faqs.hitCount` | ✅ 已實作 |
 
@@ -285,7 +285,7 @@ const response = await fetch(`${API_URL}/query/chat`, {
 
 ## 🎉 總結
 
-✅ **完整實作了 AnswerGO 的查詢與 Feedback 記錄機制**
+✅ **完整實作了查詢與 Feedback 記錄機制**
 
 包含：
 1. Session Token 驗證與管理
@@ -297,7 +297,7 @@ const response = await fetch(`${API_URL}/query/chat`, {
 
 **關鍵差異**：
 - QAPlus 使用 Prisma + PostgreSQL
-- AnswerGO 使用 直接 SQL + PostgreSQL
+- 使用 Prisma ORM + PostgreSQL
 - 功能完全一致，但實作更優雅
 
 **測試方式**：

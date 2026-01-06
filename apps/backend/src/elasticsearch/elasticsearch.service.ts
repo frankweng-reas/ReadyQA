@@ -5,7 +5,7 @@ import { Converter } from 'opencc-js';
 
 /**
  * Elasticsearch 服務
- * 參考 AnswerGO 的實作，提供 FAQ 索引管理功能
+ * 提供 FAQ 索引管理功能
  */
 @Injectable()
 export class ElasticsearchService implements OnModuleInit {
@@ -16,7 +16,7 @@ export class ElasticsearchService implements OnModuleInit {
   private readonly stopWords = ['嗎', '呢', '吧', '啊', '呀', '了', '可以'];
 
   constructor(private readonly configService: ConfigService) {
-    // 從環境變數讀取向量維度（默認 3072，與 AnswerGO 一致）
+    // 從環境變數讀取向量維度（默認 3072）
     this.embeddingDimensions = parseInt(
       this.configService.get<string>('EMBEDDING_DIMENSIONS', '3072'),
       10,
@@ -98,7 +98,7 @@ export class ElasticsearchService implements OnModuleInit {
 
   /**
    * 獲取索引配置（settings + mappings）
-   * 參考 AnswerGO 的 FAQIndexSchema（使用 IK 分詞器）
+   * 使用 IK 分詞器
    */
   private getIndexConfig() {
     return {
@@ -108,10 +108,10 @@ export class ElasticsearchService implements OnModuleInit {
         analysis: {
           analyzer: {
             // IK Analyzer 中文分詞器（需要安裝 IK 插件）
-            // ⚠️ 與 AnswerGO 保持一致：索引和搜尋都使用 ik_smart（粗粒度分詞）
+            // 索引和搜尋都使用 ik_smart（粗粒度分詞）
             // 這樣可以確保索引時和搜尋時的分詞結果一致
             ik_max_word_analyzer: {
-              type: 'ik_smart', // 索引時使用（與 AnswerGO 一致）
+              type: 'ik_smart', // 索引時使用
             },
             ik_smart_analyzer: {
               type: 'ik_smart', // 搜尋時使用
@@ -168,7 +168,6 @@ export class ElasticsearchService implements OnModuleInit {
 
   /**
    * 創建 FAQ 索引
-   * 參考 AnswerGO 的 create_faq_index 方法
    *
    * @param chatbotId Chatbot ID
    * @param forceRecreate 是否強制重新創建（會刪除現有索引）
@@ -294,7 +293,6 @@ export class ElasticsearchService implements OnModuleInit {
 
   /**
    * 保存 FAQ 到 Elasticsearch
-   * 參考 AnswerGO 的 save_faq 方法
    * 
    * @param chatbotId Chatbot ID
    * @param faqId FAQ ID
@@ -338,7 +336,6 @@ export class ElasticsearchService implements OnModuleInit {
         }
       }
 
-      // ========== 參考 AnswerGO 的處理 ==========
       // 1. 組合 question 和 synonym
       const synonymCombined = `${question} ${synonym || ''}`.trim();
       
@@ -349,7 +346,7 @@ export class ElasticsearchService implements OnModuleInit {
       this.logger.debug(`  原始: ${synonymCombined}`);
       this.logger.debug(`  簡體: ${synonymSimplified}`);
 
-      // 準備文檔數據（參考 AnswerGO 的 FAQIndexSchema.build_document）
+      // 準備文檔數據
       const document: any = {
         faq_id: faqId,
         chatbot_id: chatbotId,
@@ -362,7 +359,7 @@ export class ElasticsearchService implements OnModuleInit {
         updated_at: new Date().toISOString(),
       };
 
-      // 添加可選欄位（如果提供）- 與 AnswerGO 一致
+      // 添加可選欄位（如果提供）
       // active_from 和 active_until 用於定時啟用/停用 FAQ
       // 目前暫時不使用，但保留欄位結構
 
@@ -447,7 +444,7 @@ export class ElasticsearchService implements OnModuleInit {
   }
 
   /**
-   * 提取關鍵詞並轉簡體（參考 AnswerGO）
+   * 提取關鍵詞並轉簡體
    * 1. 移除停用詞
    * 2. 轉換為簡體中文
    * 
@@ -470,7 +467,7 @@ export class ElasticsearchService implements OnModuleInit {
 
   /**
    * 混合搜尋 (BM25 + kNN)
-   * 參考 AnswerGO 的實作 - 使用 RRF (Reciprocal Rank Fusion) 合併排名
+   * 使用 RRF (Reciprocal Rank Fusion) 合併排名
    * 
    * @param chatbotId Chatbot ID
    * @param query 用戶問題（繁體中文）

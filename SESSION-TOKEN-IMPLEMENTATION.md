@@ -2,7 +2,7 @@
 
 ## 📋 實作概述
 
-參考 AnswerGO 的實作，完整實現了前端 Session Token 管理機制，現在查詢會自動記錄到資料庫。
+完整實現了前端 Session Token 管理機制，現在查詢會自動記錄到資料庫。
 
 ---
 
@@ -143,16 +143,16 @@ if (errorData.message === 'TOKEN_EXPIRED' || response.status === 401) {
 
 ---
 
-## 🎯 與 AnswerGO 的對比
+## 🎯 功能對比
 
-| 功能 | AnswerGO | QAPlus | 狀態 |
-|------|----------|--------|------|
-| Session Init API | `/api/public/session/init` | `/sessions/init` | ✅ 已實作 |
-| Token 儲存 | localStorage (`answergo_*`) | localStorage (`qaplus_*`) | ✅ 已實作 |
-| Token 管理工具 | `sessionToken.ts` | `sessionToken.ts` | ✅ 已實作 |
-| 自動獲取/初始化 | `getOrInitSessionToken()` | `getOrInitSessionToken()` | ✅ 已實作 |
-| 過期檢查 | 提前 1 分鐘 | 提前 1 分鐘 | ✅ 已實作 |
-| 查詢時帶 token | Authorization Header | Authorization Header | ✅ 已實作 |
+| 功能 | QAPlus | 狀態 |
+|------|--------|------|
+| Session Init API | `/sessions/init` | ✅ 已實作 |
+| Token 儲存 | localStorage (`qaplus_*`) | ✅ 已實作 |
+| Token 管理工具 | `sessionToken.ts` | ✅ 已實作 |
+| 自動獲取/初始化 | `getOrInitSessionToken()` | ✅ 已實作 |
+| 過期檢查 | 提前 1 分鐘 | ✅ 已實作 |
+| 查詢時帶 token | Authorization Header | ✅ 已實作 |
 | Token 過期處理 | 清除並提示 | 清除並提示 | ✅ 已實作 |
 
 ---
@@ -229,16 +229,16 @@ LIMIT 5;
 ## ⚠️ 重要注意事項
 
 ### 1. Token 安全性
-- Token 儲存在 localStorage（與 AnswerGO 一致）
+- Token 儲存在 localStorage
 - 適用於公開的 chatbot（end user 使用）
 - 不適用於需要嚴格身份驗證的場景
 
 ### 2. Token 過期時間
-- 預設 30 天（與 AnswerGO 一致）
+- 預設 30 天
 - 可在 `SessionsService.initSession()` 中調整
 
 ### 3. 查詢次數限制
-- 預設 50 次（與 AnswerGO 一致）
+- 預設 50 次
 - 超過限制時返回 `QUERY_LIMIT_EXCEEDED` 錯誤
 - 需要重新初始化 token
 
@@ -250,7 +250,7 @@ LIMIT 5;
 
 ## 🎉 總結
 
-✅ **完整實作了 AnswerGO 的 Session Token 機制**
+✅ **完整實作了 Session Token 機制**
 
 **關鍵改進**：
 1. 前端自動管理 Session Token

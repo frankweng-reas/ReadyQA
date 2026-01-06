@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
  * 1. 完整的 TypeScript 型別
  * 2. 錯誤處理更完善
  * 3. 效能優化（減少不必要的重渲染）
- * 4. 自動建立 tenant（參考 AnswerGO）
+ * 4. 自動建立 tenant
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)

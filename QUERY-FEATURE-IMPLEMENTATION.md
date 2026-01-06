@@ -2,7 +2,7 @@
 
 ## 📋 實作概述
 
-已成功實作 QAPlus Chatbot 的查詢功能，參考 AnswerGO 的架構，實現了完整的 FAQ 問答查詢流程。
+已成功實作 QAPlus Chatbot 的查詢功能，實現了完整的 FAQ 問答查詢流程。
 
 ## ✅ 完成的功能
 
@@ -39,7 +39,7 @@ apps/backend/src/query/
 #### c. LLM 服務
 **檔案**: `apps/backend/src/query/llm.service.ts`
 - 支援 OpenAI 和 Azure OpenAI
-- 實作 System Prompt（與 AnswerGO 一致）
+- 實作 System Prompt
 - JSON 回應解析
 - 錯誤處理
 
@@ -209,8 +209,7 @@ npm run dev
 
 ## 📚 參考資料
 
-- **AnswerGO 專案**: `/Users/fweng/answergo`
-- **核心參考檔案**:
+- **核心檔案**:
   - `backend/app/api/ai.py` - 查詢 API
   - `backend/app/services/elastic_service.py` - ES 搜尋
   - `backend/app/services/send_faq_to_llm.py` - LLM 調用

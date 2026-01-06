@@ -1,6 +1,6 @@
 /**
  * 預設 Chatbot 主題配置
- * 參考 AnswerGO 的預設主題設定
+ * 預設主題設定
  */
 export const getDefaultTheme = () => ({
   chatBackgroundColor: '#ffffff',
