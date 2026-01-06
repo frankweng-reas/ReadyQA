@@ -1,0 +1,216 @@
+# QAPlus 開發規範
+
+## 專案概述
+- **專案名稱**: QAPlus - AI 驅動的知識庫管理系統
+- **架構**: Monorepo (Turborepo)
+- **Backend**: NestJS + Prisma + PostgreSQL
+- **Frontend**: Next.js 14 (App Router) + React 18 + TypeScript
+- **認證**: Supabase Auth
+- **多語言**: next-intl 3.x (重要：不要升級到 4.x)
+
+## 核心開發規則
+
+### 1. 多語言 (i18n) - 🌍 **必須遵守**
+```typescript
+// ✅ 正確：所有顯示文字都用 t()
+const t = useTranslations('namespace')
+<h1>{t('title')}</h1>
+<button>{t('submit')}</button>
+
+// ❌ 錯誤：硬編碼文字
+<h1>登入</h1>
+<button>送出</button>
+```
+
+**規則：**
+- **任何顯示給用戶的文字都必須使用 `t()`**
+- 翻譯檔位置：`apps/frontend/messages/zh-TW.json`
+- Console.log 和 debug 訊息可以用中文
+- 錯誤訊息也要翻譯
+
+### 2. 認證系統
+```typescript
+// ✅ 使用 Supabase Auth
+const { user, signIn, signOut } = useAuth()
+
+// ❌ 不要使用本地密碼認證
+// Users 表中沒有 password 欄位
+```
+
+**規則：**
+- 所有認證通過 Supabase
+- 登入後自動創建 tenant (tenant_id = user_id)
+- 使用 `supabaseUserId` 關聯用戶
+
+### 3. TypeScript
+```typescript
+// ✅ 完整型別定義
+interface User {
+  id: number
+  email: string
+  supabaseUserId: string | null
+}
+
+// ❌ 避免使用 any
+const data: any = await fetchData() // 不好
+```
+
+**規則：**
+- 所有函數參數和返回值都要有型別
+- 避免使用 `any`，必要時用 `unknown`
+- 使用 Prisma 生成的型別
+
+### 4. API 設計
+```typescript
+// ✅ 統一回應格式
+{
+  success: true,
+  data: {...},
+  message?: string
+}
+
+// ✅ 錯誤處理
+{
+  success: false,
+  error: string,
+  message: string
+}
+```
+
+**規則：**
+- 使用 RESTful API
+- 統一錯誤處理格式
+- Backend API 路徑：`/api/`
+
+### 5. 資料庫
+```typescript
+// ✅ 使用 Prisma
+await prisma.user.findUnique({ where: { id } })
+
+// ✅ 選擇需要的欄位
+select: {
+  id: true,
+  username: true,
+  email: true,
+}
+
+// ❌ 不要選擇所有欄位（效能考量）
+```
+
+**規則：**
+- 所有資料庫操作使用 Prisma
+- 使用 `select` 避免過度查詢
+- 使用事務處理複雜操作
+- Migration 檔案需要手動檢查
+
+### 6. 元件開發
+```typescript
+// ✅ 使用 Client Component 標記
+'use client'
+
+// ✅ 匯入翻譯
+import { useTranslations } from 'next-intl'
+
+export default function MyComponent() {
+  const t = useTranslations('myNamespace')
+  
+  return <div>{t('content')}</div>
+}
+```
+
+**規則：**
+- 需要互動的組件使用 `'use client'`
+- 所有文字使用 `t()`
+- 使用 Tailwind CSS 樣式
+- 組件檔案使用 PascalCase
+
+### 7. 路由結構
+```
+/[locale]/dashboard     ← 儀表板
+/[locale]/login         ← 登入
+/[locale]/chatbots/:id  ← Chatbot 詳情
+```
+
+**規則：**
+- 所有路由都在 `[locale]` 下
+- 使用 Next.js App Router
+- 受保護路由在 middleware 處理
+
+### 8. 錯誤處理
+```typescript
+// ✅ 完整錯誤處理
+try {
+  const result = await apiCall()
+  return { success: true, data: result }
+} catch (error) {
+  console.error('[Component] Error:', error)
+  return { success: false, error: error.message }
+}
+```
+
+**規則：**
+- 所有 async 函數都要 try-catch
+- 錯誤訊息要翻譯
+- Console 使用 `[Component Name]` 前綴
+
+### 9. 程式碼風格
+- 使用 2 空格縮排
+- 單引號字串（除了 JSON）
+- 分號結尾
+- 使用 `const` 除非需要重新賦值
+
+### 10. 註解
+```typescript
+/**
+ * 獲取或創建用戶
+ * 
+ * @param dto - 包含 supabaseUserId, email, name
+ * @returns 用戶資訊和是否為新建
+ */
+async getOrCreateUser(dto: GetOrCreateUserDto) {
+  // 實作...
+}
+```
+
+**規則：**
+- 複雜邏輯要加註解
+- 公開 API 使用 JSDoc
+- 註解可以用中文
+
+## 參考專案
+- **AnswerGO**: `/Users/fweng/answergo`
+- 功能參考 AnswerGO，但使用更好的程式碼品質
+- 使用 Prisma 代替直接 SQL
+- 使用 TypeScript 型別
+
+## 禁止事項
+❌ 硬編碼文字（必須用 t()）
+❌ 使用 `any` 型別
+❌ 直接操作密碼（使用 Supabase Auth）
+❌ 忽略錯誤處理
+❌ 不寫型別定義
+❌ 過度查詢資料庫（使用 select）
+
+## 開發流程
+1. 理解需求
+2. 檢查是否需要新翻譯（更新 zh-TW.json）
+3. 實作功能（記得用 t()）
+4. 處理錯誤
+5. 測試
+6. 更新文件
+
+## 多語言翻譯檔結構
+```json
+{
+  "common": { "通用文字" },
+  "auth": { "認證相關" },
+  "dashboard": { "儀表板" },
+  "chatbots": { "聊天機器人" },
+  "errors": { "錯誤訊息" }
+}
+```
+
+---
+
+**記住：所有顯示給用戶的文字都必須使用 t()，這是最重要的規則！**
+

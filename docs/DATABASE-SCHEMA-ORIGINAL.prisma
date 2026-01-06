@@ -1,0 +1,266 @@
+// ========================================
+// QAPlus Database Schema (從 AnswerGO 轉換)
+// 這是原始 schema，請您修改後告訴我
+// ========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// 用戶管理
+// ========================================
+
+model User {
+  id            Int       @id @default(autoincrement()) @map("user_id")
+  name          String
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  isActive      Boolean   @default(true) @map("is_active")
+  tenantId      String?   @map("tenant_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  chatbots      Chatbot[]
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@map("users")
+}
+
+// ========================================
+// 多租戶系統
+// ========================================
+
+model Tenant {
+  id            String    @id @map("tenant_id")
+  name          String    @map("tenant_name")
+  planCode      String    @default("free") @map("plan_code")
+  status        String    @default("active") // active, suspended, inactive
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  plan          Plan      @relation(fields: [planCode], references: [code], onDelete: Restrict)
+  users         User[]
+  chatbots      Chatbot[]
+  sessions      Session[]
+
+  @@index([planCode], name: "idx_tenants_plan")
+  @@index([status], name: "idx_tenants_status")
+  @@map("tenants")
+}
+
+model Plan {
+  code              String    @id @map("plan_code")
+  name              String    @map("plan_name")
+  maxChatbots       Int?      @map("max_chatbots")
+  maxFaqsPerBot     Int?      @map("max_faqs_per_bot")
+  maxQueriesPerMo   Int?      @map("max_queries_per_mo")
+  enableAnalytics   Boolean   @default(false) @map("enable_analytics")
+  enableApi         Boolean   @default(false) @map("enable_api")
+  enableExport      Boolean   @default(false) @map("enable_export")
+  priceUsdMonthly   Float     @default(0) @map("price_usd_monthly")
+  priceTwdMonthly   Float     @default(0) @map("price_twd_monthly")
+  currencyDefault   String    @default("TWD") @map("currency_default")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  tenants           Tenant[]
+
+  @@map("plans")
+}
+
+// ========================================
+// Chatbot 管理
+// ========================================
+
+model Chatbot {
+  id              String    @id @map("chatbot_id")
+  userId          Int       @default(1) @map("user_id")
+  tenantId        String?   @map("tenant_id")
+  name            String
+  description     String?
+  status          String    @default("draft")
+  isActive        String    @default("active") @map("isactive") // active, inactive
+  theme           Json?
+  domainWhitelist Json?     @map("domain_whitelist")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  faqs            Faq[]
+  topics          Topic[]
+  sessions        Session[]
+  searchLogs      SearchLog[]
+
+  @@index([userId], name: "idx_chatbots_user")
+  @@index([tenantId], name: "idx_chatbots_tenant")
+  @@index([isActive], name: "idx_chatbots_isactive")
+  @@map("chatbots")
+}
+
+// ========================================
+// FAQ 管理
+// ========================================
+
+model Faq {
+  id            String    @id @map("faq_id")
+  chatbotId     String    @map("chatbot_id")
+  topicId       String?   @map("topic_id")
+  question      String
+  answer        String
+  synonym       String
+  status        String    @default("active")
+  layout        String    @default("text")
+  images        String?
+  descStatus    String    @default("pending") @map("desc_status") // pending, processing, done, failed
+  activeFrom    DateTime? @map("active_from")
+  activeUntil   DateTime? @map("active_until")
+  hitCount      Int       @default(0) @map("hit_count")
+  lastHitAt     DateTime? @map("last_hit_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  topic         Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  faqActions    FaqAction[]
+
+  @@index([chatbotId], name: "idx_faqs_chatbot")
+  @@index([status], name: "idx_faqs_status")
+  @@index([topicId], name: "idx_faqs_topic")
+  @@index([descStatus, createdAt], name: "idx_faqs_desc_status")
+  @@map("faqs")
+}
+
+model Topic {
+  id            String    @id @map("topic_id")
+  chatbotId     String    @map("chatbot_id")
+  name          String    @map("topic_name")
+  parentId      String?   @map("parent_id")
+  sortOrder     Int       @default(0) @map("sort_order")
+  description   String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  parent        Topic?    @relation("TopicHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Topic[]   @relation("TopicHierarchy")
+  faqs          Faq[]
+
+  @@unique([chatbotId, name], name: "idx_faq_topics_unique_topic_per_bot")
+  @@index([chatbotId], name: "idx_faq_topics_chatbot")
+  @@index([parentId], name: "idx_faq_topics_parent")
+  @@index([chatbotId, parentId, sortOrder], name: "idx_faq_topics_sort")
+  @@map("faq_topics")
+}
+
+// ========================================
+// Session 管理
+// ========================================
+
+model Session {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @map("session_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  chatbotId     String    @map("chatbot_id")
+  tenantId      String    @map("tenant_id")
+  ipAddress     String?   @map("ip_address")
+  expiresAt     DateTime  @map("expires_at")
+  queryCount    Int       @default(0) @map("query_count")
+  maxQueries    Int       @default(50) @map("max_queries")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  searchLogs    SearchLog[]
+
+  @@index([tokenHash], name: "idx_session_tokens_token_hash")
+  @@index([chatbotId], name: "idx_session_tokens_chatbot")
+  @@index([tenantId], name: "idx_session_tokens_tenant")
+  @@index([expiresAt], name: "idx_session_tokens_expires_at")
+  @@map("session_tokens")
+}
+
+// ========================================
+// 搜尋日誌與分析
+// ========================================
+
+model SearchLog {
+  id              String    @id @map("log_id")
+  sessionId       String    @map("session_id") @db.Uuid
+  chatbotId       String    @map("chatbot_id")
+  query           String
+  resultsCount    Int       @default(0) @map("results_count")
+  expandedCount   Int       @default(0) @map("expanded_count")
+  ignored         Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chatbot         Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  faqActions      FaqAction[]
+
+  @@index([chatbotId], name: "idx_search_logs_chatbot")
+  @@index([sessionId], name: "idx_search_logs_session")
+  @@index([createdAt], name: "idx_search_logs_created_at")
+  @@index([chatbotId, createdAt], name: "idx_search_logs_chatbot_created")
+  @@index([resultsCount], name: "idx_search_logs_results_count")
+  @@index([ignored], name: "idx_search_logs_ignored")
+  @@map("search_logs")
+}
+
+model FaqAction {
+  logId         String    @map("log_id")
+  faqId         String    @map("faq_id")
+  action        String    // viewed, not-viewed, like, dislike
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  log           SearchLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  faq           Faq       @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@id([logId, faqId])
+  @@index([logId], name: "idx_search_faq_actions_log")
+  @@index([faqId], name: "idx_search_faq_actions_faq")
+  @@index([action], name: "idx_search_faq_actions_action")
+  @@index([faqId, action], name: "idx_search_faq_actions_faq_action")
+  @@map("search_faq_actions")
+}
+
+// ========================================
+// 搜尋配置
+// ========================================
+
+model HybridSearchConfig {
+  id              Int       @id @default(1)
+  bm25Weight      Float     @default(0.3) @map("bm25_weight")
+  knnWeight       Float     @default(0.7) @map("knn_weight")
+  topK            Int       @default(5) @map("top_k")
+  scoreThreshold  Float     @default(2.5) @map("score_threshold")
+  rankConstant    Int       @default(60) @map("rank_constant")
+  simThreshold    Float     @default(0.5) @map("sim_threshold")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("hybrid_search_config")
+}
+
+// ========================================
+// 注意事項
+// ========================================
+// 1. Tenant.status 需要加 CHECK 約束: ('active', 'suspended', 'inactive')
+// 2. Chatbot.isActive 需要加 CHECK 約束: ('active', 'inactive')
+// 3. Faq.descStatus 需要加 CHECK 約束: ('pending', 'processing', 'done', 'failed')
+// 4. FaqAction.action 需要加 CHECK 約束: ('viewed', 'not-viewed', 'like', 'dislike')
+// 5. HybridSearchConfig.id 需要加 CHECK 約束: (id = 1)
+// 6. 缺少 Metrics 表 - 需要新增用於記錄 LLM 調用成本
+

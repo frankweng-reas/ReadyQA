@@ -1,0 +1,11 @@
+# 忽略所有上傳的檔案
+*
+
+# 但保留此目錄
+!.gitignore
+
+# 保留 chatbot-logos 目錄結構
+!chatbot-logos/
+chatbot-logos/*
+!chatbot-logos/.gitignore
+

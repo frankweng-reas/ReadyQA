@@ -1,0 +1,283 @@
+// ========================================
+// QAPlus Database Schema
+// ========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// 用戶管理
+// ========================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String
+  email         String    @unique
+  supabaseUserId String?  @unique @map("supabase_user_id")
+  isActive      Boolean   @default(true)
+  tenantId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  chatbots      Chatbot[]
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([supabaseUserId])
+  @@map("users")
+}
+
+// ========================================
+// 多租戶系統
+// ========================================
+
+model Tenant {
+  id            String    @id
+  name          String
+  planCode      String    @default("free")
+  status        String    @default("active") // active, suspended, inactive
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  plan          Plan      @relation(fields: [planCode], references: [code], onDelete: Restrict)
+  users         User[]
+  chatbots      Chatbot[]
+  sessions      Session[]
+
+  @@index([planCode])
+  @@index([status])
+  @@map("tenants")
+}
+
+model Plan {
+  code              String    @id
+  name              String
+  maxChatbots       Int?
+  maxFaqsPerBot     Int?
+  maxQueriesPerMo   Int?
+  enableAnalytics   Boolean   @default(false)
+  enableApi         Boolean   @default(false)
+  enableExport      Boolean   @default(false)
+  priceUsdMonthly   Float     @default(0)
+  priceTwdMonthly   Float     @default(0)
+  currencyDefault   String    @default("TWD")
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  tenants           Tenant[]
+
+  @@map("plans")
+}
+
+// ========================================
+// Chatbot 管理
+// ========================================
+
+model Chatbot {
+  id              String    @id
+  userId          Int       @default(1)
+  tenantId        String?
+  name            String
+  description     String?
+  status          String    @default("draft")
+  isActive        String    @default("active") // active, inactive
+  theme           Json?
+  domainWhitelist Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  faqs            Faq[]
+  topics          Topic[]
+  sessions        Session[]
+  queryLogs       QueryLog[]
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("chatbots")
+}
+
+// ========================================
+// FAQ 管理
+// ========================================
+
+model Faq {
+  id            String    @id
+  chatbotId     String
+  topicId       String?
+  question      String
+  answer        String
+  synonym       String
+  status        String    @default("active")
+  layout        String    @default("text")
+  images        String?
+  descStatus    String    @default("pending") // pending, processing, done, failed
+  activeFrom    DateTime?
+  activeUntil   DateTime?
+  hitCount      Int       @default(0)
+  lastHitAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  topic         Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  queryLogDetails QueryLogDetail[]
+
+  @@index([chatbotId])
+  @@index([status])
+  @@index([topicId])
+  @@index([descStatus, createdAt])
+  @@map("faqs")
+}
+
+model Topic {
+  id            String    @id
+  chatbotId     String
+  name          String
+  parentId      String?
+  sortOrder     Int       @default(0)
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  parent        Topic?    @relation("TopicHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Topic[]   @relation("TopicHierarchy")
+  faqs          Faq[]
+
+  @@unique([chatbotId, name])
+  @@index([chatbotId])
+  @@index([parentId])
+  @@index([chatbotId, parentId, sortOrder])
+  @@map("topics")
+}
+
+// ========================================
+// Session 管理
+// ========================================
+
+model Session {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token         String    @unique
+  chatbotId     String
+  tenantId      String
+  ipAddress     String?
+  expiresAt     DateTime
+  queryCount    Int       @default(0)
+  maxQueries    Int       @default(50)
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  chatbot       Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  queryLogs     QueryLog[]
+
+  @@index([token])
+  @@index([chatbotId])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ========================================
+// 查詢日誌與分析
+// ========================================
+
+model QueryLog {
+  id              String    @id
+  sessionId       String    @db.Uuid
+  chatbotId       String
+  query           String
+  resultsCnt      Int       @default(0)
+  readCnt         Int       @default(0)
+  ignored         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chatbot         Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  queryLogDetails QueryLogDetail[]
+
+  @@index([chatbotId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@index([chatbotId, createdAt])
+  @@index([resultsCnt])
+  @@index([ignored])
+  @@map("query_logs")
+}
+
+model QueryLogDetail {
+  logId         String
+  faqId         String
+  userAction    String    // viewed, not-viewed, like, dislike
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  log           QueryLog  @relation(fields: [logId], references: [id], onDelete: Cascade)
+  faq           Faq       @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@id([logId, faqId])
+  @@index([logId])
+  @@index([faqId])
+  @@index([userAction])
+  @@index([faqId, userAction])
+  @@map("query_log_details")
+}
+
+// ========================================
+// LLM 成本追蹤
+// ========================================
+
+model ModelCost {
+  id                Int       @id @default(autoincrement())
+  tenantId          String?
+  chatbotId         String?
+  sessionId         String?   @db.Uuid
+  provider          String    // openai, azure_openai, anthropic
+  model             String
+  promptTokens      Int       @default(0)
+  completionTokens  Int       @default(0)
+  totalTokens       Int       @default(0)
+  cost              Float     @default(0)
+  apiEndpoint       String?
+  responseTimeMs    Int?
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([chatbotId])
+  @@index([sessionId])
+  @@index([provider])
+  @@index([model])
+  @@index([createdAt])
+  @@map("model_costs")
+}
+
+// ========================================
+// 搜尋配置
+// ========================================
+
+model HybridSearchConfig {
+  id              Int       @id @default(1)
+  bm25Weight      Float     @default(0.3)
+  knnWeight       Float     @default(0.7)
+  topK            Int       @default(5)
+  scoreThreshold  Float     @default(2.5)
+  rankConstant    Int       @default(60)
+  simThreshold    Float     @default(0.5)
+  updatedAt       DateTime  @updatedAt
+
+  @@map("hybrid_search_config")
+}

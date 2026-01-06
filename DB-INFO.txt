@@ -1,0 +1,23 @@
+QAPlus Database Connection Info
+================================
+
+PostgreSQL:
+-----------
+Host:     localhost
+Port:     5432
+Database: qaplus
+User:     qaplus
+Password: password
+
+Connection String:
+postgresql://qaplus:password@localhost:5432/qaplus
+
+Elasticsearch:
+--------------
+URL: http://localhost:9200
+
+Files Updated:
+--------------
+✅ /Users/fweng/qaplus/apps/backend/.env.local
+✅ /Users/fweng/qaplus/apps/backend/env.example
+✅ /Users/fweng/qaplus/docker-compose.yml
