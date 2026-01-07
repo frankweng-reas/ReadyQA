@@ -10,18 +10,26 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // 確保上傳目錄存在
-  const uploadsDir = join(process.cwd(), 'uploads', 'chatbot-logos');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log(`📁 Created uploads directory: ${uploadsDir}`);
+  const chatbotLogosDir = join(process.cwd(), 'uploads', 'chatbot-logos');
+  if (!fs.existsSync(chatbotLogosDir)) {
+    fs.mkdirSync(chatbotLogosDir, { recursive: true });
+    console.log(`📁 Created uploads directory: ${chatbotLogosDir}`);
   }
 
-  // 靜態文件服務（提供上傳的 logos）
+  const faqImagesDir = join(process.cwd(), 'uploads', 'faq-images');
+  if (!fs.existsSync(faqImagesDir)) {
+    fs.mkdirSync(faqImagesDir, { recursive: true });
+    console.log(`📁 Created FAQ images directory: ${faqImagesDir}`);
+  }
+
+  // 靜態文件服務（提供上傳的文件）
+  // 注意：靜態文件服務需要在設置全局前綴之前，或者使用不同的路徑
+  // 這裡設置為不帶前綴，直接訪問 /uploads/...
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 
-  // Global prefix
+  // Global prefix（只影響 API 路由，不影響靜態文件）
   app.setGlobalPrefix('api');
 
   // CORS

@@ -86,7 +86,7 @@ model Chatbot {
   tenantId        String?
   name            String
   description     String?
-  status          String    @default("draft")
+  status          String    @default("published") // 保留用，目前沒有控制功能
   isActive        String    @default("active") // active, inactive
   theme           Json?
   domainWhitelist Json?

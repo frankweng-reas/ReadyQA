@@ -24,7 +24,7 @@ export class CreateChatbotDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: '狀態', default: 'draft' })
+  @ApiPropertyOptional({ description: '狀態（保留用，目前沒有控制功能）', default: 'published' })
   @IsString()
   @IsOptional()
   status?: string;
@@ -56,7 +56,7 @@ export class UpdateChatbotDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: '狀態' })
+  @ApiPropertyOptional({ description: '狀態（保留用，目前沒有控制功能）' })
   @IsString()
   @IsOptional()
   status?: string;
@@ -88,7 +88,7 @@ export class ChatbotQueryDto {
   @IsOptional()
   tenantId?: string;
 
-  @ApiPropertyOptional({ description: '狀態' })
+  @ApiPropertyOptional({ description: '狀態（保留用，目前沒有控制功能）' })
   @IsString()
   @IsOptional()
   status?: string;

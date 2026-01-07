@@ -18,3 +18,182 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+/* MDXEditor 編輯器樣式 */
+.mdxeditor-root-contenteditable img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 1rem auto !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 0.25rem !important;
+  background: #f9fafb !important;
+}
+
+.mdxeditor-root-contenteditable table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 1rem 0 !important;
+  border: 1px solid #e5e7eb !important;
+  display: table !important;
+}
+
+.mdxeditor-root-contenteditable table th,
+.mdxeditor-root-contenteditable table td {
+  border: 1px solid #e5e7eb !important;
+  padding: 0.5rem !important;
+  text-align: left !important;
+  display: table-cell !important;
+}
+
+.mdxeditor-root-contenteditable table th {
+  background-color: #f3f4f6 !important;
+  font-weight: 600 !important;
+}
+
+.mdxeditor-root-contenteditable table tr {
+  display: table-row !important;
+}
+
+.mdxeditor-root-contenteditable table tr:nth-child(even) {
+  background-color: #f9fafb !important;
+}
+
+/* MDXEditor 對話框 z-index 調整（確保顯示在 Modal 上方） */
+/* Modal 的 z-index 是 z-50 (50)，內容是 z-[60] (60)，所以對話框需要更高 */
+.mdxeditor-root-contenteditable [role="dialog"],
+.mdxeditor-root-contenteditable .mdxeditor-toolbar-dialog,
+.mdxeditor-root-contenteditable .mdxeditor-link-dialog,
+.mdxeditor-root-contenteditable .mdxeditor-image-dialog,
+[data-mdxeditor-dialog],
+[data-mdxeditor-menu] {
+  z-index: 9999 !important;
+}
+
+/* 確保 MDXEditor 的彈窗和下拉選單顯示在最上層 */
+.mdxeditor-root-contenteditable ~ * [role="dialog"],
+.mdxeditor-root-contenteditable ~ * [role="menu"],
+.mdxeditor-root-contenteditable ~ * [role="listbox"] {
+  z-index: 9999 !important;
+}
+
+/* 針對 MDXEditor 的 Portal 元素（對話框可能渲染在 body 下） */
+body > [data-mdxeditor-dialog],
+body > [data-mdxeditor-menu],
+body > div[style*="z-index"] {
+  z-index: 9999 !important;
+}
+
+/* 更通用的選擇器：所有可能包含 MDXEditor 對話框的元素 */
+[class*="mdxeditor"][class*="dialog"],
+[class*="mdxeditor"][class*="popup"],
+[class*="mdxeditor"][class*="menu"] {
+  z-index: 9999 !important;
+}
+
+/* Toast UI Editor 樣式修復 */
+/* 確保下拉選單不被截斷 */
+.toastui-editor-dropdown-toolbar {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+.toastui-editor-toolbar-group .toastui-editor-dropdown-toolbar {
+  z-index: 9999 !important;
+  overflow: visible !important;
+}
+
+.toastui-editor-defaultUI {
+  overflow: visible !important;
+}
+
+.toastui-editor-defaultUI-toolbar {
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Toast UI Editor 工具列項目 */
+.toastui-editor-toolbar-item-wrapper {
+  position: relative !important;
+}
+
+/* Toast UI Editor Popup */
+.toastui-editor-popup {
+  z-index: 9999 !important;
+}
+
+/* Toast UI Editor 下拉選單 */
+.toastui-editor-dropdown-toolbar,
+.toastui-editor-context-menu {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* Toast UI Editor 表格樣式 */
+.toastui-editor-contents table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 1rem 0 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.toastui-editor-contents table th,
+.toastui-editor-contents table td {
+  border: 1px solid #e5e7eb !important;
+  padding: 0.5rem !important;
+  text-align: left !important; /* 靠左對齊 */
+}
+
+.toastui-editor-contents table th {
+  background-color: #f3f4f6 !important;
+  font-weight: 600 !important;
+  color: #111827 !important; /* 深灰色文字，確保可見 */
+}
+
+.toastui-editor-contents table td {
+  color: #374151 !important; /* 一般儲存格文字顏色 */
+}
+
+/* 更強的選擇器針對 Toast UI 表格表頭 */
+.toastui-editor-contents thead th,
+.toastui-editor-contents thead td,
+.ProseMirror table th,
+.ProseMirror thead th,
+.ProseMirror thead td {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important;
+  text-align: left !important;
+}
+
+/* 針對所有表格元素 */
+.toastui-editor-contents table * {
+  color: inherit !important;
+}
+
+.toastui-editor-contents table th *,
+.toastui-editor-contents thead * {
+  color: #111827 !important;
+}
+
+/* WYSIWYG 模式的表格樣式 */
+.toastui-editor-ww-mode table th,
+.toastui-editor-ww-mode thead th,
+.toastui-editor-ww-mode thead td {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important;
+  text-align: left !important;
+}
+
+/* 最強選擇器 - 覆蓋所有可能的樣式 */
+.toastui-editor table th,
+.toastui-editor table thead th,
+.toastui-editor table thead td,
+div[contenteditable="true"] table th,
+div[contenteditable="true"] table thead th,
+div[contenteditable="true"] table thead td {
+  color: #111827 !important;
+  background-color: #f3f4f6 !important;
+  text-align: left !important;
+}
+

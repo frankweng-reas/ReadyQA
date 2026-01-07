@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { faqApi } from '@/lib/api/faq';
 import { topicApi } from '@/lib/api/topic';
+import { chatbotApi } from '@/lib/api/chatbot';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import QACard from './QACard';
 
@@ -66,6 +67,10 @@ export default function ChatbotWidget({
   // 模式切換
   const [activeTab, setActiveTab] = useState<'chat' | 'browse'>('chat');
   
+  // Chatbot 狀態檢查（僅 embedded mode）
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [isCheckingActive, setIsCheckingActive] = useState<boolean>(false);
+  
   // 狀態管理
   const [inputValue, setInputValue] = useState('');
   const [faqs, setFaqs] = useState<FAQ[]>([]);
@@ -104,6 +109,57 @@ export default function ChatbotWidget({
       setInputValue(text);
     }
   });
+
+  // Embedded mode: 檢查 chatbot 的 isActive 狀態
+  useEffect(() => {
+    // 非 embedded mode，直接視為啟用
+    if (mode !== 'embedded') {
+      setIsActive(true);
+      return;
+    }
+    
+    // embedded mode 但沒有 chatbotId，等待載入
+    if (!chatbotId) {
+      return;
+    }
+
+    // 檢查 chatbot 是否啟用
+    const checkChatbotActive = async () => {
+      setIsCheckingActive(true);
+      setIsActive(false); // 先設置為 false，等待檢查結果
+      
+      try {
+        // 使用公開 API（不需要認證）
+        const response = await chatbotApi.getPublicStatus(chatbotId);
+        const isActiveValue = response.data?.isActive;
+        
+        // 驗證 isActive：必須是 'active' 或 'inactive'
+        if (isActiveValue === undefined || isActiveValue === null) {
+          console.error(`[ChatbotWidget] ❌ Chatbot ${chatbotId} 的 isActive 為 ${isActiveValue}`);
+          setIsActive(false);
+          setIsCheckingActive(false);
+          return;
+        }
+        if (isActiveValue !== 'active' && isActiveValue !== 'inactive') {
+          console.error(`[ChatbotWidget] ❌ Chatbot ${chatbotId} 的 isActive 值為 "${isActiveValue}"`);
+          setIsActive(false);
+          setIsCheckingActive(false);
+          return;
+        }
+        
+        const chatbotIsActive = isActiveValue === 'active';
+        setIsActive(chatbotIsActive);
+        console.log(`[ChatbotWidget] Chatbot ${chatbotId} 狀態: ${chatbotIsActive ? '啟用' : '停用'}`);
+      } catch (error) {
+        console.error('[ChatbotWidget] 檢查 chatbot 狀態失敗:', error);
+        setIsActive(false);
+      } finally {
+        setIsCheckingActive(false);
+      }
+    };
+
+    checkChatbotActive();
+  }, [mode, chatbotId]);
 
   // 自動滾動到最新訊息
   const scrollToBottom = useCallback(() => {
@@ -253,9 +309,11 @@ export default function ChatbotWidget({
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/query/chat`;
       console.log('[ChatbotWidget] 完整 API URL:', apiUrl);
 
+      // 如果是 interactive mode（design preview / chat mode），傳入 mode: 'preview' 以跳過 isActive 檢查
       const requestBody = {
         query: userQuery,
         chatbot_id: chatbotId,
+        mode: mode === 'interactive' ? 'preview' : 'production',
       };
       console.log('[ChatbotWidget] 請求內容:', requestBody);
 
@@ -456,6 +514,52 @@ export default function ChatbotWidget({
     ? { borderColor: containerStyle.borderColor }
     : {};
 
+  // 如果是 embedded mode，需要檢查 chatbot 狀態
+  if (mode === 'embedded') {
+    // 如果正在檢查狀態，顯示載入中
+    if (isCheckingActive) {
+      return (
+        <div className="relative w-full h-full">
+          <div 
+            className="h-full flex flex-col min-h-0 relative rounded-lg shadow-lg overflow-hidden"
+            style={{ backgroundColor: theme.chatBackgroundColor || '#FFFFFF' }}
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-600">正在檢查 Chatbot 狀態...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // 如果 chatbot 未啟用，顯示錯誤訊息
+    if (!isActive) {
+      return (
+        <div className="relative w-full h-full">
+          <div 
+            className="h-full flex flex-col min-h-0 relative rounded-lg shadow-lg overflow-hidden"
+            style={{ backgroundColor: theme.chatBackgroundColor || '#FFFFFF' }}
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Chatbot 已暫停使用
+              </h3>
+              <p className="text-gray-600 text-center">
+                此 Chatbot 目前暫停服務中，請稍後再試或聯繫管理員。
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="relative w-full h-full">
       <div 
@@ -529,47 +633,89 @@ export default function ChatbotWidget({
                 minHeight: config.minHeight
               }}
             >
-              <div className="flex items-center" style={{ gap: config.space }}>
-                <div 
-                  onClick={() => {
-                    if (theme.contactInfo?.enabled && theme.contactInfo?.contact) {
-                      setShowContactModal(true);
-                    }
-                  }}
-                  className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
-                    theme.contactInfo?.enabled && theme.contactInfo?.contact ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
-                  }`}
-                  style={{
-                    width: config.logoSize,
-                    height: config.logoSize
-                  }}
-                  title={theme.contactInfo?.enabled && theme.contactInfo?.contact ? '點擊查看聯絡資訊' : ''}
-                >
-                  {theme.headerLogo ? (
-                    <img
-                      src={theme.headerLogo}
-                      alt="Header Logo"
-                      className="w-full h-full object-cover rounded-full"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <svg 
-                      style={{ width: config.iconSize, height: config.iconSize }}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                  )}
-                </div>
+              <div className={`flex items-center ${theme.headerAlign === 'center' ? 'justify-center' : ''}`} style={{ gap: config.space }}>
+                {theme.headerAlign !== 'center' && (
+                  <div 
+                    onClick={() => {
+                      if (theme.contactInfo?.enabled && theme.contactInfo?.contact) {
+                        setShowContactModal(true);
+                      }
+                    }}
+                    className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
+                      theme.contactInfo?.enabled && theme.contactInfo?.contact ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
+                    }`}
+                    style={{
+                      width: config.logoSize,
+                      height: config.logoSize
+                    }}
+                    title={theme.contactInfo?.enabled && theme.contactInfo?.contact ? '點擊查看聯絡資訊' : ''}
+                  >
+                    {theme.headerLogo ? (
+                      <img
+                        src={theme.headerLogo}
+                        alt="Header Logo"
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <svg 
+                        style={{ width: config.iconSize, height: config.iconSize }}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    )}
+                  </div>
+                )}
                 
-                <div className={`flex-1 ${
-                  theme.headerAlign === 'center' ? 'text-center' :
-                  theme.headerAlign === 'right' ? 'text-right' :
-                  'text-left'
+                {theme.headerAlign === 'center' && (
+                  <div 
+                    onClick={() => {
+                      if (theme.contactInfo?.enabled && theme.contactInfo?.contact) {
+                        setShowContactModal(true);
+                      }
+                    }}
+                    className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
+                      theme.contactInfo?.enabled && theme.contactInfo?.contact ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
+                    }`}
+                    style={{
+                      width: config.logoSize,
+                      height: config.logoSize
+                    }}
+                    title={theme.contactInfo?.enabled && theme.contactInfo?.contact ? '點擊查看聯絡資訊' : ''}
+                  >
+                    {theme.headerLogo ? (
+                      <img
+                        src={theme.headerLogo}
+                        alt="Header Logo"
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <svg 
+                        style={{ width: config.iconSize, height: config.iconSize }}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    )}
+                  </div>
+                )}
+                
+                <div className={`${
+                  theme.headerAlign === 'center' ? '' :
+                  theme.headerAlign === 'right' ? 'flex-1 text-right' :
+                  'flex-1 text-left'
+                } ${
+                  theme.headerAlign === 'center' ? 'text-center' : ''
                 }`}>
                   <h4 
                     className="font-semibold" 
@@ -634,7 +780,7 @@ export default function ChatbotWidget({
         >
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex-1 px-4 py-3 font-medium transition-all ${
+            className={`flex-1 px-4 py-2 font-medium transition-all ${
               activeTab === 'chat'
                 ? 'border-b-2'
                 : 'opacity-60 hover:opacity-100'
@@ -653,7 +799,7 @@ export default function ChatbotWidget({
           </button>
           <button
             onClick={() => setActiveTab('browse')}
-            className={`flex-1 px-4 py-3 font-medium transition-all ${
+            className={`flex-1 px-4 py-2 font-medium transition-all ${
               activeTab === 'browse'
                 ? 'border-b-2'
                 : 'opacity-60 hover:opacity-100'
@@ -667,7 +813,7 @@ export default function ChatbotWidget({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <span>知識瀏覽</span>
+              <span>問答瀏覽</span>
             </div>
           </button>
           
@@ -738,7 +884,7 @@ export default function ChatbotWidget({
                     有什麼可以幫助您的？
                   </h3>
                   <p className="text-sm text-gray-500 max-w-md">
-                    請在下方輸入您的問題，AI 助手會從知識庫中為您找到最相關的答案
+                    請在下方輸入您的問題，AI 助手會從問答庫中為您找到最相關的答案
                   </p>
                 </div>
               ) : (
@@ -763,7 +909,7 @@ export default function ChatbotWidget({
                       {/* Intro 文字 */}
                       {message.intro && (
                         <div
-                          className="max-w-[90%] px-4 py-2 rounded-lg"
+                          className="w-full px-4 py-2 rounded-lg"
                           style={{
                             backgroundColor: theme.botBubbleColor || '#F3F4F6',
                             color: theme.botTextColor || '#1F2937',
@@ -837,12 +983,12 @@ export default function ChatbotWidget({
             </div>
           )}
 
-          {/* === 知識瀏覽模式 === */}
+          {/* === 問答瀏覽模式 === */}
           {activeTab === 'browse' && (
             isLoadingFaqs ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-600">載入知識列表中...</p>
+                <p className="text-gray-600">載入問答列表中...</p>
               </div>
             ) : selectedFaq ? (
               /* 顯示 QACard */
@@ -857,7 +1003,7 @@ export default function ChatbotWidget({
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  <span className="text-sm font-medium">返回知識列表</span>
+                  <span className="text-sm font-medium">返回問答列表</span>
                 </button>
                 <QACard
                   faq_id={selectedFaq.id}
@@ -1004,7 +1150,7 @@ export default function ChatbotWidget({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見知識</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
                   <p className="text-gray-600">切換到智能問答輸入問題</p>
                 </div>
               )}
@@ -1126,9 +1272,9 @@ export default function ChatbotWidget({
 
       {/* 聯絡資訊彈窗 */}
       {showContactModal && theme.contactInfo?.enabled && theme.contactInfo?.contact && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" onClick={() => setShowContactModal(false)}>
-          <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" />
-          <div className="flex min-h-full items-center justify-center p-4">
+        <div className="absolute inset-0 z-50 overflow-y-auto" onClick={() => setShowContactModal(false)}>
+          <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity" />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
             <div
               className="relative bg-white rounded-lg shadow-xl w-full max-w-md"
               onClick={(e) => e.stopPropagation()}

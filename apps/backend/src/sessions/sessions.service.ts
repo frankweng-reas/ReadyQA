@@ -267,6 +267,7 @@ export class SessionsService {
         id: true,
         tenantId: true,
         status: true,
+        isActive: true,
       },
     });
 
@@ -274,7 +275,8 @@ export class SessionsService {
       throw new NotFoundException('Chatbot 不存在');
     }
 
-    if (chatbot.status !== 'active') {
+    // 檢查 isActive 狀態
+    if (chatbot.isActive !== 'active') {
       throw new BadRequestException('Chatbot 已暫停使用');
     }
 

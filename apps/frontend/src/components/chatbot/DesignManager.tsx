@@ -5,12 +5,13 @@ import { useTranslations } from 'next-intl';
 import ChatbotWidget from './ChatbotWidget';
 import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { chatbotApi } from '@/lib/api/chatbot';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface DesignManagerProps {
   chatbotId: string;
 }
 
-type SettingCategory = 'container' | 'header' | 'chat' | 'input' | 'contact' | 'qaCard' | null;
+type SettingCategory = 'container' | 'header' | 'input' | 'contact' | 'qaCard' | null;
 type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
 export default function DesignManager({ chatbotId }: DesignManagerProps) {
@@ -20,11 +21,13 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const [theme, setTheme] = useState<ChatbotTheme>(defaultTheme);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [activeCategory, setActiveCategory] = useState<SettingCategory>('container');
   const [deviceType, setDeviceType] = useState<DeviceType>('mobile');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 載入當前 chatbot 的 theme
@@ -94,17 +97,21 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   };
 
   // 重置主題
-  const handleReset = async () => {
-    if (confirm(t('resetConfirm'))) {
-      setTheme(defaultTheme);
-      setRefreshKey(prev => prev + 1);
-      
-      // 清除 debounce timer 並立即保存
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      await saveTheme(defaultTheme);
+  const handleReset = () => {
+    setShowResetConfirm(true);
+  };
+
+  // 確認重置
+  const confirmReset = async () => {
+    setTheme(defaultTheme);
+    setRefreshKey(prev => prev + 1);
+    
+    // 清除 debounce timer 並立即保存
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+    await saveTheme(defaultTheme);
+    setShowResetConfirm(false);
   };
 
   // Logo 上傳處理
@@ -164,7 +171,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const categories = [
     { id: 'container', name: t('containerSettings'), icon: '📦' },
     { id: 'header', name: t('headerSettings'), icon: '📋' },
-    { id: 'chat', name: t('chatSettings'), icon: '💬' },
     { id: 'input', name: t('inputSettings'), icon: '📝' },
     { id: 'contact', name: t('contactSettings'), icon: '📞' },
     { id: 'qaCard', name: t('qaCardSettings'), icon: '📄' },
@@ -209,56 +215,96 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
     <div className="relative flex flex-col h-full">
       {/* 頂部工具列 */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-center space-x-3">
-          {devices.map((device) => (
+        <div className="flex items-center justify-between">
+          {/* 左側：空白區域（用於平衡布局） */}
+          <div className="flex-1"></div>
+          
+          {/* 中間：設備切換按鈕 */}
+          <div className="flex items-center space-x-3">
+            {devices.map((device) => (
+              <button
+                key={device.type}
+                onClick={() => setDeviceType(device.type as DeviceType)}
+                className={`px-6 py-3 rounded-3xl transition-all flex items-center space-x-2 text-base font-medium ${
+                  deviceType === device.type
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {getDeviceIcon(device.type)}
+                <span>{device.name}</span>
+              </button>
+            ))}
+          </div>
+          
+          {/* 右側：設定和 Help 按鈕 */}
+          <div className="flex-1 flex items-center justify-end space-x-3">
+            {/* Help 按鈕 */}
             <button
-              key={device.type}
-              onClick={() => setDeviceType(device.type as DeviceType)}
-              className={`px-6 py-3 rounded-3xl transition-all flex items-center space-x-2 text-base font-medium ${
-                deviceType === device.type
+              onClick={() => setShowHelp(!showHelp)}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center space-x-2 text-base font-medium ${
+                showHelp
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
+              title={showHelp ? t('hideHelp') : t('showHelp')}
             >
-              {getDeviceIcon(device.type)}
-              <span>{device.name}</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{t('help')}</span>
             </button>
-          ))}
+            
+            {/* 設定按鈕 */}
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center space-x-2 text-base font-medium ${
+                showSettings
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title={showSettings ? t('hideSettings') : t('showSettings')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>{t('settings')}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 預覽區域 */}
-      <div className={`flex-1 bg-gradient-to-br from-gray-50 to-gray-100 ${deviceType === 'desktop' ? 'p-3' : 'p-6 overflow-auto'}`}>
-        <div className={`h-full flex ${deviceType === 'desktop' ? '' : 'items-center justify-center'}`}>
-          {deviceType === 'desktop' ? (
-            /* 桌面：全寬顯示，最大高度，加淡邊框 */
-            <div className="w-full h-full border border-gray-200 rounded-lg shadow-sm bg-white">
-              <ChatbotWidget
-                mode="interactive"
-                chatbotId={chatbotId}
-                theme={theme}
-                isInputDisabled={false}
-                showCloseButton={false}
-                refreshKey={refreshKey}
-              />
-            </div>
-          ) : (
-            /* 手機/平板：加上裝置外框 */
-            <div className="relative">
+      {/* 主容器：預覽區域 + 設定面板 */}
+      <div className="flex flex-1 min-h-0">
+        {/* 預覽區域 */}
+        <div className={`flex-1 bg-gradient-to-br from-gray-50 to-gray-100 ${deviceType === 'desktop' ? 'p-3' : 'p-6 overflow-auto'} min-h-0 transition-all duration-300`}>
+          <div className={`h-full flex ${deviceType === 'desktop' ? 'min-h-0' : 'items-center justify-center'}`}>
+            {/* 統一使用同一個容器結構，桌面只是呈現不同 */}
+            <div className={deviceType === 'desktop' ? 'w-full h-full min-h-0' : 'relative'}>
+              {/* 裝置外框：桌面模式隱藏，手機/平板顯示 */}
               <div
-                className="bg-gray-900 rounded-[2.5rem] p-3 shadow-2xl"
-                style={{
+                className={deviceType === 'desktop' 
+                  ? 'w-full h-full border border-gray-200 rounded-lg shadow-sm bg-white p-0 flex flex-col min-h-0'
+                  : 'bg-gray-900 rounded-[2.5rem] p-3 shadow-2xl'
+                }
+                style={deviceType === 'desktop' ? {} : {
                   width: deviceType === 'mobile' ? '395px' : '788px',
                 }}
               >
+                {/* 內層容器：桌面模式全寬，手機/平板固定尺寸 */}
                 <div
-                  className="bg-white rounded-[2rem] overflow-hidden"
-                  style={{
+                  className={deviceType === 'desktop' 
+                    ? 'w-full h-full bg-white flex flex-col overflow-hidden min-h-0'
+                    : 'bg-white rounded-[2rem] overflow-hidden flex flex-col'
+                  }
+                  style={deviceType === 'desktop' ? {} : {
                     width: currentDevice.width,
                     height: deviceType === 'mobile' ? '667px' : '600px',
                   }}
                 >
                   <ChatbotWidget
+                    key={`chatbot-preview-${chatbotId}`}
                     mode="interactive"
                     chatbotId={chatbotId}
                     theme={theme}
@@ -269,86 +315,49 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+        
+        {/* 設定面板 */}
+        {showSettings && (
+          <div className="w-[480px] flex-shrink-0 bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden z-20 flex flex-col border-l border-gray-200">
+            {/* Header 區域 */}
+            <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-b border-gray-200">
+            </div>
 
-      {/* 浮動設定按鈕 */}
-      <button
-        onClick={() => setShowSettings(!showSettings)}
-        className={`fixed top-24 right-6 z-30 p-3 rounded-full shadow-lg transition-all duration-300 ${
-          showSettings 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-            : 'bg-white text-gray-700 hover:bg-gray-100'
-        }`}
-        title={showSettings ? t('hideSettings') : t('showSettings')}
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      </button>
-
-      {/* 浮動設定面板 */}
-      {showSettings && (
-        <div className="fixed top-24 right-6 w-[480px] h-[calc(100vh-7rem)] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden z-20 flex flex-col">
-          {/* 保存狀態指示器 */}
-          <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">{t('settings')}</span>
-              <div className="flex items-center space-x-2">
-                {isSaving ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span className="text-xs text-blue-600">{t('saving')}</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-xs text-green-600">{t('saved')}</span>
-                  </>
-                )}
+            <div className="flex flex-1 min-h-0">
+              {/* 左側分類選單 */}
+              <div className="w-[140px] bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-200 p-3 flex flex-col">
+                <div className="space-y-1">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setActiveCategory(category.id as SettingCategory)}
+                      className={`w-full px-3 py-3 rounded-lg text-center transition-all ${
+                        activeCategory === category.id
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-gray-700 hover:bg-white/80'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{category.name}</span>
+                    </button>
+                  ))}
+                </div>
+                
+                {/* 重置按鈕 - 放在最下方 */}
+                <div className="mt-auto pt-2 border-t border-gray-300">
+                  <button
+                    onClick={handleReset}
+                    className="w-full px-3 py-3 rounded-lg text-center transition-all text-gray-700 hover:bg-white/80"
+                  >
+                    <span className="text-sm font-medium">{t('reset')}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="flex flex-1 min-h-0">
-            {/* 左側分類選單 */}
-            <div className="w-[140px] bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-200 p-3 space-y-1">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategory(category.id as SettingCategory)}
-                className={`w-full px-3 py-3 rounded-lg text-left transition-all flex items-center space-x-2 ${
-                  activeCategory === category.id
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-gray-700 hover:bg-white/80'
-                }`}
-              >
-                <span className="text-xl">{category.icon}</span>
-                <span className="text-xs font-medium">{category.name}</span>
-              </button>
-            ))}
-            
-            {/* 重置按鈕 */}
-            <div className="pt-2 mt-2 border-t border-gray-300">
-              <button
-                onClick={handleReset}
-                className="w-full px-3 py-3 rounded-lg text-left transition-all flex items-center space-x-2 text-gray-700 hover:bg-white/80"
-              >
-                <span className="text-xl">🔄</span>
-                <span className="text-xs font-medium">{t('reset')}</span>
-              </button>
-            </div>
-          </div>
+              {/* 右側設定內容 */}
+              <div className="flex-1 overflow-y-auto p-6">
 
-          {/* 右側設定內容 */}
-          <div className="flex-1 overflow-y-auto p-6">
             {/* 容器外型設定 */}
             {activeCategory === 'container' && (
               <div className="space-y-6">
@@ -952,16 +961,51 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   </label>
                   <div className="grid grid-cols-5 gap-2">
                     {[
-                      { value: 'arrow-right', icon: '→' },
-                      { value: 'paper-plane', icon: '✈️' },
-                      { value: 'arrow-up', icon: '↑' },
-                      { value: 'send', icon: '📤' },
-                      { value: 'chevron-right', icon: '›' },
+                      { 
+                        value: 'arrow-right', 
+                        icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        )
+                      },
+                      { 
+                        value: 'paper-plane', 
+                        icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                          </svg>
+                        )
+                      },
+                      { 
+                        value: 'arrow-up', 
+                        icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                          </svg>
+                        )
+                      },
+                      { 
+                        value: 'send', 
+                        icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )
+                      },
+                      { 
+                        value: 'chevron-right', 
+                        icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )
+                      },
                     ].map((item) => (
                       <button
                         key={item.value}
                         onClick={() => updateTheme({ sendButtonIcon: item.value as any })}
-                        className={`p-3 text-xl rounded-lg border-2 transition-all ${
+                        className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center ${
                           theme.sendButtonIcon === item.value
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 bg-white hover:border-gray-300'
@@ -975,55 +1019,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
             )}
 
-            {/* 對話框設定 */}
-            {activeCategory === 'chat' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{t('chatSettings')}</h3>
-                  <p className="text-sm text-gray-600">{t('chatSettingsDesc')}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('chatBackgroundColor')}
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.chatBackgroundColor}
-                      onChange={(e) => updateTheme({ chatBackgroundColor: e.target.value })}
-                      className="w-14 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={theme.chatBackgroundColor}
-                      onChange={(e) => updateTheme({ chatBackgroundColor: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('faqSectionTextColor')}
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.faqSectionTextColor || '#1F2937'}
-                      onChange={(e) => updateTheme({ faqSectionTextColor: e.target.value })}
-                      className="w-14 h-10 rounded-lg border-2 border-gray-300 cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={theme.faqSectionTextColor || '#1F2937'}
-                      onChange={(e) => updateTheme({ faqSectionTextColor: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* 聯絡人設定 */}
             {activeCategory === 'contact' && (
@@ -1460,10 +1455,50 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </div>
               </div>
             )}
+              </div>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Help 面板 */}
+      {showHelp && (
+        <div className={`fixed top-24 ${showSettings ? 'right-[520px]' : 'right-6'} w-[480px] h-[calc(100vh-7rem)] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden z-20 flex flex-col transition-all duration-300`}>
+          <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">{t('help')}</h2>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('quickStart')}</h3>
+                <p className="text-gray-600">{t('helpContentComingSoon')}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* 重置確認對話框 */}
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        title={t('reset')}
+        message={t('resetConfirm')}
+        confirmText={t('reset')}
+        cancelText={tCommon('cancel')}
+        onConfirm={confirmReset}
+        onCancel={() => setShowResetConfirm(false)}
+        type="warning"
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { topicApi } from '@/lib/api/topic'
 import FaqModal from './FaqModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface FAQ {
   id: string
@@ -43,6 +44,8 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [selectedFaq, setSelectedFaq] = useState<FAQ | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [faqToDelete, setFaqToDelete] = useState<{ id: string; question: string } | null>(null)
 
   useEffect(() => {
     loadFaqs()
@@ -87,21 +90,30 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
     setShowModal(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('deleteConfirm'))) return
+  const handleDelete = (id: string, question: string) => {
+    setFaqToDelete({ id, question })
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!faqToDelete) return
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/faqs/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/faqs/${faqToDelete.id}`,
         { method: 'DELETE' }
       )
       
       if (!response.ok) throw new Error('Failed to delete FAQ')
       
+      setShowDeleteConfirm(false)
+      setFaqToDelete(null)
       onRefresh()
     } catch (error) {
       console.error('[FaqList] Failed to delete FAQ:', error)
       alert(t('deleteFailed'))
+      setShowDeleteConfirm(false)
+      setFaqToDelete(null)
     }
   }
 
@@ -166,6 +178,16 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
 
   return (
     <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-cyan-50 border-b border-cyan-200 px-6 py-4 -mx-6 -mt-6 mb-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900 pl-2">{t('faqList')}</h2>
+          <Button onClick={handleCreate} className="rounded-full bg-cyan-600 hover:bg-cyan-700 text-white">
+            + {t('createFaq')}
+          </Button>
+        </div>
+      </div>
+
       {/* 工具列 */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1">
@@ -175,32 +197,27 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="max-w-md"
+            className="max-w-md rounded-full border-gray-400 py-2.5"
           />
 
           {/* Topic 篩選 */}
-          <select
-            value={selectedTopicId}
-            onChange={(e) => setSelectedTopicId(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="">{t('allTopics')}</option>
-            <option value="uncategorized">{t('uncategorized')}</option>
-            {renderTopicOptions(null, 0)}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedTopicId}
+              onChange={(e) => setSelectedTopicId(e.target.value)}
+              className="border border-gray-400 rounded-full px-4 py-2.5 pr-10 text-sm min-w-[180px] appearance-none bg-white cursor-pointer"
+            >
+              <option value="">{t('allTopics')}</option>
+              <option value="uncategorized">{t('uncategorized')}</option>
+              {renderTopicOptions(null, 0)}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
-
-        <Button onClick={handleCreate}>
-          + {t('createFaq')}
-        </Button>
-      </div>
-
-      {/* 統計 */}
-      <div className="text-sm text-gray-600">
-        {t('showingCount', { 
-          count: filteredFaqs.length,
-          total: faqs.length 
-        })}
       </div>
 
       {/* FAQ 列表 */}
@@ -217,23 +234,23 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-base font-medium text-gray-500 uppercase tracking-wider">
                   {t('question')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-base font-medium text-gray-500 uppercase tracking-wider">
                   {t('answer')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-base font-medium text-gray-500 uppercase tracking-wider">
                   {t('topic')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-base font-medium text-gray-500 uppercase tracking-wider">
                   {t('status')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('hitCount')}
+                <th className="px-2 py-3 text-center text-base font-medium text-gray-500 uppercase tracking-wider">
+                  {tCommon('edit')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {tCommon('actions')}
+                <th className="px-2 py-3 text-center text-base font-medium text-gray-500 uppercase tracking-wider">
+                  {tCommon('delete')}
                 </th>
               </tr>
             </thead>
@@ -243,39 +260,54 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                 
                 return (
                   <tr key={faq.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                    <td className="px-6 py-2 text-sm text-gray-900 max-w-xs truncate">
                       {faq.question}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-md truncate">
+                    <td className="px-6 py-2 text-sm text-gray-600 max-w-md truncate">
                       {faq.answer}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-2 text-sm text-gray-600">
                       {topic ? getTopicPath(topic.id) : <span className="text-gray-400">{t('uncategorized')}</span>}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        faq.status === 'active' 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {faq.status}
-                      </span>
+                    <td className="px-6 py-2">
+                      <div className="flex items-center justify-center">
+                        <div className={`w-3 h-3 rounded-full ${
+                          faq.status === 'active' 
+                            ? 'bg-green-500'
+                            : 'bg-red-500'
+                        }`}></div>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {faq.hitCount || 0}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium space-x-2">
+                    <td className="px-2 py-2 text-center">
                       <button
-                        className="text-blue-600 hover:text-blue-900"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                         onClick={() => handleEdit(faq)}
+                        title={tCommon('edit')}
                       >
-                        {tCommon('edit')}
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
                       </button>
+                    </td>
+                    <td className="px-2 py-2 text-center">
                       <button
-                        className="text-red-600 hover:text-red-900"
-                        onClick={() => handleDelete(faq.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        onClick={() => handleDelete(faq.id, faq.question)}
+                        title={tCommon('delete')}
                       >
-                        {tCommon('delete')}
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
                       </button>
                     </td>
                   </tr>
@@ -306,6 +338,21 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
         }
         topics={topics}
         onSuccess={handleModalSuccess}
+      />
+
+      {/* 刪除確認對話框 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title={t('deleteConfirm')}
+        message={faqToDelete ? `確定要刪除「${faqToDelete.question}」嗎？此操作無法復原。` : ''}
+        confirmText={tCommon('delete')}
+        cancelText={tCommon('cancel')}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false)
+          setFaqToDelete(null)
+        }}
+        type="danger"
       />
     </div>
   )

@@ -28,6 +28,16 @@ export class ChatQueryDto {
   @IsOptional()
   @IsString()
   session_token?: string;
+
+  @ApiProperty({
+    description: '模式：preview（預覽模式，跳過 isActive 檢查）/ production（生產模式，檢查 isActive）',
+    example: 'production',
+    required: false,
+    default: 'production',
+  })
+  @IsOptional()
+  @IsString()
+  mode?: 'preview' | 'production';
 }
 
 /**

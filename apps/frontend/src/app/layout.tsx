@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'QAPlus',
-  description: 'AI 驅動的知識庫管理系統',
+  description: 'AI 驅動的問答庫管理系統',
 }
 
 export default function RootLayout({

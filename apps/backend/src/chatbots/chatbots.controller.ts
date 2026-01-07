@@ -58,6 +58,24 @@ export class ChatbotsController {
     };
   }
 
+  @Get(':id/public-status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '取得 Chatbot 公開狀態（用於檢查是否啟用）' })
+  @ApiResponse({ status: 200, description: '成功取得狀態' })
+  @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
+  async getPublicStatus(@Param('id') id: string) {
+    const chatbot = await this.chatbotsService.findOne(id);
+    
+    return {
+      success: true,
+      data: {
+        id: chatbot.id,
+        name: chatbot.name,
+        isActive: chatbot.isActive,
+      },
+    };
+  }
+
   @Get(':id/public-config')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '取得 Chatbot 公開配置（用於嵌入頁面）' })

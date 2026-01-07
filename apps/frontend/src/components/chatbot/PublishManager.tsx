@@ -259,9 +259,9 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
               {/* 說明訊息 */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
                 <div className="space-y-2">
-                  <p className="text-lg font-bold text-blue-900">適用：知識查詢 chatbot 本身就是該頁面的主要內容</p>
-                  <p className="text-lg font-bold text-blue-900">情境：客服中心、幫助中心、知識庫專頁</p>
-                  <p className="text-lg font-bold text-blue-900">特點：進入頁面即顯示完整知識查詢介面，無需額外點擊</p>
+                  <p className="text-lg font-bold text-blue-900">適用：問答查詢 chatbot 本身就是該頁面的主要內容</p>
+                  <p className="text-lg font-bold text-blue-900">情境：客服中心、幫助中心、問答庫專頁</p>
+                  <p className="text-lg font-bold text-blue-900">特點：進入頁面即顯示完整問答查詢介面，無需額外點擊</p>
                 </div>
               </div>
 
@@ -280,7 +280,7 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
                   </button>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">
-                  將以下代碼添加到您的 HTML 頁面中（例如客服中心、幫助中心、知識庫專頁）：
+                  將以下代碼添加到您的 HTML 頁面中（例如客服中心、幫助中心、問答庫專頁）：
                 </p>
                 <pre className="bg-gray-900 text-gray-100 p-5 rounded-xl overflow-x-auto border border-gray-700 shadow-inner">
                   <code className="text-sm">{iframeCode}</code>
@@ -299,8 +299,8 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
               {/* 說明訊息 */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
                 <div className="space-y-2">
-                  <p className="text-lg font-bold text-blue-900">適用：將知識查詢功能「加裝」到現有網站/系統</p>
-                  <p className="text-lg font-bold text-blue-900">情境：用戶在瀏覽網站時，隨時可點擊泡泡查詢知識</p>
+                  <p className="text-lg font-bold text-blue-900">適用：將問答查詢功能「加裝」到現有網站/系統</p>
+                  <p className="text-lg font-bold text-blue-900">情境：用戶在瀏覽網站時，隨時可點擊泡泡查詢問答</p>
                   <p className="text-lg font-bold text-blue-900">特點：不干擾原有頁面內容，需要時才啟動</p>
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
               {/* 說明訊息 */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
                 <div className="space-y-2">
-                  <p className="text-lg font-bold text-blue-900">適用：將知識查詢功能打包為 PWA 應用</p>
+                  <p className="text-lg font-bold text-blue-900">適用：將問答查詢功能打包為 PWA 應用</p>
                   <p className="text-lg font-bold text-blue-900">情境：用戶可以將 chatbot 安裝到手機桌面，像原生 App 一樣使用</p>
                   <p className="text-lg font-bold text-blue-900">特點：離線可用、快速啟動、原生體驗</p>
                 </div>

@@ -30,7 +30,7 @@ const defaultQACardStyle = {
 }
 
 /**
- * QACard - 知識卡片組件
+ * QACard - 問答卡片組件
  * 
  * 用於顯示問答內容的卡片組件，支持 Markdown 渲染、圖片 Lightbox、展開/收起等功能。
  * 
@@ -349,6 +349,11 @@ export default function QACard({
         <strong className="font-semibold">{children}</strong>
       ),
       em: ({ children }: any) => <em className="italic">{children}</em>,
+      blockquote: ({ children }: any) => (
+        <blockquote className="border-l-4 border-gray-300 pl-4 my-3 italic text-gray-700">
+          {children}
+        </blockquote>
+      ),
       a: ({ children, href }: any) => {
         if (!href) return <span>{children}</span>
         
@@ -440,6 +445,37 @@ export default function QACard({
           />
         )
       },
+      /**
+       * 自定義表格組件：支持響應式和樣式美化
+       */
+      table: ({ children }: any) => (
+        <div className="overflow-x-auto my-4">
+          <table className="min-w-full border-collapse border border-gray-300">
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }: any) => (
+        <thead className="bg-gray-100">{children}</thead>
+      ),
+      tbody: ({ children }: any) => (
+        <tbody>{children}</tbody>
+      ),
+      tr: ({ children }: any) => (
+        <tr className="border-b border-gray-200 hover:bg-gray-50">
+          {children}
+        </tr>
+      ),
+      th: ({ children }: any) => (
+        <th className="border border-gray-300 px-4 py-2 text-left font-semibold bg-gray-100">
+          {children}
+        </th>
+      ),
+      td: ({ children }: any) => (
+        <td className="border border-gray-300 px-4 py-2">
+          {children}
+        </td>
+      ),
     }
   }, [collectAllImages, openLightbox, cardStyle.answerFontSize])
 
@@ -558,7 +594,12 @@ export default function QACard({
               remarkPlugins={[remarkGfm, remarkBreaks]}
               components={markdownComponents}
             >
-              {answer}
+              {/* 處理 HTML 標籤：將 <br> 轉換為換行 */}
+              {answer
+                .replace(/<br\s*\/?>/gi, '\n\n')
+                .replace(/<p>(.*?)<\/p>/gi, '$1\n\n')
+                .trim()
+              }
             </ReactMarkdown>
             
             {/* 圖片 Lightbox */}
@@ -626,7 +667,7 @@ export default function QACard({
           }}
         >
           <div className="flex items-center justify-end">
-            <span className="text-base text-gray-600 font-medium mr-3">這則知識有幫助嗎？</span>
+            <span className="text-base text-gray-600 font-medium mr-3">這則問答有幫助嗎？</span>
             <div className="flex items-center space-x-1">
               <button
                 onClick={() => {

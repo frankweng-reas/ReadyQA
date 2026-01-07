@@ -17,6 +17,7 @@ interface Chatbot {
   description: string | null
   status: string
   isActive: string
+  theme?: any // ChatbotTheme
   createdAt: string
   updatedAt: string
   _count?: {
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const [showNewChatbotModal, setShowNewChatbotModal] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({})
   const newChatbotNameRef = useRef<HTMLInputElement>(null)
   const newChatbotDescRef = useRef<HTMLInputElement>(null)
 
@@ -94,7 +96,7 @@ export default function DashboardPage() {
         name,
         description: description || undefined,
         userId: postgresUserId, // 使用實際的 postgresUserId
-        status: 'active', // 創建後立即啟用，讓用戶可以使用
+        status: 'published', // 狀態欄位保留用，目前沒有控制功能
         // theme 和 domainWhitelist 由後端自動設置預設值
       })
 
@@ -131,16 +133,35 @@ export default function DashboardPage() {
   const handleToggleActive = async (
     e: React.MouseEvent,
     id: string,
-    currentStatus: string
+    currentStatus: string | undefined
   ) => {
     e.stopPropagation()
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
+    
+    console.log(`[Dashboard] handleToggleActive called - id: ${id}, currentStatus: ${currentStatus}`)
+    
+    // 如果 currentStatus 是 undefined，默認設為 'inactive'
+    const status = currentStatus || 'inactive'
+    
+    // 驗證狀態值
+    if (status !== 'active' && status !== 'inactive') {
+      console.error(`[Dashboard] ❌ Chatbot ${id} 的 isActive 值為 "${status}"，必須是 'active' 或 'inactive'`)
+      alert(t('alerts.invalidStatus'))
+      return
+    }
+    
+    const newStatus = status === 'active' ? 'inactive' : 'active'
+    console.log(`[Dashboard] 準備切換狀態: ${status} => ${newStatus}`)
 
     try {
+      console.log(`[Dashboard] 正在呼叫 API 更新...`)
       await chatbotApi.update(id, { isActive: newStatus })
+      console.log(`[Dashboard] ✅ API 更新成功，重新載入列表`)
       await loadChatbots()
+      console.log(`[Dashboard] ✅ 列表重新載入完成`)
+      // 顯示成功訊息（使用 alert，因為目前沒有 Toast 系統）
+      // 未來可以改用 Toast 通知
     } catch (error) {
-      console.error('Failed to toggle status:', error)
+      console.error('[Dashboard] ❌ Failed to toggle status:', error)
       alert(t('alerts.updateStatusFailed'))
     }
   }
@@ -387,7 +408,7 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {chatbots.map((chatbot) => {
-                  const isActive = chatbot.isActive === 'active'
+                  // 注意：isActive 的判斷已移到下方 UI 渲染邏輯中進行驗證
 
                   return (
                     <div
@@ -466,19 +487,32 @@ export default function DashboardPage() {
                         <div className="mb-4 flex flex-1 items-start gap-4">
                           <div className="flex-shrink-0">
                             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-2 border-gray-200 bg-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:border-gray-300 group-hover:shadow-xl">
-                              <svg
-                                className="h-8 w-8 text-gray-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                              {chatbot.theme?.headerLogo && !logoErrors[chatbot.id] ? (
+                                <img
+                                  src={chatbot.theme.headerLogo.startsWith('http') 
+                                    ? chatbot.theme.headerLogo 
+                                    : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${chatbot.theme.headerLogo}`}
+                                  alt={`${chatbot.name} logo`}
+                                  className="h-full w-full object-cover"
+                                  onError={() => {
+                                    setLogoErrors(prev => ({ ...prev, [chatbot.id]: true }));
+                                  }}
                                 />
-                              </svg>
+                              ) : (
+                                <svg
+                                  className="h-8 w-8 text-gray-600"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  />
+                                </svg>
+                              )}
                             </div>
                           </div>
 
@@ -517,24 +551,47 @@ export default function DashboardPage() {
 
                           <div className="flex items-center gap-3">
                             {/* 狀態開關 */}
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-xs font-medium ${isActive ? 'text-green-600' : 'text-red-600'}`}
-                              >
-                                {isActive ? t('chatbots.active') : t('chatbots.inactive')}
-                              </span>
-                              <button
-                                type="button"
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${isActive ? 'bg-green-600 focus:ring-green-500' : 'bg-red-500 focus:ring-red-500'}`}
-                                onClick={(e) =>
-                                  handleToggleActive(e, chatbot.id, chatbot.isActive)
-                                }
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-5' : 'translate-x-1'}`}
-                                />
-                              </button>
-                            </div>
+                            {(() => {
+                              // 驗證 isActive：必須是 'active' 或 'inactive'，不能為 undefined/null
+                              if (chatbot.isActive === undefined || chatbot.isActive === null) {
+                                console.error(`[Dashboard] ❌ Chatbot "${chatbot.name}" (${chatbot.id}) 的 isActive 為 ${chatbot.isActive}，必須設置為 'active' 或 'inactive'`)
+                                return (
+                                  <div className="flex items-center gap-2 text-xs text-red-600">
+                                    <span>{t('alerts.statusError')}</span>
+                                  </div>
+                                )
+                              }
+                              if (chatbot.isActive !== 'active' && chatbot.isActive !== 'inactive') {
+                                console.error(`[Dashboard] ❌ Chatbot "${chatbot.name}" (${chatbot.id}) 的 isActive 值為 "${chatbot.isActive}"，必須是 'active' 或 'inactive'`)
+                                return (
+                                  <div className="flex items-center gap-2 text-xs text-red-600">
+                                    <span>{t('alerts.statusError')}</span>
+                                  </div>
+                                )
+                              }
+                              
+                              const isActive = chatbot.isActive === 'active'
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-xs font-medium ${isActive ? 'text-green-600' : 'text-red-600'}`}
+                                  >
+                                    {isActive ? t('chatbots.active') : t('chatbots.inactive')}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${isActive ? 'bg-green-600 focus:ring-green-500' : 'bg-red-500 focus:ring-red-500'}`}
+                                    onClick={(e) =>
+                                      handleToggleActive(e, chatbot.id, chatbot.isActive)
+                                    }
+                                  >
+                                    <span
+                                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-5' : 'translate-x-1'}`}
+                                    />
+                                  </button>
+                                </div>
+                              )
+                            })()}
 
                             {/* 箭頭 */}
                             <div className="text-blue-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100">

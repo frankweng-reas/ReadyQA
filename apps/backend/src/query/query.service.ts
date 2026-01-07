@@ -54,14 +54,38 @@ export class QueryService {
 
     this.logger.log(`[Chat] 收到查詢: "${query}" (chatbot: ${chatbotId})`);
 
-    // ========== 步驟 0: 驗證 Chatbot ==========
+    // ========== 步驟 0: 驗證 Chatbot 存在且已啟用 ==========
     const chatbot = await this.prisma.chatbot.findUnique({
       where: { id: chatbotId },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+      },
     });
 
     if (!chatbot) {
       throw new NotFoundException(`Chatbot not found: ${chatbotId}`);
     }
+
+    // 檢查 isActive 狀態（preview mode 跳過檢查）
+    // preview mode 用於 design preview / chat mode，即使 chatbot 停用也應該可以使用
+    if (dto.mode !== 'preview' && chatbot.isActive !== 'active') {
+      this.logger.warn(
+        `[Chat] ⚠️ Chatbot ${chatbotId} 未啟用 (isActive: ${chatbot.isActive})`,
+      );
+      throw new BadRequestException('Chatbot 已暫停使用');
+    }
+    
+    if (dto.mode === 'preview' && chatbot.isActive !== 'active') {
+      this.logger.log(
+        `[Chat] 🔵 Preview mode: Chatbot ${chatbotId} 停用中，但允許使用 (isActive: ${chatbot.isActive})`,
+      );
+    }
+
+    this.logger.log(
+      `[Chat] ✅ Chatbot ${chatbotId} 已啟用，繼續處理查詢`,
+    );
 
     // ========== 步驟 1: 生成查詢的 embedding ==========
     this.logger.log(`[Chat] 生成查詢 embedding...`);

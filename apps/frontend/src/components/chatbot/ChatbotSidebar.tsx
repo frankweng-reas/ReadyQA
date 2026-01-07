@@ -103,214 +103,253 @@ export default function ChatbotSidebar({
       {/* 功能選單 */}
       <nav className="flex-1 p-4 space-y-2">
         {/* Home */}
-        <button
-          onClick={handleHome}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 hover:text-gray-700 group ${
-            isCollapsed ? 'justify-center' : ''
-          }`}
-          title={t('backToHome')}
-        >
-          <div className="flex-shrink-0">
-            <svg
-              className="w-6 h-6 text-gray-600 group-hover:text-gray-700"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <span className="font-medium">
-              {t('home')}
-            </span>
+        <div className="relative group">
+          <button
+            onClick={handleHome}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 hover:text-gray-700 ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <svg
+                className="w-6 h-6 text-gray-600 group-hover:text-gray-700"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <span className="font-medium">
+                {t('home')}
+              </span>
+            )}
+          </button>
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              {t('backToHome')}
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+            </div>
           )}
-        </button>
+        </div>
 
         <div className="border-t border-gray-300 my-2"></div>
 
         {/* Knowledge */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleViewChange('knowledge')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 group ${
-            isCollapsed ? 'justify-center' : ''
-          } ${
-            currentView === 'knowledge'
-              ? 'bg-cyan-100 text-cyan-700 border border-cyan-200'
-              : 'hover:bg-cyan-50 hover:text-cyan-700'
-          }`}
-        >
-          <div className="flex-shrink-0">
-            <svg
-              className={`w-6 h-6 ${
-                currentView === 'knowledge'
-                  ? 'text-cyan-600'
-                  : 'text-gray-600 group-hover:text-cyan-600'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-              />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="font-medium"
-            >
+        <div className="relative group">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleViewChange('knowledge')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
+              isCollapsed ? 'justify-center' : ''
+            } ${
+              currentView === 'knowledge'
+                ? 'bg-cyan-100 text-cyan-700 border border-cyan-200'
+                : 'hover:bg-cyan-50 hover:text-cyan-700'
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <svg
+                className={`w-6 h-6 ${
+                  currentView === 'knowledge'
+                    ? 'text-cyan-600'
+                    : 'text-gray-600 group-hover:text-cyan-600'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+                />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="font-medium"
+              >
+                {t('knowledge')}
+              </motion.span>
+            )}
+          </motion.button>
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
               {t('knowledge')}
-            </motion.span>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+            </div>
           )}
-        </motion.button>
+        </div>
 
         {/* Design */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleViewChange('design')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 group ${
-            isCollapsed ? 'justify-center' : ''
-          } ${
-            currentView === 'design'
-              ? 'bg-blue-100 text-blue-700 border border-blue-200'
-              : 'hover:bg-blue-50 hover:text-blue-700'
-          }`}
-        >
-          <div className="flex-shrink-0">
-            <svg
-              className={`w-6 h-6 ${
-                currentView === 'design'
-                  ? 'text-blue-600'
-                  : 'text-gray-600 group-hover:text-blue-600'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.35 }}
-              className="font-medium"
-            >
+        <div className="relative group">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleViewChange('design')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
+              isCollapsed ? 'justify-center' : ''
+            } ${
+              currentView === 'design'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                : 'hover:bg-blue-50 hover:text-blue-700'
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <svg
+                className={`w-6 h-6 ${
+                  currentView === 'design'
+                    ? 'text-blue-600'
+                    : 'text-gray-600 group-hover:text-blue-600'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.35 }}
+                className="font-medium"
+              >
+                {t('design')}
+              </motion.span>
+            )}
+          </motion.button>
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
               {t('design')}
-            </motion.span>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+            </div>
           )}
-        </motion.button>
+        </div>
 
         {/* Publish */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleViewChange('publish')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 group ${
-            isCollapsed ? 'justify-center' : ''
-          } ${
-            currentView === 'publish'
-              ? 'bg-orange-100 text-orange-700 border border-orange-200'
-              : 'hover:bg-orange-50 hover:text-orange-700'
-          }`}
-        >
-          <div className="flex-shrink-0">
-            <svg
-              className={`w-6 h-6 ${
-                currentView === 'publish'
-                  ? 'text-orange-600'
-                  : 'text-gray-600 group-hover:text-orange-600'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 10l7-7m0 0l7 7m-7-7v18"
-              />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="font-medium"
-            >
+        <div className="relative group">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleViewChange('publish')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
+              isCollapsed ? 'justify-center' : ''
+            } ${
+              currentView === 'publish'
+                ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                : 'hover:bg-orange-50 hover:text-orange-700'
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <svg
+                className={`w-6 h-6 ${
+                  currentView === 'publish'
+                    ? 'text-orange-600'
+                    : 'text-gray-600 group-hover:text-orange-600'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 10l7-7m0 0l7 7m-7-7v18"
+                />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="font-medium"
+              >
+                {t('publish')}
+              </motion.span>
+            )}
+          </motion.button>
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
               {t('publish')}
-            </motion.span>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+            </div>
           )}
-        </motion.button>
+        </div>
 
         <div className="border-t border-gray-300 my-2"></div>
 
         {/* Insight */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleViewChange('insight')}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 group ${
-            isCollapsed ? 'justify-center' : ''
-          } ${
-            currentView === 'insight'
-              ? 'bg-purple-100 text-purple-700 border border-purple-200'
-              : 'hover:bg-purple-50 hover:text-purple-700'
-          }`}
-        >
-          <div className="flex-shrink-0">
-            <svg
-              className={`w-6 h-6 ${
-                currentView === 'insight'
-                  ? 'text-purple-600'
-                  : 'text-gray-600 group-hover:text-purple-600'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-          </div>
-          {!isCollapsed && (
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="font-medium"
-            >
+        <div className="relative group">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleViewChange('insight')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
+              isCollapsed ? 'justify-center' : ''
+            } ${
+              currentView === 'insight'
+                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                : 'hover:bg-purple-50 hover:text-purple-700'
+            }`}
+          >
+            <div className="flex-shrink-0">
+              <svg
+                className={`w-6 h-6 ${
+                  currentView === 'insight'
+                    ? 'text-purple-600'
+                    : 'text-gray-600 group-hover:text-purple-600'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="font-medium"
+              >
+                {t('insight')}
+              </motion.span>
+            )}
+          </motion.button>
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
               {t('insight')}
-            </motion.span>
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+            </div>
           )}
-        </motion.button>
+        </div>
       </nav>
 
       {/* 底部區域 */}

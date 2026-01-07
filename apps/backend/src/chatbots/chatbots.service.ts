@@ -41,7 +41,8 @@ export class ChatbotsService {
       tenantId: tenantId,
       name: createDto.name,
       description: createDto.description || null,
-      status: createDto.status || 'draft',
+      // status 欄位保留用，目前沒有控制功能，預設為 'published'
+      status: createDto.status || 'published',
       isActive: createDto.isActive || 'active',
       // 如果沒有提供 theme，使用預設主題
       theme: createDto.theme || getDefaultTheme(),
@@ -150,11 +151,17 @@ export class ChatbotsService {
     // 確認 chatbot 存在
     await this.findOne(id);
 
+    console.log(`[ChatbotsService] Updating chatbot ${id} with:`, updateDto);
+
     // 直接更新（Frontend 會傳完整的 theme）
-    return this.prisma.chatbot.update({
+    const updated = await this.prisma.chatbot.update({
       where: { id },
       data: updateDto,
     });
+
+    console.log(`[ChatbotsService] ✅ Chatbot ${id} updated successfully. isActive:`, updated.isActive);
+
+    return updated;
   }
 
   async remove(id: string) {

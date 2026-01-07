@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { topicApi } from '@/lib/api/topic';
 import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Topic {
   id: string;
@@ -54,26 +55,67 @@ function TopicItem({
   onMoveUp,
   onMoveDown,
 }: TopicItemProps) {
+  // 根據層級決定樣式
+  const getLevelStyles = () => {
+    if (level === 0) {
+      return {
+        container: 'bg-yellow-50/50 border-yellow-200',
+        indicator: 'bg-yellow-200',
+        text: 'text-gray-900',
+      }
+    } else if (level === 1) {
+      return {
+        container: 'bg-blue-50 border-blue-300',
+        indicator: 'bg-blue-200',
+        text: 'text-blue-900',
+      }
+    } else {
+      return {
+        container: 'bg-purple-50 border-purple-300',
+        indicator: 'bg-purple-200',
+        text: 'text-purple-900',
+      }
+    }
+  }
+
+  const levelStyles = getLevelStyles()
+
   return (
     <div className="relative">
       {/* 連接線（層級視覺化） */}
       {level > 0 && (
-        <div
-          className="absolute top-0 bottom-0 left-0 border-l-2 border-gray-300"
-          style={{ left: `${(level - 1) * 24 + 12}px` }}
-        />
+        <>
+          {/* 垂直連接線 */}
+          <div
+            className="absolute top-0 bottom-0 left-0 border-l-[3px] border-blue-400"
+            style={{ left: `${(level - 1) * 32 + 16}px` }}
+          />
+          {/* 水平連接線 */}
+          <div
+            className="absolute top-1/2 left-0 border-t-2 border-blue-400"
+            style={{ 
+              left: `${(level - 1) * 32 + 16}px`,
+              width: '16px'
+            }}
+          />
+        </>
       )}
 
       <div
-        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 mb-2 transition-all"
-        style={{ marginLeft: `${level * 24}px` }}
+        className={`flex items-center justify-between px-2 py-0 rounded-lg border ${levelStyles.container} hover:shadow-md mb-3 transition-all`}
+        style={{ marginLeft: `${level * 32}px` }}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* 層級指示器 */}
+        <div className={`flex items-center justify-center w-5 h-5 rounded-full ${levelStyles.indicator} mr-1 flex-shrink-0`}>
+          <span className={`text-xs font-bold ${levelStyles.text}`}>{level + 1}</span>
+        </div>
+
+        <div className="flex items-center gap-1 flex-1 min-w-0">
           {/* 展開/摺疊按鈕 */}
           {hasChildren ? (
             <button
               onClick={onToggleExpand}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+              className={`p-1 ${levelStyles.text} hover:bg-white/50 rounded-md transition-colors flex-shrink-0`}
               title={isExpanded ? '摺疊' : '展開'}
             >
               <motion.svg
@@ -93,50 +135,54 @@ function TopicItem({
               </motion.svg>
             </button>
           ) : (
-            <div className="w-6 h-6" />
+            <div className="w-5 h-5" />
           )}
 
           {/* Topic 內容 */}
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{topic.name}</div>
-            {topic.description && (
-              <div className="text-sm text-gray-500 mt-0.5 truncate">{topic.description}</div>
-            )}
-            <div className="text-xs text-gray-400 mt-1">
-              {topic._count?.faqs || 0} 個知識
+            <div className={`font-semibold ${levelStyles.text} truncate`}>
+              {topic.name}
+              <span className={`font-normal ml-2 ${level === 0 ? 'text-gray-500' : level === 1 ? 'text-blue-600' : 'text-purple-600'}`}>
+                ({topic._count?.faqs || 0} 個問答)
+              </span>
             </div>
+            {topic.description && (
+              <div className={`text-sm ${level === 0 ? 'text-gray-600' : level === 1 ? 'text-blue-700' : 'text-purple-700'} truncate`}>
+                {topic.description}
+              </div>
+            )}
           </div>
         </div>
 
         {/* 操作按鈕 */}
-        <div className="flex items-center space-x-2 ml-2">
+        <div className="flex items-center space-x-1 ml-1">
           {/* 順序調整按鈕 */}
-          <div className="flex flex-col gap-1 border-r border-gray-300 pr-3 mr-2">
+          <div className="flex flex-col gap-0.5 border-r border-gray-300 pr-2 mr-1">
             <button
               onClick={onMoveUp}
               disabled={!canMoveUp}
-              className={`px-2 py-1.5 rounded-md transition-all ${
+              className={`px-2 py-1 rounded-md transition-all ${
                 canMoveUp 
-                  ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border border-blue-200' 
+                  ? 'bg-blue-200 text-blue-800 hover:bg-blue-300 hover:text-blue-900 border border-blue-400' 
                   : 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed'
               }`}
               title="上移"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
               </svg>
             </button>
             <button
               onClick={onMoveDown}
               disabled={!canMoveDown}
-              className={`px-2 py-1.5 rounded-md transition-all ${
+              className={`px-2 py-1 rounded-md transition-all ${
                 canMoveDown 
-                  ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border border-blue-200' 
+                  ? 'bg-blue-200 text-blue-800 hover:bg-blue-300 hover:text-blue-900 border border-blue-400' 
                   : 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed'
               }`}
               title="下移"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -144,10 +190,10 @@ function TopicItem({
           
           <button
             onClick={onEdit}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
             title="編輯"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -158,10 +204,10 @@ function TopicItem({
           </button>
           <button
             onClick={onDelete}
-            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+            className="p-1.5 text-red-600 hover:bg-red-50 rounded-full transition-colors"
             title="刪除"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -186,6 +232,8 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
   const [isCreating, setIsCreating] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [topicToDelete, setTopicToDelete] = useState<{ id: string; faqCount: number } | null>(null);
 
   // 表單狀態
   const [formData, setFormData] = useState({
@@ -289,25 +337,31 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
     }
   };
 
-  const handleDelete = async (topicId: string, faqCount: number) => {
-    if (faqCount > 0) {
-      if (!confirm(t('deleteConfirmWithFaqs', { faqCount }))) {
-        return;
-      }
-    } else {
-      if (!confirm(t('deleteConfirm'))) {
-        return;
-      }
-    }
+  const handleDelete = (topicId: string, faqCount: number) => {
+    setTopicToDelete({ id: topicId, faqCount });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!topicToDelete) return;
 
     try {
-      await topicApi.delete(topicId);
+      await topicApi.delete(topicToDelete.id);
       loadTopics();
       if (onRefresh) onRefresh();
+      setShowDeleteConfirm(false);
+      setTopicToDelete(null);
     } catch (error) {
       console.error('刪除失敗:', error);
       alert(t('deleteFailed'));
+      setShowDeleteConfirm(false);
+      setTopicToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setTopicToDelete(null);
   };
 
   const handleCancel = () => {
@@ -492,16 +546,17 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
   return (
     <>
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-gray-600">
-            {t('description')}
+        {/* Header */}
+        <div className="bg-cyan-50 border-b border-cyan-200 px-6 py-4 -mx-6 -mt-6 mb-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900 pl-2">{t('topics')}</h2>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition-colors font-medium"
+            >
+              + {t('createTopic')}
+            </button>
           </div>
-          <button
-            onClick={handleCreate}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            + {t('createTopic')}
-          </button>
         </div>
 
         {/* Topics 列表 */}
@@ -624,6 +679,22 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
           </div>
         </div>
       )}
+
+      {/* 刪除確認對話框 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title={t('deleteTopic')}
+        message={
+          topicToDelete && topicToDelete.faqCount > 0
+            ? t('deleteConfirmWithFaqs', { faqCount: topicToDelete.faqCount })
+            : t('deleteConfirm')
+        }
+        confirmText={tCommon('delete')}
+        cancelText={tCommon('cancel')}
+        type="danger"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </>
   );
 }

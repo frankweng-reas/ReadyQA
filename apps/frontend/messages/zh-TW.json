@@ -132,6 +132,7 @@
     "synonymsHint": "例如：FAQ, 常見問題, 問與答",
     "optional": "選填",
     "selectTopic": "選擇分類",
+    "noTopic": "未分類",
     "markdownSupported": "支援 Markdown 格式",
     "fullScreen": "全螢幕",
     "exitFullScreen": "退出全螢幕",
@@ -288,6 +289,7 @@
     "extraSmall": "極小"
   },
   "topicManager": {
+    "topics": "分類管理",
     "description": "管理 FAQ 分類，支援階層結構（最多2層）",
     "createTopic": "新增分類",
     "editTopic": "編輯分類",
@@ -300,6 +302,7 @@
     "nameRequired": "分類名稱為必填欄位",
     "maxLevelExceeded": "分類階層最多只能有 2 層，請選擇其他上層分類",
     "saveFailed": "保存失敗，請稍後再試",
+    "deleteTopic": "刪除分類",
     "deleteConfirm": "確定要刪除此分類嗎？關聯的 FAQ 將失去分類標籤。",
     "deleteConfirmWithFaqs": "此分類包含 {faqCount} 個問答，確定要刪除嗎？關聯的 FAQ 將失去分類標籤。",
     "deleteFailed": "刪除失敗，請稍後再試",

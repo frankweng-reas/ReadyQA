@@ -55,7 +55,7 @@ export default function KnowledgeSidebar({
     >
       {/* Header */}
       <div className="p-3 border-b border-gray-200">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
           {t('knowledgeManagement')}
         </h3>
       </div>
@@ -83,7 +83,7 @@ export default function KnowledgeSidebar({
               >
                 {item.icon}
               </div>
-              <span className="font-medium text-sm truncate">{item.label}</span>
+              <span className="font-medium text-base truncate">{item.label}</span>
             </motion.button>
           )
         })}

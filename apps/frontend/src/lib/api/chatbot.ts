@@ -60,6 +60,31 @@ export const chatbotApi = {
   },
 
   /**
+   * 取得 Chatbot 公開狀態（用於檢查是否啟用）
+   */
+  async getPublicStatus(id: string): Promise<{
+    success: boolean
+    data: {
+      id: string
+      name: string
+      isActive: string
+    }
+  }> {
+    console.log('[ChatbotAPI] 🔵 Fetching chatbot public status:', id)
+    
+    const response = await fetch(`${API_URL}/chatbots/${id}/public-status`)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch chatbot status')
+    }
+
+    const result = await response.json()
+    console.log('[ChatbotAPI] 🔵 Get chatbot status response:', result)
+    
+    return result
+  },
+
+  /**
    * 取得單一 Chatbot
    */
   async getOne(id: string): Promise<Chatbot> {
@@ -118,10 +143,15 @@ export const chatbotApi = {
     }>
   ): Promise<Chatbot> {
     console.log('[ChatbotAPI] 🔵 Updating chatbot:', id)
+    console.log('[ChatbotAPI] 🔵 Update data:', data)
     
     if (data.theme) {
       console.log('[ChatbotAPI] 🔵 Theme 欄位數量:', Object.keys(data.theme).length)
       console.log('[ChatbotAPI] 🔵 Theme 內容預覽:', JSON.stringify(data.theme).substring(0, 200) + '...')
+    }
+    
+    if (data.isActive) {
+      console.log('[ChatbotAPI] 🔵 isActive 更新為:', data.isActive)
     }
     
     const response = await fetch(`${API_URL}/chatbots/${id}`, {
@@ -139,7 +169,7 @@ export const chatbotApi = {
     }
 
     const result = await response.json()
-    console.log('[ChatbotAPI] ✅ Update successful')
+    console.log('[ChatbotAPI] ✅ Update successful, result:', result)
     return result.data
   },
 

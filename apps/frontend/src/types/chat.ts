@@ -57,7 +57,7 @@ export interface ChatbotTheme {
   faqSectionTextColor: string // 提示文字顏色（標題和提示文字共用）
   faqSectionSubtextColor?: string // FAQ 區域副文字顏色（可選，向後兼容）
   
-  // 知識卡片樣式設定（原 Q&A 卡片）
+  // 問答卡片樣式設定（原 Q&A 卡片）
   qaCardStyle?: {
     backgroundColor?: string // 背景顏色（CSS 顏色值，如 #FFFFFF）
     borderColor?: string // 邊框顏色（CSS 顏色值，如 #E5E7EB）
@@ -70,7 +70,7 @@ export interface ChatbotTheme {
     answerFontSize?: string // 內容文字大小（CSS 字體大小值，如 14px、1rem）
     questionPrefixColor?: string // Q: 前綴顏色（CSS 顏色值，保留向後兼容）
     accentColor?: string // 左側邊框顏色（CSS 顏色值，如 #3B82F6）
-    iconColor?: string // 知識圖標顏色（CSS 顏色值，如 #3B82F6）
+    iconColor?: string // 問答圖標顏色（CSS 顏色值，如 #3B82F6）
     separatorHeight?: string // 標題與內容之間分隔線高度（CSS 高度值，如 1px、2px、3px）
     separatorColor?: string // 標題與內容之間分隔線顏色（CSS 顏色值，如 #E5E7EB）
   }
@@ -104,59 +104,71 @@ export interface ChatbotTheme {
   }
 }
 
-// 預設主題
+// 預設主題（與後端 getDefaultTheme() 保持一致）
 export const defaultTheme: ChatbotTheme = {
-  chatBackgroundColor: '#FFFFFF',
+  chatBackgroundColor: '#ffffff',
   inputPosition: 'bottom',
-  inputAreaBackgroundColor: '#F9FAFB',
-  inputBackgroundColor: '#FFFFFF',
-  inputBorderColor: '#D1D5DB',
-  inputTextColor: '#1F2937',
-  inputPlaceholderColor: '#9CA3AF',
-  inputPlaceholderText: '請輸入你的問題...',
-  enableVoice: true,
-  sendButtonBackgroundColor: '#3B82F6',
+  inputAreaBackgroundColor: '#f5f5f5',
+  inputBackgroundColor: '#ffffff',
+  inputBorderColor: '#a3a8ae',
+  inputTextColor: '#161717',
+  inputPlaceholderColor: '#b1b2b4',
+  inputPlaceholderText: '請輸入您的問題...',
+  enableVoice: false,
+  sendButtonBackgroundColor: '#4e4f50',
   sendButtonTextColor: '#FFFFFF',
   sendButtonHoverColor: '#2563EB',
-  sendButtonIcon: 'arrow-right',
-  headerBackgroundColor: '#3B82F6',
+  sendButtonIcon: 'chevron-right',
+  headerBackgroundColor: '#370106',
   headerTextColor: '#FFFFFF',
-  headerTitle: 'AI 助手',
-  headerSubtitle: '我可以回答您的問題',
+  headerTitle: 'AI 問答助手',
+  headerSubtitle: '不生成、不猜測、快速找到正確答案',
   showHeader: true,
   headerLogo: null,
   headerAlign: 'left',
-  headerSize: 'medium',
-  headerUseGradient: false,
-  headerGradientStartColor: '#3B82F6',
-  headerGradientEndColor: '#2563EB',
+  headerSize: 'large',
+  headerUseGradient: true,
+  headerGradientStartColor: '#640211',
+  headerGradientEndColor: '#f2baba',
   headerGradientDirection: 'to right',
   showCloseButton: true,
   closeButtonColor: '#FFFFFF',
   closeButtonHoverColor: '#F3F4F6',
-  faqSectionTextColor: '#1F2937',
+  faqSectionTextColor: '#252527',
+  faqSectionSubtextColor: '#6B7280',
   qaCardStyle: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
+    borderColor: '#ebecef',
     borderRadius: 'rounded-xl',
-    padding: 'p-4',
+    padding: 'p-3',
     shadow: 'shadow-md hover:shadow-lg',
-    questionColor: '#1F2937',
-    questionFontSize: '1rem',
-    answerColor: '#4B5563',
-    answerFontSize: '0.875rem',
-    accentColor: '#3B82F6',
-    iconColor: '#3B82F6',
+    questionColor: '#111827',
+    questionFontSize: '20px',
+    answerColor: '#374151',
+    answerFontSize: '16px',
+    questionPrefixColor: '#2563EB',
+    accentColor: '#d4d6d8',
     separatorHeight: '1px',
     separatorColor: '#E5E7EB',
   },
   containerStyle: {
-    borderRadius: 'rounded-lg',
+    borderRadius: 'rounded-3xl',
     shadow: 'shadow-lg',
     border: '',
-    borderColor: '#E5E7EB',
+    borderColor: '#670515',
     overflow: 'overflow-hidden',
   },
+  userBubbleColor: '#2563EB',
+  botBubbleColor: '#F3F4F6',
+  userTextColor: '#FFFFFF',
+  botTextColor: '#1F2937',
+  borderRadius: 12,
+  fontSize: 16,
+  fontFamily: 'Inter',
+  bubbleStyle: 'rounded',
+  bubbleMaxWidth: 85,
+  shadow: true,
+  animation: true,
   contactInfo: {
     enabled: false,
     contact: '',

@@ -68,6 +68,12 @@ export default function BulkUploadView({
   const [showPreview, setShowPreview] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [uploadStats, setUploadStats] = useState<{
+    success: number
+    skipped: number
+    failed: number
+    total: number
+  } | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([])
   const [showUploadDetails, setShowUploadDetails] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
@@ -194,6 +200,7 @@ export default function BulkUploadView({
     setValidationErrors([])
     setUploadMessage(null)
     setUploadResults([])
+    setUploadStats(null)
 
     try {
       const rows = await parseFile(file)
@@ -378,6 +385,7 @@ export default function BulkUploadView({
     setIsUploading(true)
     setUploadMessage(null)
     setUploadResults([])
+    setUploadStats(null)
 
     try {
       const topicMap = await processTopics()
@@ -417,20 +425,22 @@ export default function BulkUploadView({
       }))
       setUploadResults(convertedResults)
 
+      const skippedCount = result.skipped_count || 0
+      const successCount = result.success_count || 0
+      const failedCount = result.failed_count || 0
+      const totalCount = result.total_count || 0
+
+      setUploadStats({
+        success: successCount,
+        skipped: skippedCount,
+        failed: failedCount,
+        total: totalCount,
+      })
+
       if (result.success) {
-        const skippedCount = result.skipped_count || 0
-        let message = `✅ 批量上傳完成！\n新增: ${result.success_count} 筆`
-        if (skippedCount > 0) {
-          message += `\n跳過: ${skippedCount} 筆（重複）`
-        }
-        if (result.failed_count > 0) {
-          message += `\n失敗: ${result.failed_count} 筆`
-        }
-        message += `\n總計: ${result.total_count} 筆`
-        
         setUploadMessage({ 
           type: 'success', 
-          text: message
+          text: '批量上傳完成！'
         })
         setSelectedFile(null)
         setShowPreview(false)
@@ -441,16 +451,9 @@ export default function BulkUploadView({
           onSuccess()
         }
       } else {
-        const skippedCount = result.skipped_count || 0
-        let message = `批量上傳部分失敗\n新增: ${result.success_count} 筆`
-        if (skippedCount > 0) {
-          message += `\n跳過: ${skippedCount} 筆（重複）`
-        }
-        message += `\n失敗: ${result.failed_count} 筆\n總計: ${result.total_count} 筆`
-        
         setUploadMessage({ 
           type: 'error', 
-          text: message
+          text: '批量上傳部分失敗'
         })
       }
     } catch (error) {
@@ -479,8 +482,35 @@ export default function BulkUploadView({
     setValidationErrors([])
   }
 
+  // 處理拖放
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      if (!['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
+        alert('請選擇 CSV 或 XLSX 檔案')
+        return
+      }
+      // 觸發檔案選擇
+      const fakeEvent = {
+        target: { files: [file] },
+      } as React.ChangeEvent<HTMLInputElement>
+      await handleFileChange(fakeEvent)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+  }
+
   return (
     <div className="p-6">
+      {/* Header */}
+      <div className="bg-cyan-50 border-b border-cyan-200 px-6 py-4 -mx-6 -mt-6 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 pl-2">{t('bulkUpload')}</h2>
+      </div>
+
       <div className="space-y-6 relative">
         {/* 處理狀態訊息窗 */}
         <AnimatePresence>
@@ -509,48 +539,12 @@ export default function BulkUploadView({
           )}
         </AnimatePresence>
 
-        {/* 說明 */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-green-900 mb-2">檔案格式：CSV、XLSX</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-green-800">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>自動欄位映射</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>必填：Question、Answer</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>選填：Synonym、Topic</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* 檔案上傳區域 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            選擇檔案 <span className="text-red-500">*</span>
-          </label>
-          
-          <div className="flex items-center space-x-4">
-            <label className="cursor-pointer">
+        {!selectedFile ? (
+          <div>
+
+            {/* 拖放區域 */}
+            <label className="block cursor-pointer">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -558,15 +552,53 @@ export default function BulkUploadView({
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className="px-6 py-3 bg-white border-2 border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors flex items-center space-x-2 shadow-sm">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <span className="font-medium text-gray-700">選擇檔案</span>
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                className="relative border-2 border-dashed border-cyan-300 rounded-lg p-12 bg-gradient-to-br from-cyan-50 via-white to-cyan-50 hover:border-cyan-400 hover:bg-gradient-to-br hover:from-cyan-100 hover:via-white hover:to-cyan-100 transition-all duration-200"
+              >
+                <div className="flex flex-col items-center justify-center space-y-6">
+                  {/* 雲朵圖標 */}
+                  <div className="w-20 h-20 text-cyan-600">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                    </svg>
+                  </div>
+
+                  {/* 拖放文字 */}
+                  <div className="text-center">
+                    <p className="text-lg font-medium text-gray-700 mb-2">
+                      拖放檔案到這裡
+                    </p>
+                    
+                    {/* OR 分隔符 */}
+                    <div className="flex items-center justify-center my-4">
+                      <div className="flex-1 border-t border-gray-300"></div>
+                      <span className="px-4 text-sm font-bold text-gray-500">OR</span>
+                      <div className="flex-1 border-t border-gray-300"></div>
+                    </div>
+
+                    {/* Browse Files 按鈕 */}
+                    <div className="px-8 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-block">
+                      瀏覽檔案
+                    </div>
+                  </div>
+
+                  {/* 支援格式提示 */}
+                  <p className="text-sm text-gray-500">
+                    支援格式：CSV、XLSX
+                  </p>
+                </div>
               </div>
             </label>
-
-            {selectedFile && (
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              已選擇檔案
+            </label>
+            
+            <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
                 <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -592,9 +624,9 @@ export default function BulkUploadView({
                   </svg>
                 </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 欄位對應確認 */}
         {showPreview && sourceFields.length > 0 && (
@@ -731,11 +763,11 @@ export default function BulkUploadView({
         )}
 
         {/* Upload 按鈕 */}
-        <div className="flex justify-end pt-6 border-t border-green-200">
+        <div className="flex justify-end pt-6 border-t border-cyan-200">
           <Button
             onClick={handleBatchUpload}
             disabled={!selectedFile || !showPreview || isUploading || validationErrors.length > 0}
-            className="px-8 py-3 bg-green-600 text-white font-medium rounded-full hover:bg-green-700 transition-colors shadow-md hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex items-center space-x-2"
+            className="px-8 py-3 bg-cyan-600 text-white font-medium rounded-full hover:bg-cyan-700 transition-colors shadow-md hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex items-center space-x-2"
           >
             {isUploading && (
               <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -748,16 +780,65 @@ export default function BulkUploadView({
         </div>
 
         {/* 上傳結果 */}
-        {uploadResults.length > 0 && (
+        {(uploadResults.length > 0 || uploadStats) && (
           <div className="mt-6 border-t border-gray-200 pt-6">
-            {uploadMessage && (
-              <div className={`mb-4 p-4 rounded-lg ${
-                uploadMessage.type === 'success' 
-                  ? 'bg-green-50 text-green-800 border border-green-200' 
-                  : 'bg-red-50 text-red-800 border border-red-200'
-              }`}>
-                <p className="whitespace-pre-line font-medium">{uploadMessage.text}</p>
-              </div>
+            {uploadMessage && uploadStats && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className={`mb-6 p-6 rounded-xl shadow-sm ${
+                  uploadMessage.type === 'success' 
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200' 
+                    : 'bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <h3 className={`text-xl font-bold mb-5 ${
+                      uploadMessage.type === 'success' 
+                        ? 'text-green-800' 
+                        : 'text-red-800'
+                    }`}>
+                      {uploadMessage.text}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white/60 rounded-lg p-4 border border-gray-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                          <span className="text-base font-medium text-gray-600">新增：</span>
+                          <span className="text-2xl font-bold text-gray-800 ml-auto">{uploadStats.success}</span>
+                          <span className="text-base text-gray-500">筆</span>
+                        </div>
+                      </div>
+                      <div className="bg-white/60 rounded-lg p-4 border border-gray-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                          <span className="text-base font-medium text-gray-600">跳過：</span>
+                          <span className="text-2xl font-bold text-gray-800 ml-auto">{uploadStats.skipped}</span>
+                          <span className="text-base text-gray-500">筆</span>
+                        </div>
+                      </div>
+                      <div className="bg-white/60 rounded-lg p-4 border border-gray-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                          <span className="text-base font-medium text-gray-600">失敗：</span>
+                          <span className="text-2xl font-bold text-gray-800 ml-auto">{uploadStats.failed}</span>
+                          <span className="text-base text-gray-500">筆</span>
+                        </div>
+                      </div>
+                      <div className="bg-white/60 rounded-lg p-4 border border-gray-400">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+                          <span className="text-base font-medium text-gray-600">總計：</span>
+                          <span className="text-2xl font-bold text-gray-800 ml-auto">{uploadStats.total}</span>
+                          <span className="text-base text-gray-500">筆</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             )}
             
             <div className="flex items-center justify-between mb-3">
