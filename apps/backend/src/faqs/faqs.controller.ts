@@ -9,10 +9,16 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FaqsService } from './faqs.service';
-import { CreateFaqDto, UpdateFaqDto, FaqQueryDto } from './dto/faq.dto';
+import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto } from './dto/faq.dto';
 
 @ApiTags('faqs')
 @Controller('faqs')
@@ -92,6 +98,67 @@ export class FaqsController {
     return {
       success: true,
       data: faq,
+    };
+  }
+
+  @Post('upload-image')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '上傳 FAQ 圖片' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: '圖片上傳成功' })
+  @ApiResponse({ status: 400, description: '檔案格式或大小不符' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/faq-images',
+        filename: (req, file, cb) => {
+          // 生成唯一檔名: faq-{timestamp}-{random}{ext}
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(2, 9);
+          const ext = extname(file.originalname);
+          cb(null, `faq-${timestamp}-${random}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        // 只允許圖片檔案
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(new BadRequestException('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('請上傳檔案');
+    }
+
+    // 返回圖片 URL 路徑
+    const imagePath = `/uploads/faq-images/${file.filename}`;
+
+    return {
+      success: true,
+      data: {
+        imageUrl: imagePath,
+        filename: file.filename,
+      },
+      message: '圖片上傳成功',
+    };
+  }
+
+  @Post('bulk-upload')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '批量上傳 FAQ' })
+  @ApiResponse({ status: 200, description: '批量上傳成功' })
+  @ApiResponse({ status: 400, description: '請求參數錯誤' })
+  async bulkUpload(@Body() dto: BulkUploadFaqDto) {
+    const result = await this.faqsService.bulkUpload(dto);
+    return {
+      success: result.success,
+      ...result,
     };
   }
 }

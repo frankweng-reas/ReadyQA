@@ -1,19 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useState } from 'react'
+import KnowledgeSidebar from './KnowledgeSidebar'
 import FaqList from './FaqList'
 import TopicManager from './TopicManager'
+import BulkUploadView from './BulkUploadView'
+
+type KnowledgeSubView = 'list' | 'topics' | 'bulk-upload'
 
 interface KnowledgeManagerProps {
   chatbotId: string
 }
 
 export default function KnowledgeManager({ chatbotId }: KnowledgeManagerProps) {
-  const t = useTranslations('knowledge')
-  const [activeTab, setActiveTab] = useState<'list' | 'topics'>('list')
+  const [subView, setSubView] = useState<KnowledgeSubView>('list')
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const handleRefresh = () => {
@@ -21,50 +21,40 @@ export default function KnowledgeManager({ chatbotId }: KnowledgeManagerProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      {/* Sub Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="px-6">
-          <nav className="flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('list')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'list'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {t('faqList')}
-            </button>
-            <button
-              onClick={() => setActiveTab('topics')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'topics'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {t('topics')}
-            </button>
-          </nav>
-        </div>
-      </div>
+    <div className="flex h-full bg-gray-50">
+      {/* 二級 Sidebar */}
+      <KnowledgeSidebar
+        currentSubView={subView}
+        onSubViewChange={setSubView}
+      />
 
-      {/* Content */}
-      <div className="p-6">
-        {activeTab === 'list' && (
-          <FaqList 
-            chatbotId={chatbotId} 
-            refreshTrigger={refreshTrigger}
-            onRefresh={handleRefresh}
-          />
-        )}
-        {activeTab === 'topics' && (
-          <TopicManager 
-            chatbotId={chatbotId}
-            onRefresh={handleRefresh}
-          />
-        )}
+      {/* 主內容區 */}
+      <div className="flex-1 overflow-auto">
+        <div className="bg-white rounded-lg shadow m-6">
+          {subView === 'list' && (
+            <div className="p-6">
+              <FaqList
+                chatbotId={chatbotId}
+                refreshTrigger={refreshTrigger}
+                onRefresh={handleRefresh}
+              />
+            </div>
+          )}
+          {subView === 'topics' && (
+            <div className="p-6">
+              <TopicManager
+                chatbotId={chatbotId}
+                onRefresh={handleRefresh}
+              />
+            </div>
+          )}
+          {subView === 'bulk-upload' && (
+            <BulkUploadView
+              chatbotId={chatbotId}
+              onSuccess={handleRefresh}
+            />
+          )}
+        </div>
       </div>
     </div>
   )

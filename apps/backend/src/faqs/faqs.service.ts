@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
-import { CreateFaqDto, UpdateFaqDto, FaqQueryDto } from './dto/faq.dto';
+import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto, BulkUploadFaqItemDto } from './dto/faq.dto';
 import { generateEmbedding } from '../common/embedding.service';
 
 @Injectable()
@@ -270,6 +270,306 @@ export class FaqsService {
       this.logger.error(`從 ES 刪除失敗: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  /**
+   * 批量上傳 FAQ
+   */
+  async bulkUpload(dto: BulkUploadFaqDto) {
+    if (!dto.faqs || dto.faqs.length === 0) {
+      throw new BadRequestException('FAQ 列表不能為空');
+    }
+
+    this.logger.log(`[Bulk Upload] 開始處理 ${dto.faqs.length} 個 FAQ`);
+
+    // 步驟 0: 檢查重複（批量查詢現有的 question）
+    const questionsToCheck = dto.faqs
+      .map(faq => faq.question.trim())
+      .filter(q => q.length > 0);
+
+    const existingFaqs = await this.prisma.faq.findMany({
+      where: {
+        chatbotId: dto.chatbotId,
+        question: { in: questionsToCheck },
+      },
+      select: { question: true },
+    });
+
+    const existingQuestions = new Set(existingFaqs.map(f => f.question));
+    this.logger.log(`[Bulk Upload] 發現 ${existingQuestions.size} 個重複的問題`);
+
+    // 過濾掉重複的 FAQ
+    const faqsToProcess: BulkUploadFaqItemDto[] = [];
+    const skippedResults: any[] = [];
+
+    for (const faq of dto.faqs) {
+      const question = faq.question.trim();
+      if (existingQuestions.has(question)) {
+        skippedResults.push({
+          success: false,
+          question: question,
+          answer: faq.answer,
+          skipped: true,
+          skip_reason: '問題已存在（重複）',
+        });
+      } else {
+        faqsToProcess.push(faq);
+      }
+    }
+
+    if (faqsToProcess.length === 0) {
+      return {
+        success: true,
+        total_count: dto.faqs.length,
+        success_count: 0,
+        failed_count: 0,
+        skipped_count: skippedResults.length,
+        results: skippedResults,
+        message: `所有 ${dto.faqs.length} 個 FAQ 都已存在（重複），已跳過`,
+      };
+    }
+
+    this.logger.log(`[Bulk Upload] 過濾後，需要處理 ${faqsToProcess.length} 個新 FAQ`);
+
+    // 步驟 1: 並行生成 Embedding
+    const embeddingPromises = faqsToProcess.map(async (faq) => {
+      const question = faq.question.trim();
+      const answer = faq.answer.trim();
+
+      if (!question || !answer) {
+        return {
+          faq,
+          faqId: null,
+          embedding: null,
+          error: '問題或答案不能為空',
+        };
+      }
+
+      try {
+        const embedding = await generateEmbedding(question);
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 11);
+        const faqId = `${timestamp}_${randomStr}`;
+
+        return {
+          faq,
+          faqId,
+          embedding,
+          error: null,
+        };
+      } catch (error: any) {
+        return {
+          faq,
+          faqId: null,
+          embedding: null,
+          error: `生成 Embedding 失敗: ${error.message}`,
+        };
+      }
+    });
+
+    const embeddingResults = await Promise.all(embeddingPromises);
+
+    // 整理結果
+    const faqsToSave: Array<{
+      faqId: string;
+      question: string;
+      answer: string;
+      synonym: string;
+      topicId: string | null;
+      status: string;
+      embedding: number[];
+    }> = [];
+    const errorResults: any[] = [];
+
+    for (const result of embeddingResults) {
+      if (result.error) {
+        errorResults.push({
+          success: false,
+          question: result.faq.question,
+          answer: result.faq.answer,
+          error: result.error,
+        });
+      } else if (result.faqId && result.embedding) {
+        faqsToSave.push({
+          faqId: result.faqId,
+          question: result.faq.question.trim(),
+          answer: result.faq.answer.trim(),
+          synonym: result.faq.synonym?.trim() || '',
+          topicId: result.faq.topicId || null,
+          status: result.faq.status || 'active',
+          embedding: result.embedding,
+        });
+      }
+    }
+
+    this.logger.log(`[Bulk Upload] Embedding 生成完成: ${faqsToSave.length}/${dto.faqs.length} 成功`);
+
+    // 步驟 2: 批量寫入 PostgreSQL
+    const successfulFaqs: any[] = [];
+    const faqIdsToRollback: string[] = [];
+
+    if (faqsToSave.length > 0) {
+      if (!this.elasticsearchService.isAvailable()) {
+        throw new BadRequestException('Elasticsearch 未連接，無法進行批量上傳');
+      }
+
+      // 檢查索引是否存在
+      const indexName = `faq_${dto.chatbotId}`;
+      const indexExists = await this.elasticsearchService['client'].indices.exists({ index: indexName });
+      if (!indexExists) {
+        throw new BadRequestException(`索引不存在: ${indexName}`);
+      }
+
+      // 寫入 PostgreSQL
+      for (const faqData of faqsToSave) {
+        try {
+          await this.prisma.faq.create({
+            data: {
+              id: faqData.faqId,
+              chatbotId: dto.chatbotId,
+              question: faqData.question,
+              answer: faqData.answer,
+              synonym: faqData.synonym,
+              status: faqData.status,
+              topicId: faqData.topicId,
+              layout: 'text',
+            },
+          });
+
+          successfulFaqs.push(faqData);
+          faqIdsToRollback.push(faqData.faqId);
+        } catch (error: any) {
+          this.logger.error(`[Bulk Upload] PostgreSQL 寫入失敗: ${faqData.faqId}`, error);
+          errorResults.push({
+            success: false,
+            question: faqData.question,
+            answer: faqData.answer,
+            error: `PostgreSQL 寫入失敗: ${error.message}`,
+          });
+        }
+      }
+
+      this.logger.log(`[Bulk Upload] PostgreSQL 寫入完成: ${successfulFaqs.length} 筆`);
+
+      // 步驟 3: 批量寫入 Elasticsearch
+      if (successfulFaqs.length > 0) {
+        try {
+          const esData = successfulFaqs.map((faq) => ({
+            faq_id: faq.faqId,
+            question: faq.question,
+            answer: faq.answer,
+            synonym: faq.synonym,
+            status: faq.status,
+            dense_vector: faq.embedding,
+          }));
+
+          // 使用批量保存
+          const esFailedFaqIds: string[] = [];
+
+          for (const esItem of esData) {
+            try {
+              const success = await this.elasticsearchService.saveFaq(
+                dto.chatbotId,
+                esItem.faq_id,
+                esItem.question,
+                esItem.answer,
+                esItem.synonym,
+                esItem.status,
+                esItem.dense_vector,
+              );
+              if (!success) {
+                esFailedFaqIds.push(esItem.faq_id);
+                // 記錄錯誤結果
+                const failedFaq = successfulFaqs.find(f => f.faqId === esItem.faq_id);
+                if (failedFaq) {
+                  errorResults.push({
+                    success: false,
+                    question: failedFaq.question,
+                    answer: failedFaq.answer,
+                    error: 'Elasticsearch 保存失敗',
+                  });
+                  // 從成功列表中移除
+                  const index = successfulFaqs.findIndex(f => f.faqId === esItem.faq_id);
+                  if (index > -1) {
+                    successfulFaqs.splice(index, 1);
+                  }
+                }
+              }
+            } catch (error: any) {
+              this.logger.error(`[Bulk Upload] ES 保存失敗: ${esItem.faq_id}`, error);
+              esFailedFaqIds.push(esItem.faq_id);
+              // 記錄錯誤結果
+              const failedFaq = successfulFaqs.find(f => f.faqId === esItem.faq_id);
+              if (failedFaq) {
+                errorResults.push({
+                  success: false,
+                  question: failedFaq.question,
+                  answer: failedFaq.answer,
+                  error: `Elasticsearch 保存失敗: ${error.message}`,
+                });
+                // 從成功列表中移除
+                const index = successfulFaqs.findIndex(f => f.faqId === esItem.faq_id);
+                if (index > -1) {
+                  successfulFaqs.splice(index, 1);
+                }
+              }
+            }
+          }
+
+          const esSuccessCount = esData.length - esFailedFaqIds.length;
+          this.logger.log(`[Bulk Upload] Elasticsearch 寫入完成: 成功 ${esSuccessCount}, 失敗 ${esFailedFaqIds.length}`);
+
+          // 如果 ES 有失敗，回滾對應的 PostgreSQL 記錄
+          if (esFailedFaqIds.length > 0) {
+            for (const faqId of esFailedFaqIds) {
+              try {
+                await this.prisma.faq.delete({ where: { id: faqId } });
+                // 從回滾列表中移除
+                const index = faqIdsToRollback.indexOf(faqId);
+                if (index > -1) {
+                  faqIdsToRollback.splice(index, 1);
+                }
+              } catch (rollbackError: any) {
+                this.logger.error(`[Bulk Upload] 回滾失敗 (faq_id: ${faqId}): ${rollbackError.message}`);
+              }
+            }
+          }
+        } catch (error: any) {
+          // ES 錯誤，回滾 PostgreSQL
+          for (const faqId of faqIdsToRollback) {
+            try {
+              await this.prisma.faq.delete({ where: { id: faqId } });
+            } catch (rollbackError: any) {
+              this.logger.error(`[Bulk Upload] 回滾失敗 (faq_id: ${faqId}): ${rollbackError.message}`);
+            }
+          }
+          throw error;
+        }
+      }
+    }
+
+    // 構建結果
+    const successResults = successfulFaqs.map((faq) => ({
+      success: true,
+      question: faq.question,
+      answer: faq.answer,
+      faq_id: faq.faqId,
+    }));
+
+    const allResults = [...successResults, ...skippedResults, ...errorResults];
+    const successCount = successResults.length;
+    const failedCount = errorResults.length;
+    const skippedCount = skippedResults.length;
+
+    return {
+      success: failedCount === 0,
+      total_count: dto.faqs.length,
+      success_count: successCount,
+      failed_count: failedCount,
+      skipped_count: skippedCount,
+      results: allResults,
+      message: `批量保存完成: 新增 ${successCount} 筆，跳過 ${skippedCount} 筆（重複），失敗 ${failedCount} 筆`,
+    };
   }
 }
 

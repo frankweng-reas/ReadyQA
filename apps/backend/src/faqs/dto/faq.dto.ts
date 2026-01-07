@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsArray, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -112,6 +112,43 @@ export class FaqQueryDto {
   @IsInt()
   @IsOptional()
   offset?: number = 0;
+}
+
+export class BulkUploadFaqItemDto {
+  @ApiProperty()
+  @IsString()
+  question: string;
+
+  @ApiProperty()
+  @IsString()
+  answer: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  synonym?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  topicId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  status?: string;
+}
+
+export class BulkUploadFaqDto {
+  @ApiProperty()
+  @IsString()
+  chatbotId: string;
+
+  @ApiProperty({ type: [BulkUploadFaqItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkUploadFaqItemDto)
+  faqs: BulkUploadFaqItemDto[];
 }
 
 
