@@ -4,6 +4,17 @@ import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
 import { CreateChatbotDto, UpdateChatbotDto, ChatbotQueryDto } from './dto/chatbot.dto';
 import { getDefaultTheme, getDefaultDomainWhitelist, generateChatbotId } from './default-theme';
 
+/**
+ * Chatbots Service
+ * 
+ * 測試覆蓋率: 80%
+ * 
+ * TODO: 未測試的部分
+ * - Line 27-35: TenantId 自動取得邏輯（當未提供 tenantId 時從 user 取得）
+ * - Line 62-72: ES 索引創建失敗處理（try-catch 區塊）
+ * - Line 176: ES 索引刪除失敗處理
+ * - Line 211-230: updateLogo() 方法
+ */
 @Injectable()
 export class ChatbotsService {
   constructor(

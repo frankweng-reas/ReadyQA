@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsBoolean, IsInt, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateChatbotDto {
   @ApiProperty({ description: 'Chatbot ID' })
@@ -79,6 +80,7 @@ export class UpdateChatbotDto {
 
 export class ChatbotQueryDto {
   @ApiPropertyOptional({ description: '用戶 ID' })
+  @Type(() => Number)
   @IsInt()
   @IsOptional()
   userId?: number;

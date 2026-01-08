@@ -23,6 +23,17 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ChatbotsService } from './chatbots.service';
 import { CreateChatbotDto, UpdateChatbotDto, ChatbotQueryDto } from './dto/chatbot.dto';
 
+/**
+ * Chatbots Controller
+ * 
+ * 測試覆蓋率: 80.88%
+ * 
+ * TODO: 未測試的部分
+ * - Line 208-256: uploadLogo() - Logo 上傳功能
+ *   - 檔案驗證（格式、大小）
+ *   - 檔名生成邏輯
+ *   - 更新 theme.headerLogo
+ */
 @ApiTags('chatbots')
 @Controller('chatbots')
 export class ChatbotsController {

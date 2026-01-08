@@ -4,6 +4,34 @@ import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
 import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto, BulkUploadFaqItemDto } from './dto/faq.dto';
 import { generateEmbedding } from '../common/embedding.service';
 
+/**
+ * FAQ 管理 Service
+ * 
+ * 測試覆蓋率: 29.59% (參考 /test/faqs.e2e-spec.ts)
+ * 
+ * ✅ 已測試的功能:
+ * - create() - 建立 FAQ
+ * - findAll() - 取得列表（含分頁）
+ * - findOne() - 取得單一 FAQ
+ * - update() - 更新 FAQ
+ * - remove() - 刪除 FAQ
+ * - incrementHitCount() - 記錄點擊
+ * 
+ * ❌ 未測試的功能（Line 22, 55-61, 66-80, 94, 172, 195, 236-239, 254-255, 270-568）:
+ * - FAQ 重複檢查 (line 22)
+ * - Elasticsearch 同步失敗處理 (line 55-61, 66-80)
+ * - saveFaqToElasticsearch() - ES 寫入方法 (line 270-330)
+ * - updateFaqInElasticsearch() - ES 更新方法 (line 332-397)
+ * - deleteFaqFromElasticsearch() - ES 刪除方法 (line 399-428)
+ * - syncAllFaqsToElasticsearch() - 批量同步到 ES (line 430-544)
+ * - bulkUpload() - 批量上傳 FAQ (line 154-261)
+ * - generateEmbedding 失敗處理 (line 94, 172, 195)
+ * 
+ * TODO: 需要測試的場景
+ * 1. Elasticsearch 連線失敗時，資料庫操作應該正常完成
+ * 2. bulkUpload 的錯誤處理和部分成功的情況
+ * 3. Embedding 生成失敗時的降級處理
+ */
 @Injectable()
 export class FaqsService {
   private readonly logger = new Logger(FaqsService.name);
@@ -415,7 +443,11 @@ export class FaqsService {
 
       // 檢查索引是否存在
       const indexName = `faq_${dto.chatbotId}`;
-      const indexExists = await this.elasticsearchService['client'].indices.exists({ index: indexName });
+      const client = this.elasticsearchService['client'];
+      if (!client) {
+        throw new BadRequestException('Elasticsearch client 未初始化');
+      }
+      const indexExists = await client.indices.exists({ index: indexName });
       if (!indexExists) {
         throw new BadRequestException(`索引不存在: ${indexName}`);
       }

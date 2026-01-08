@@ -20,6 +20,23 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto } from './dto/faq.dto';
 
+/**
+ * FAQ 管理 Controller
+ * 
+ * 測試覆蓋率: 69.38% (參考 /test/faqs.e2e-spec.ts)
+ * 
+ * ✅ 已測試的功能:
+ * - POST /faqs - 建立 FAQ
+ * - GET /faqs - 取得列表（含分頁）
+ * - GET /faqs/:id - 取得單一 FAQ
+ * - PATCH /faqs/:id - 更新 FAQ
+ * - DELETE /faqs/:id - 刪除 FAQ
+ * - POST /faqs/:id/hit - 記錄點擊
+ * 
+ * ❌ 未測試的功能（Line 116-127, 135-142, 158-159）:
+ * - POST /faqs/upload-image - 圖片上傳
+ * - POST /faqs/bulk-upload - 批量上傳
+ */
 @ApiTags('faqs')
 @Controller('faqs')
 export class FaqsController {
@@ -101,7 +118,7 @@ export class FaqsController {
     };
   }
 
-  @Post('upload-image')
+  @Post('upload-image') // ❌ 未測試
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '上傳 FAQ 圖片' })
   @ApiConsumes('multipart/form-data')
@@ -149,17 +166,14 @@ export class FaqsController {
     };
   }
 
-  @Post('bulk-upload')
+  @Post('bulk-upload') // ❌ 未測試
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '批量上傳 FAQ' })
   @ApiResponse({ status: 200, description: '批量上傳成功' })
   @ApiResponse({ status: 400, description: '請求參數錯誤' })
   async bulkUpload(@Body() dto: BulkUploadFaqDto) {
     const result = await this.faqsService.bulkUpload(dto);
-    return {
-      success: result.success,
-      ...result,
-    };
+    return result;
   }
 }
 
