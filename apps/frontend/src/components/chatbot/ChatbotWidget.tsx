@@ -61,8 +61,8 @@ export default function ChatbotWidget({
   isInputDisabled = false,
   refreshKey = 0
 }: ChatbotWidgetProps) {
-  // 合併主題
-  const theme: ChatbotTheme = { ...defaultTheme, ...customTheme };
+  // 直接使用傳入的 theme（資料庫中已有完整資料）
+  const theme: ChatbotTheme = customTheme || defaultTheme;
 
   // 模式切換
   const [activeTab, setActiveTab] = useState<'chat' | 'browse'>('chat');
@@ -498,6 +498,10 @@ export default function ChatbotWidget({
 
   // 容器樣式設定
   const containerStyle = theme.containerStyle || {};
+  const shadowClass = containerStyle?.shadow !== undefined 
+    ? containerStyle.shadow 
+    : 'shadow-lg';
+  
   const containerClasses = [
     'h-full',
     'flex',
@@ -505,7 +509,7 @@ export default function ChatbotWidget({
     'min-h-0',
     'relative',
     containerStyle?.borderRadius || 'rounded-lg',
-    containerStyle?.shadow || 'shadow-lg',
+    shadowClass,
     containerStyle?.border || '',
     containerStyle?.overflow || 'overflow-hidden'
   ].filter(Boolean).join(' ');
@@ -637,18 +641,20 @@ export default function ChatbotWidget({
                 {theme.headerAlign !== 'center' && (
                   <div 
                     onClick={() => {
-                      if (theme.contactInfo?.enabled && theme.contactInfo?.contact) {
+                      const hasContactInfo = theme.contactInfo?.enabled && 
+                        (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email);
+                      if (hasContactInfo) {
                         setShowContactModal(true);
                       }
                     }}
                     className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
-                      theme.contactInfo?.enabled && theme.contactInfo?.contact ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
+                      theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
                     }`}
                     style={{
                       width: config.logoSize,
                       height: config.logoSize
                     }}
-                    title={theme.contactInfo?.enabled && theme.contactInfo?.contact ? '點擊查看聯絡資訊' : ''}
+                    title={theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? '點擊查看聯絡資訊' : ''}
                   >
                     {theme.headerLogo ? (
                       <img
@@ -675,18 +681,20 @@ export default function ChatbotWidget({
                 {theme.headerAlign === 'center' && (
                   <div 
                     onClick={() => {
-                      if (theme.contactInfo?.enabled && theme.contactInfo?.contact) {
+                      const hasContactInfo = theme.contactInfo?.enabled && 
+                        (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email);
+                      if (hasContactInfo) {
                         setShowContactModal(true);
                       }
                     }}
                     className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
-                      theme.contactInfo?.enabled && theme.contactInfo?.contact ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
+                      theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
                     }`}
                     style={{
                       width: config.logoSize,
                       height: config.logoSize
                     }}
-                    title={theme.contactInfo?.enabled && theme.contactInfo?.contact ? '點擊查看聯絡資訊' : ''}
+                    title={theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? '點擊查看聯絡資訊' : ''}
                   >
                     {theme.headerLogo ? (
                       <img
@@ -1271,7 +1279,7 @@ export default function ChatbotWidget({
       </div>
 
       {/* 聯絡資訊彈窗 */}
-      {showContactModal && theme.contactInfo?.enabled && theme.contactInfo?.contact && (
+      {showContactModal && theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
         <div className="absolute inset-0 z-50 overflow-y-auto" onClick={() => setShowContactModal(false)}>
           <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity" />
           <div className="absolute inset-0 flex items-center justify-center p-4">
@@ -1279,7 +1287,7 @@ export default function ChatbotWidget({
               className="relative bg-white rounded-lg shadow-xl w-full max-w-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-600 to-green-700">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-800 to-green-900">
                 <h3 className="text-lg font-semibold text-white">聯絡資訊</h3>
                 <button
                   onClick={() => setShowContactModal(false)}
@@ -1290,27 +1298,49 @@ export default function ChatbotWidget({
                   </svg>
                 </button>
               </div>
-              <div className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+              <div className="p-6 space-y-4">
+                {theme.contactInfo?.name && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <p className="text-lg font-semibold text-green-800">{theme.contactInfo.name}</p>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 mb-1">如需協助，歡迎聯絡我們</p>
+                )}
+                
+                {theme.contactInfo?.phone && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </div>
                     <a
-                      href={
-                        theme.contactInfo.contact.includes('@') 
-                          ? `mailto:${theme.contactInfo.contact}`
-                          : `tel:${theme.contactInfo.contact}`
-                      }
-                      className="text-lg font-semibold text-green-600 hover:text-green-700 transition-colors break-all"
+                      href={`tel:${theme.contactInfo.phone}`}
+                      className="text-lg font-semibold text-green-800 hover:text-green-900 transition-colors break-all"
                     >
-                      {theme.contactInfo.contact}
+                      {theme.contactInfo.phone}
                     </a>
                   </div>
-                </div>
+                )}
+                
+                {theme.contactInfo?.email && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <a
+                      href={`mailto:${theme.contactInfo.email}`}
+                      className="text-lg font-semibold text-green-800 hover:text-green-900 transition-colors break-all"
+                    >
+                      {theme.contactInfo.email}
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'QAPlus - Knowledge Base Management',
   description: 'Enterprise Knowledge Base Management System',
+  icons: {
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%238739F9"/><text x="50" y="70" font-family="Arial" font-size="60" font-weight="bold" fill="white" text-anchor="middle">Q</text></svg>',
+  },
 }
 
 export default async function LocaleLayout({
@@ -23,8 +26,8 @@ export default async function LocaleLayout({
   const messages = await getMessages({ locale: params.locale })
 
   return (
-    <html lang={params.locale}>
-      <body className={inter.className}>
+    <html lang={params.locale} suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <NextIntlClientProvider locale={params.locale} messages={messages}>
           <AuthProvider>{children}</AuthProvider>
         </NextIntlClientProvider>

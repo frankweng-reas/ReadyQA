@@ -75,7 +75,7 @@ export default function ChatbotPage({ params }: ChatbotPageProps) {
 
   if (isLoading || !theme) {
     return (
-      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: theme?.containerStyle?.backgroundColor || '#ffffff' }}>
+      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: theme?.chatBackgroundColor || '#ffffff' }}>
         <div className="text-center">
           {accessError ? (
             <>

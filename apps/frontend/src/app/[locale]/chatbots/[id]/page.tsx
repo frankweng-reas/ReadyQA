@@ -70,7 +70,10 @@ export default function ChatbotDetailPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div 
+      className={`flex h-screen overflow-hidden bg-gray-50`}
+      style={currentView === 'design' ? { minWidth: '1350px' } : {}}
+    >
       {/* Sidebar */}
       <ChatbotSidebar
         chatbotId={chatbotId}
@@ -80,7 +83,9 @@ export default function ChatbotDetailPage() {
       />
 
       {/* Main Content */}
-      <div className={`flex-1 ${currentView === 'design' || currentView === 'publish' ? 'overflow-hidden' : 'overflow-auto'}`}>
+      <div 
+        className={`flex-1 h-full ${currentView === 'design' ? 'overflow-hidden' : currentView === 'publish' ? 'overflow-hidden' : 'overflow-auto'}`}
+      >
         {currentView === 'knowledge' && <KnowledgeManager chatbotId={chatbotId} />}
         {currentView === 'design' && <DesignView chatbotId={chatbotId} />}
         {currentView === 'publish' && <PublishManager chatbotId={chatbotId} />}

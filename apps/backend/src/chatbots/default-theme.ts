@@ -68,7 +68,9 @@ export const getDefaultTheme = () => ({
   animation: true,
   contactInfo: {
     enabled: false,
-    contact: '',
+    name: '',
+    phone: '',
+    email: '',
   },
 });
 

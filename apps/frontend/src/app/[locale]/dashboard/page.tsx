@@ -39,8 +39,12 @@ export default function DashboardPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({})
+  const [editingChatbot, setEditingChatbot] = useState<Chatbot | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
   const newChatbotNameRef = useRef<HTMLInputElement>(null)
   const newChatbotDescRef = useRef<HTMLInputElement>(null)
+  const editChatbotNameRef = useRef<HTMLInputElement>(null)
+  const editChatbotDescRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -62,7 +66,13 @@ export default function DashboardPage() {
       setIsLoading(true)
       const data = await chatbotApi.getAll()
       console.log('[Dashboard] Chatbots loaded:', data.length)
-      setChatbots(data)
+      // 按照 updatedAt 降序排序（最近更新的在前）
+      const sortedData = [...data].sort((a, b) => {
+        const dateA = new Date(a.updatedAt).getTime()
+        const dateB = new Date(b.updatedAt).getTime()
+        return dateB - dateA
+      })
+      setChatbots(sortedData)
     } catch (error) {
       console.error('[Dashboard] Failed to load chatbots:', error)
     } finally {
@@ -166,6 +176,38 @@ export default function DashboardPage() {
     }
   }
 
+  const handleEditChatbot = (chatbot: Chatbot) => {
+    setEditingChatbot(chatbot)
+    setOpenMenuId(null)
+  }
+
+  const handleUpdateChatbot = async () => {
+    if (!editingChatbot) return
+
+    const name = editChatbotNameRef.current?.value?.trim()
+    const description = editChatbotDescRef.current?.value?.trim()
+
+    if (!name) {
+      alert(t('alerts.nameRequired'))
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      await chatbotApi.update(editingChatbot.id, {
+        name,
+        description: description || undefined,
+      })
+      await loadChatbots()
+      setEditingChatbot(null)
+    } catch (error) {
+      console.error('[Dashboard] Failed to update chatbot:', error)
+      alert(t('alerts.updateFailed'))
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const formatLastModified = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -214,97 +256,184 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen flex-col bg-gray-50">
+      {/* Header */}
+      <header className="flex-shrink-0 border-b border-gray-200 shadow-sm" style={{ backgroundColor: '#3a5858' }}>
+        <div className="container mx-auto px-4">
+          <div className="flex h-32 items-center justify-between">
+            {/* 應用名稱 */}
+            <div className="flex items-center">
+              <h1 className="text-4xl font-bold text-white">
+                {tCommon('appName')}
+              </h1>
+            </div>
+
+            {/* 右側：用戶資訊 */}
+            {user && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-3 rounded-3xl border border-white border-opacity-30 bg-white bg-opacity-10 px-6 py-2 text-white transition-colors hover:bg-opacity-20"
+                  style={{ minWidth: '180px' }}
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white bg-opacity-20">
+                    <span className="text-sm font-semibold text-white">
+                      {user.email?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium text-white">
+                      {user.email}
+                    </p>
+                  </div>
+                  <svg
+                    className={`h-4 w-4 text-white transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* 下拉選單 */}
+                {showUserMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowUserMenu(false)}
+                    />
+                    <div className="absolute right-0 z-20 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          signOut()
+                        }}
+                        className="flex w-full items-center justify-center gap-2 px-5 py-3 font-medium text-red-600 transition-colors hover:bg-red-50"
+                      >
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                          />
+                        </svg>
+                        <span className="text-sm">{tAuth('logout')}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
       {/* 主內容區 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="mx-auto max-w-7xl">
-            {/* 標題和按鈕 */}
-            <div className="mb-8 flex items-center justify-between">
-              <div>
-                <h1 className="mb-2 text-3xl font-bold text-gray-900">
-                  {t('pageTitle')}
-                </h1>
-                <p className="text-lg text-gray-600">
-                  {t('pageSubtitle')}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* 用戶資訊 */}
-                {user && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowUserMenu(!showUserMenu)}
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 transition-colors hover:border-gray-300"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                        <span className="text-sm font-semibold text-blue-600">
-                          {user.email?.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                      </div>
-                      <div className="text-sm">
-                        <p className="font-medium text-gray-900">
-                          {user.email}
-                        </p>
-                      </div>
-                      <svg
-                        className={`h-4 w-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-
-                    {/* 下拉選單 */}
-                    {showUserMenu && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setShowUserMenu(false)}
-                        />
-                        <div className="absolute right-0 z-20 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                          <button
-                            onClick={() => {
-                              setShowUserMenu(false)
-                              signOut()
-                            }}
-                            className="flex w-full items-center justify-center gap-2 px-5 py-3 font-medium text-red-600 transition-colors hover:bg-red-50"
-                          >
-                            <svg
-                              className="h-5 w-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                              />
-                            </svg>
-                            <span className="text-sm">{tAuth('logout')}</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-                <button
-                  onClick={() => setShowNewChatbotModal(true)}
-                  className="rounded-full bg-blue-600 px-6 py-3 font-semibold text-white shadow-lg transition-colors hover:bg-blue-700"
-                >
-                  {t('chatbots.createButton')}
-                </button>
+            {/* 標題和按鈕區域 */}
+            <div className="mb-8 rounded-2xl bg-gray-50 px-8 py-6 shadow-lg border-2 border-gray-300">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="mb-2 text-3xl font-bold text-gray-900">
+                    {t('pageTitle')}
+                  </h1>
+                  <p className="text-lg text-gray-600">
+                    {t('pageSubtitle')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowNewChatbotModal(true)}
+                    className="rounded-full px-6 py-3 font-bold text-white shadow-lg transition-colors hover:opacity-90"
+                    style={{ backgroundColor: '#18333D' }}
+                  >
+                    + New
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* 編輯 Chatbot Modal */}
+            {editingChatbot && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-lg bg-white shadow-xl">
+                  {isUpdating && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-black bg-opacity-30">
+                      <div className="mx-4 flex max-w-sm items-center space-x-4 rounded-2xl bg-white px-6 py-5 shadow-2xl">
+                        <div className="h-10 w-10 flex-shrink-0 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+                        <div className="flex-1">
+                          <p className="mb-1 text-base font-semibold text-gray-900">
+                            {tCommon('saving')}
+                          </p>
+                          <p className="text-sm text-gray-600">{t('pleaseWait')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-6">
+                    <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                      {t('chatbots.editModalTitle')}
+                    </h3>
+                    <div className="mb-4">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                        {t('chatbots.name')}
+                      </label>
+                      <input
+                        ref={editChatbotNameRef}
+                        type="text"
+                        defaultValue={editingChatbot.name}
+                        placeholder={t('chatbots.namePlaceholder')}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
+                        {t('chatbots.description')}
+                      </label>
+                      <input
+                        ref={editChatbotDescRef}
+                        type="text"
+                        defaultValue={editingChatbot.description || ''}
+                        placeholder={t('chatbots.descriptionPlaceholder')}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-3 bg-gray-50 px-6 py-4">
+                    <button
+                      onClick={() => setEditingChatbot(null)}
+                      className="rounded-full bg-gray-100 px-4 py-2 text-gray-600 transition-colors hover:bg-gray-200"
+                      disabled={isUpdating}
+                    >
+                      {tCommon('cancel')}
+                    </button>
+                    <button
+                      onClick={handleUpdateChatbot}
+                      className="rounded-full bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                      disabled={isUpdating}
+                    >
+                      {tCommon('save')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 新增 Chatbot Modal */}
             {showNewChatbotModal && (
@@ -457,6 +586,28 @@ export default function DashboardPage() {
                           {/* 下拉選單 */}
                           {openMenuId === chatbot.id && (
                             <div className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white/95 py-2 shadow-xl backdrop-blur-sm">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditChatbot(chatbot)
+                                }}
+                                className="mx-1 flex w-full items-center space-x-3 rounded-full px-4 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                  />
+                                </svg>
+                                <span className="font-medium">{tCommon('edit')}</span>
+                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()

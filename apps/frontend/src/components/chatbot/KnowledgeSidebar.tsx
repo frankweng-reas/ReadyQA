@@ -53,13 +53,6 @@ export default function KnowledgeSidebar({
       transition={{ duration: 0.2 }}
       className="w-52 bg-white border-r border-gray-200 h-full flex flex-col"
     >
-      {/* Header */}
-      <div className="p-3 border-b border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-          {t('knowledgeManagement')}
-        </h3>
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {

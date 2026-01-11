@@ -100,7 +100,9 @@ export interface ChatbotTheme {
   // 聯絡人設定
   contactInfo?: {
     enabled?: boolean // 是否啟用聯絡人設定（預設 false）
-    contact?: string // 聯絡資訊（電話或 email）
+    name?: string // 名稱
+    phone?: string // 電話
+    email?: string // Email
   }
 }
 
@@ -171,7 +173,9 @@ export const defaultTheme: ChatbotTheme = {
   animation: true,
   contactInfo: {
     enabled: false,
-    contact: '',
+    name: '',
+    phone: '',
+    email: '',
   },
 }
 

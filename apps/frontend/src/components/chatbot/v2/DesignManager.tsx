@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { layout } from '@/config/layout';
 import { useTranslations } from 'next-intl';
-import ChatbotWidget from './ChatbotWidget';
+import ChatbotWidget from '@/components/chatbot/ChatbotWidget';
 import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { chatbotApi } from '@/lib/api/chatbot';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -13,7 +14,6 @@ interface DesignManagerProps {
 }
 
 type SettingCategory = 'container' | 'header' | 'input' | 'contact' | 'qaCard' | null;
-type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
 export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const t = useTranslations('design');
@@ -21,15 +21,11 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
   const [theme, setTheme] = useState<ChatbotTheme>(defaultTheme);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showSettings, setShowSettings] = useState(true);
-  const [showHelp, setShowHelp] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<SettingCategory>('container');
-  const [deviceType, setDeviceType] = useState<DeviceType>('mobile');
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<SettingCategory>('header');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 載入當前 chatbot 的 theme
@@ -58,28 +54,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       loadTheme();
     }
   }, [chatbotId]);
-
-  // 響應式設計：檢測視窗大小
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const small = width < 1100;
-      setIsSmallScreen(small);
-      // 小視窗時自動隱藏設定面板
-      if (small) {
-        setShowSettings(false);
-      } else {
-        setShowSettings(true);
-      }
-    };
-
-    // 初始檢查
-    handleResize();
-
-    // 監聽視窗大小變化
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // 保存 theme 到資料庫
   const saveTheme = async (themeToSave: ChatbotTheme) => {
@@ -186,205 +160,159 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
   // 分類選項
   const categories = [
-    { id: 'container', name: t('containerSettings'), icon: '📦' },
-    { id: 'header', name: t('headerSettings'), icon: '📋' },
-    { id: 'input', name: t('inputSettings'), icon: '📝' },
-    { id: 'contact', name: t('contactSettings'), icon: '📞' },
-    { id: 'qaCard', name: t('qaCardSettings'), icon: '📄' },
+    { id: 'container', name: t('containerSettings') },
+    { id: 'header', name: t('headerSettings') },
+    { id: 'input', name: t('inputSettings') },
+    { id: 'contact', name: t('contactSettings') },
+    { id: 'qaCard', name: t('qaCardSettings') },
   ];
 
-  // 裝置配置
-  const devices = [
-    { type: 'mobile', name: t('device_mobile'), width: '400px', height: '680px' },
-    { type: 'tablet', name: t('device_tablet'), width: '1024px', height: '768px' }, // 橫放
-    { type: 'desktop', name: t('device_desktop'), width: '100%', height: '100%' },
-  ];
+  // 手機裝置配置
+  const mobileDevice = { width: '400px', height: '680px' };
 
-  const currentDevice = devices.find(d => d.type === deviceType)!;
-
-  // 裝置圖標
-  const getDeviceIcon = (type: string) => {
-    switch (type) {
-      case 'mobile':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-        );
-      case 'tablet':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-        );
-      case 'desktop':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="relative flex flex-col h-full min-w-0 overflow-hidden">
-      {/* 頂部工具列 */}
-      <div className="flex-shrink-0 border-b border-gray-200 px-6 py-5" style={{ background: 'linear-gradient(to bottom, #0B3037, #2d5f6b)' }}>
-        <div className="flex items-center justify-between">
-          {/* 左側：空白區域（用於平衡布局） */}
-          <div className="flex-1"></div>
-          
-          {/* 中間：設備切換按鈕 */}
-          <div className="flex items-center space-x-3">
-            {devices.map((device) => (
-              <button
-                key={device.type}
-                onClick={() => setDeviceType(device.type as DeviceType)}
-                className={`px-6 rounded-3xl transition-all flex items-center space-x-2 text-base font-medium ${
-                  deviceType === device.type
-                    ? 'bg-gray-100 text-gray-700'
-                    : 'text-white shadow-lg border border-gray-400'
-                }`}
-                style={deviceType === device.type 
-                  ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' }
-                  : { backgroundColor: '#436470', paddingTop: '0.5rem', paddingBottom: '0.5rem' }
-                }
-              >
-                {getDeviceIcon(device.type)}
-                <span>{device.name}</span>
-              </button>
-            ))}
-          </div>
-          
-          {/* 右側：Help 按鈕 */}
-          <div className="flex-1 flex items-center justify-end space-x-3">
-            {/* Help 按鈕 */}
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className={`p-2 rounded-xl transition-all flex items-center justify-center ${
-                showHelp
-                  ? 'bg-gray-100 text-gray-700'
-                  : 'text-white shadow-lg border border-gray-400'
-              }`}
-              style={showHelp 
-                ? { paddingTop: '0.5rem', paddingBottom: '0.5rem' }
-                : { backgroundColor: '#436470', paddingTop: '0.5rem', paddingBottom: '0.5rem' }
-              }
-              title={showHelp ? t('hideHelp') : t('showHelp')}
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <header
+          className="flex-shrink-0 border-b border-header-border shadow-sm flex items-center bg-header-bg mb-4 rounded-lg"
+          style={{
+            height: layout.header.height,
+            paddingLeft: layout.header.padding.x,
+            paddingRight: layout.header.padding.x,
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <svg 
+              className="w-6 h-6 text-primary" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
             >
-              <span className="text-lg font-semibold">?</span>
-            </button>
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
+              />
+            </svg>
+            <h1 className="text-xl font-semibold text-header-text">
+              {t('title')}
+            </h1>
           </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="flex flex-1 overflow-hidden bg-grey-250 rounded-lg items-center justify-center">
+          <p className="text-label">{tCommon('loading')}</p>
         </div>
       </div>
+    );
+  }
 
-      {/* 主容器：預覽區域 + 設定面板 */}
-      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ minWidth: showSettings ? '1050px' : '600px' }}>
-        {/* 預覽區域容器 */}
-        <div 
-          className={`flex-1 min-h-0 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 ${deviceType === 'desktop' ? 'p-3' : 'p-6'} transition-all duration-300`}
-          style={{ minWidth: '600px' }}
-        >
-          {deviceType === 'desktop' ? (
-            /* 桌面模式：全寬顯示 */
-            <div className="w-full h-full border border-gray-200 rounded-lg shadow-sm bg-white p-0 flex flex-col min-h-0">
-              <ChatbotWidget
-                key={`chatbot-preview-${chatbotId}`}
-                mode="interactive"
-                chatbotId={chatbotId}
-                theme={theme}
-                isInputDisabled={false}
-                showCloseButton={false}
-                refreshKey={refreshKey}
-              />
-            </div>
-          ) : deviceType === 'tablet' ? (
-            /* 平板模式：4:3 比例，居中顯示 */
-            <div className="flex items-center justify-center py-6">
-              <div 
-                className="bg-white border border-gray-200 rounded-lg shadow-lg p-0"
-                style={{ 
-                  width: '100%', 
-                  maxWidth: '900px', 
-                  minWidth: '600px',
-                  aspectRatio: '4/3',
-                  height: 'auto'
-                }}
-              >
-                <ChatbotWidget
-                  key={`chatbot-preview-${chatbotId}`}
-                  mode="interactive"
-                  chatbotId={chatbotId}
-                  theme={theme}
-                  isInputDisabled={false}
-                  showCloseButton={false}
-                  refreshKey={refreshKey}
-                />
-              </div>
-            </div>
-          ) : (
-            /* 手機模式：固定尺寸，無外框 */
-            <div className="flex items-center justify-center py-6">
-              <div className="bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden flex flex-col mx-auto" style={{ width: currentDevice.width, height: currentDevice.height }}>
-                <ChatbotWidget
-                  key={`chatbot-preview-${chatbotId}`}
-                  mode="interactive"
-                  chatbotId={chatbotId}
-                  theme={theme}
-                  isInputDisabled={false}
-                  showCloseButton={false}
-                  refreshKey={refreshKey}
-                />
-              </div>
-            </div>
-          )}
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <header
+        className="flex-shrink-0 border-b border-header-border shadow-sm flex items-center bg-header-bg mb-4 rounded-lg"
+        style={{
+          height: layout.header.height,
+          paddingLeft: layout.header.padding.x,
+          paddingRight: layout.header.padding.x,
+        }}
+      >
+        {/* 標題 */}
+        <div className="flex items-center gap-3">
+          <svg 
+            className="w-6 h-6 text-primary" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
+            />
+          </svg>
+          <h1 className="text-xl font-semibold text-header-text">
+            {t('title')}
+          </h1>
         </div>
-        
-        {/* 設定面板 */}
-        {showSettings && (
-          <div className="flex-shrink-0 bg-white shadow-xl overflow-hidden flex flex-col border-l border-gray-200 h-full" style={{ minWidth: '450px', width: '450px' }}>
-            {/* Header 區域 - 固定 */}
-            <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-b border-gray-200">
+
+        {/* 儲存狀態指示 */}
+        {isSaving && (
+          <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
+            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{t('saving')}</span>
+          </div>
+        )}
+      </header>
+
+      {/* Content Area - 左右兩個容器 */}
+      <div className="flex flex-1 overflow-hidden bg-grey-250 rounded-lg gap-4">
+        {/* 左側容器 - 手機預覽 */}
+        <div 
+          className="flex-1 bg-white rounded-lg border border-header-border overflow-hidden flex items-center justify-center" 
+          style={{ marginLeft: '12px', marginTop: '12px', marginBottom: '12px' }}
+        >
+          <div 
+            className="flex flex-col overflow-hidden" 
+            style={{ width: mobileDevice.width, height: mobileDevice.height }}
+          >
+            <ChatbotWidget
+              key={`chatbot-preview-${chatbotId}-${refreshKey}`}
+              mode="interactive"
+              chatbotId={chatbotId}
+              theme={theme}
+              isInputDisabled={false}
+              showCloseButton={false}
+              refreshKey={refreshKey}
+            />
+          </div>
+        </div>
+
+        {/* 右側容器 - 設定面板 */}
+        <div 
+          className="flex bg-white rounded-lg border border-header-border overflow-hidden flex-shrink-0" 
+          style={{ marginTop: '12px', marginRight: '12px', marginBottom: '12px', width: '450px' }}
+        >
+          {/* 左側分類選單 */}
+          <div className="w-[140px] bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-200 p-3 flex flex-col flex-shrink-0">
+            <div className="space-y-1">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(category.id as SettingCategory)}
+                  className={`w-full px-3 py-3 rounded-lg text-left transition-all ${
+                    activeCategory === category.id
+                      ? 'text-white shadow-md'
+                      : 'text-gray-700 hover:bg-white/80'
+                  }`}
+                  style={activeCategory === category.id ? { backgroundColor: '#436470' } : undefined}
+                >
+                  <span className="text-lg font-medium">{category.name}</span>
+                </button>
+              ))}
             </div>
+            
+            {/* 重置按鈕 - 放在最下方 */}
+            <div className="mt-auto pt-2 border-t border-gray-300">
+              <button
+                onClick={handleReset}
+                className="w-full px-3 py-3 rounded-lg text-center transition-all text-gray-700 hover:bg-white/80"
+              >
+                <span className="text-lg font-medium">{t('reset')}</span>
+              </button>
+            </div>
+          </div>
 
-            {/* 內容區域 - 可滾動 */}
-            <div className="flex flex-1 min-h-0 overflow-hidden">
-              {/* 左側分類選單 */}
-              <div className="w-[140px] bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-200 p-3 flex flex-col flex-shrink-0">
-                <div className="space-y-1">
-                  {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => setActiveCategory(category.id as SettingCategory)}
-                      className={`w-full px-3 py-3 rounded-lg text-left transition-all ${
-                        activeCategory === category.id
-                          ? 'text-white shadow-md'
-                          : 'text-gray-700 hover:bg-white/80'
-                      }`}
-                      style={activeCategory === category.id ? { backgroundColor: '#436470' } : undefined}
-                    >
-                      <span className="text-base font-medium">{category.name}</span>
-                    </button>
-                  ))}
-                </div>
-                
-                {/* 重置按鈕 - 放在最下方 */}
-                <div className="mt-auto pt-2 border-t border-gray-300">
-                  <button
-                    onClick={handleReset}
-                    className="w-full px-3 py-3 rounded-lg text-center transition-all text-gray-700 hover:bg-white/80"
-                  >
-                    <span className="text-base font-medium">{t('reset')}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 右側設定內容 - 獨立滾動 */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0">
-
-            {/* 容器外型設定 */}
+          {/* 右側設定內容 - 獨立滾動 */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0">
             {activeCategory === 'container' && (
               <div className="space-y-6">
                 <div>
@@ -474,7 +402,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
             )}
 
-            {/* Header 設定 */}
             {activeCategory === 'header' && (
               <div className="space-y-6">
                 <div>
@@ -683,7 +610,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
             )}
 
-            {/* 輸入框設定 */}
             {activeCategory === 'input' && (
               <div className="space-y-6">
                 <div>
@@ -855,8 +781,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
             )}
 
-
-            {/* 聯絡人設定 */}
             {activeCategory === 'contact' && (
               <div className="space-y-6">
                 <div>
@@ -947,7 +871,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
             )}
 
-            {/* QACard 設定 */}
             {activeCategory === 'qaCard' && (
               <div className="space-y-6">
                 <div>
@@ -1214,42 +1137,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </div>
               </div>
             )}
-              </div>
-            </div>
-
-            {/* Footer 區域 - 固定 */}
-            <div className="flex-shrink-0 px-6 py-3 bg-gray-50 border-t border-gray-200">
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Help 面板 */}
-      {showHelp && (
-        <div className={`fixed top-24 w-[480px] h-[calc(100vh-7rem)] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden z-20 flex flex-col transition-all duration-300 ${showSettings && !isSmallScreen ? 'right-[460px]' : 'right-6'}`}>
-          <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">{t('help')}</h2>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('quickStart')}</h3>
-                <p className="text-gray-600">{t('helpContentComingSoon')}</p>
-              </div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 重置確認對話框 */}
       <ConfirmDialog

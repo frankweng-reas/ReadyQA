@@ -18,12 +18,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
 
+    // 從 className 中分離寬度相關的 class
+    const widthClasses = className?.match(/\b(w-\S+|min-w-\S+|max-w-\S+)\b/g)?.join(' ') || ''
+    const otherClasses = className?.replace(/\b(w-\S+|min-w-\S+|max-w-\S+)\b/g, '').trim() || ''
+
     return (
-      <div className="w-full">
+      <div className={cn('w-full', widthClasses)}>
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-2 block text-sm font-medium text-gray-700"
+            className="mb-2 block text-sm font-medium text-label"
           >
             {label}
           </label>
@@ -32,12 +36,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'w-full rounded-lg border border-gray-300 px-4 py-3 text-base transition-all',
-            'placeholder:text-gray-400',
-            'focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500',
+            'w-full rounded-full border border-disabled bg-content-bg text-text px-4 py-2.5 text-base transition-all',
+            'placeholder:text-header-text-secondary',
+            'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary',
             error && 'border-red-500 focus:border-red-500 focus:ring-red-500',
-            'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500',
-            className
+            'disabled:cursor-not-allowed disabled:bg-grey disabled:text-disabled',
+            otherClasses
           )}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${inputId}-error` : undefined}

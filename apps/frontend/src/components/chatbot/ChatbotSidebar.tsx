@@ -23,6 +23,7 @@ export default function ChatbotSidebar({
   const t = useTranslations('chatbotSidebar');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chatbotName, setChatbotName] = useState<string>('QAPlus');
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // 載入 chatbot 資訊
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function ChatbotSidebar({
       }`}
     >
       {/* 標題區域 */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="px-4 py-5 border-b bg-gray-50" style={{ borderBottomColor: '#e5e7eb', borderBottomWidth: '1px' }}>
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <motion.div
@@ -67,19 +68,26 @@ export default function ChatbotSidebar({
               transition={{ delay: 0.2 }}
               className="flex items-center gap-3 flex-1 min-w-0"
             >
-              <div className="flex-1 min-w-0">
+              <div 
+                className="flex-1 min-w-0 relative"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              >
                 <h2 className="text-lg font-semibold text-gray-900 truncate">
                   {chatbotName}
                 </h2>
-                <p className="text-xs text-gray-500 truncate mt-0.5">
-                  ID: {chatbotId.substring(0, 8)}...
-                </p>
+                {showTooltip && (
+                  <div className="absolute z-50 top-full left-0 mt-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg whitespace-nowrap">
+                    {chatbotName}
+                    <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
+            className="p-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex-shrink-0"
           >
             <svg
               className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${

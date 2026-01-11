@@ -118,7 +118,7 @@ export class ChatbotsService {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        updatedAt: 'desc',
       },
     });
   }
