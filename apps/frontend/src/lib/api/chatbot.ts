@@ -11,10 +11,17 @@ interface Chatbot {
   isActive: string
   createdAt: string
   updatedAt: string
+  theme?: any
+  domainWhitelist?: DomainWhitelist
   _count?: {
     faqs: number
     topics: number
   }
+}
+
+interface DomainWhitelist {
+  enabled: boolean
+  domains: string[]
 }
 
 interface ChatbotResponse {
@@ -122,7 +129,9 @@ export const chatbotApi = {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to create chatbot')
+      const errorData = await response.json().catch(() => ({}))
+      console.error('[ChatbotAPI] ❌ Create failed:', response.status, errorData)
+      throw new Error(errorData.message || 'Failed to create chatbot')
     }
 
     const result = await response.json()
@@ -140,6 +149,7 @@ export const chatbotApi = {
       status: string
       isActive: string
       theme: any  // 允許更新 theme
+      domainWhitelist: any  // 允許更新 domainWhitelist
     }>
   ): Promise<Chatbot> {
     console.log('[ChatbotAPI] 🔵 Updating chatbot:', id)

@@ -22,6 +22,7 @@ import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ChatbotsService } from './chatbots.service';
 import { CreateChatbotDto, UpdateChatbotDto, ChatbotQueryDto } from './dto/chatbot.dto';
+import { QuotaService } from '../common/quota.service';
 
 /**
  * Chatbots Controller
@@ -37,14 +38,23 @@ import { CreateChatbotDto, UpdateChatbotDto, ChatbotQueryDto } from './dto/chatb
 @ApiTags('chatbots')
 @Controller('chatbots')
 export class ChatbotsController {
-  constructor(private readonly chatbotsService: ChatbotsService) {}
+  constructor(
+    private readonly chatbotsService: ChatbotsService,
+    private readonly quotaService: QuotaService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: '建立新 Chatbot' })
   @ApiResponse({ status: 201, description: '成功建立 Chatbot' })
-  @ApiResponse({ status: 400, description: 'ID 已存在或資料驗證失敗' })
+  @ApiResponse({ status: 400, description: 'ID 已存在或資料驗證失敗或超過配額' })
   async create(@Body() createDto: CreateChatbotDto) {
+    // 檢查 Chatbot 數量配額
+    const quotaCheck = await this.quotaService.checkCanCreateChatbot(createDto.userId);
+    if (!quotaCheck.allowed) {
+      throw new BadRequestException(quotaCheck.reason);
+    }
+
     const chatbot = await this.chatbotsService.create(createDto);
     return {
       success: true,

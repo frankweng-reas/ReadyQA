@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as fs from 'fs';
+import { ThrottlerExceptionFilter } from './common/throttler-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -49,6 +50,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Throttler exception filter（自定義 Rate Limit 錯誤訊息）
+  app.useGlobalFilters(new ThrottlerExceptionFilter());
 
   // Swagger documentation
   const config = new DocumentBuilder()

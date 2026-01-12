@@ -11,8 +11,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { QueryService } from './query.service';
 import { SessionsService } from '../sessions/sessions.service';
+import { QuotaService } from '../common/quota.service';
 import { ChatQueryDto, ChatQueryResponseDto } from './dto/chat-query.dto';
 import {
   LogFaqActionDto,
@@ -35,6 +37,7 @@ export class QueryController {
   constructor(
     private readonly queryService: QueryService,
     private readonly sessionsService: SessionsService,
+    private readonly quotaService: QuotaService,
   ) {}
 
   /**
@@ -68,6 +71,7 @@ export class QueryController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 次/分鐘
   @ApiOperation({ summary: '問答查詢（帶上下文的 AI 對話）' })
   @ApiHeader({
     name: 'Authorization',
@@ -120,9 +124,6 @@ export class QueryController {
           if (error.message === 'TOKEN_EXPIRED') {
             this.logger.warn(`[Query Chat] ⚠️ Token 已過期`);
             throw new UnauthorizedException('TOKEN_EXPIRED');
-          } else if (error.message === 'QUERY_LIMIT_EXCEEDED') {
-            this.logger.warn(`[Query Chat] ⚠️ 查詢次數已達上限`);
-            throw new BadRequestException('查詢次數已達上限，請聯繫管理員');
           }
           
           this.logger.warn(
@@ -137,7 +138,16 @@ export class QueryController {
       );
     }
 
-    // ========== 步驟 2: 調用查詢服務 ==========
+    // ========== 步驟 2: 檢查查詢配額 (Quota) ==========
+    try {
+      await this.quotaService.ensureQueryQuota(dto.chatbot_id);
+      this.logger.log(`[Query Chat] ✅ 配額檢查通過`);
+    } catch (error: any) {
+      this.logger.warn(`[Query Chat] ⚠️ 配額檢查失敗: ${error.message}`);
+      throw error;
+    }
+
+    // ========== 步驟 3: 調用查詢服務 ==========
     try {
       const result = await this.queryService.chatWithContext(dto, sessionId);
       this.logger.log(
@@ -238,6 +248,7 @@ export class QueryController {
    */
   @Post('log-faq-browse')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 次/60秒
   @ApiOperation({ summary: '記錄 FAQ 直接瀏覽（非搜尋結果）' })
   @ApiHeader({
     name: 'Authorization',
@@ -261,7 +272,7 @@ export class QueryController {
       `[Log FAQ Browse] 📥 收到請求: chatbot_id=${dto.chatbot_id}, faq_id=${dto.faq_id}`,
     );
 
-    // ========== 提取並驗證 Session Token（可選）==========
+    // ========== 步驟 1: 提取並驗證 Session Token（可選）==========
     let sessionId: string | undefined = undefined;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -286,7 +297,17 @@ export class QueryController {
       }
     }
 
-    // ========== 記錄 FAQ 瀏覽 ==========
+    // ========== 步驟 2: 檢查查詢配額 (Quota) ==========
+    // FAQ 瀏覽也需要檢查配額（參考 answergo）
+    try {
+      await this.quotaService.ensureQueryQuota(dto.chatbot_id);
+      this.logger.log(`[Log FAQ Browse] ✅ 配額檢查通過`);
+    } catch (error: any) {
+      this.logger.warn(`[Log FAQ Browse] ⚠️ 配額檢查失敗: ${error.message}`);
+      throw error;
+    }
+
+    // ========== 步驟 3: 記錄 FAQ 瀏覽 ==========
     try {
       const logId = await this.queryService.logFaqBrowse(dto, sessionId);
       return {

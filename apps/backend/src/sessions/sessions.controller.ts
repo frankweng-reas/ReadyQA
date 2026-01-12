@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto, UpdateSessionDto, SessionQueryDto } from './dto/session.dto';
 import { InitSessionDto, InitSessionResponseDto } from './dto/init-session.dto';
@@ -40,6 +41,7 @@ export class SessionsController {
    */
   @Post('init')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 次/60秒
   @ApiOperation({ summary: '初始化 Session Token（公開 API）' })
   @ApiResponse({
     status: 200,

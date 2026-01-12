@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useAuth } from '@/lib/auth/auth-provider'
 import { Button } from '@/components/ui/button'
 import { chatbotApi } from '@/lib/api/chatbot'
+import { useNotification } from '@/hooks/useNotification'
 
 /**
  * Dashboard/Home 頁面 - Chatbot 列表
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   const t = useTranslations('dashboard')
   const tAuth = useTranslations('auth')
   const tCommon = useTranslations('common')
+  const notify = useNotification()
   const { user, loading, signOut, postgresUserId } = useAuth()
   const router = useRouter()
   const [chatbots, setChatbots] = useState<Chatbot[]>([])
@@ -117,9 +119,11 @@ export default function DashboardPage() {
       setShowNewChatbotModal(false)
       if (newChatbotNameRef.current) newChatbotNameRef.current.value = ''
       if (newChatbotDescRef.current) newChatbotDescRef.current.value = ''
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create chatbot:', error)
-      alert(t('alerts.createFailed'))
+      // 提取錯誤訊息（從 Error.message）
+      const errorMessage = error?.message || t('alerts.createFailed')
+      notify.error(errorMessage)
     } finally {
       setIsCreating(false)
     }
@@ -771,6 +775,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ConfirmDialog */}
+      {notify.ConfirmDialog}
     </div>
   )
 }

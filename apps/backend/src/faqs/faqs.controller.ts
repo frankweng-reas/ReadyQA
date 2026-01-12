@@ -19,6 +19,7 @@ import { extname } from 'path';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto } from './dto/faq.dto';
+import { QuotaService } from '../common/quota.service';
 
 /**
  * FAQ 管理 Controller
@@ -40,14 +41,25 @@ import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto } from './dto
 @ApiTags('faqs')
 @Controller('faqs')
 export class FaqsController {
-  constructor(private readonly faqsService: FaqsService) {}
+  constructor(
+    private readonly faqsService: FaqsService,
+    private readonly quotaService: QuotaService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: '建立新 FAQ' })
+  @ApiResponse({ status: 400, description: '資料驗證失敗或超過配額' })
   async create(@Body() createDto: CreateFaqDto) {
     try {
       console.log('[FaqsController] Creating FAQ:', JSON.stringify(createDto, null, 2));
+      
+      // 檢查 FAQ 數量配額
+      const quotaCheck = await this.quotaService.checkCanCreateFaq(createDto.chatbotId);
+      if (!quotaCheck.allowed) {
+        throw new BadRequestException(quotaCheck.reason);
+      }
+      
       const faq = await this.faqsService.create(createDto);
       console.log('[FaqsController] FAQ created successfully:', faq.id);
       return {

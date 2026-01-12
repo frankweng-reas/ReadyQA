@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { layout } from '@/config/layout';
-import FaqList from '@/components/chatbot/FaqList';
+import FaqList from '@/components/chatbot/v2/FaqList';
 import TopicManager from '@/components/chatbot/v2/TopicManager';
+import BulkUploadView from '@/components/chatbot/v2/BulkUploadView';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,7 @@ interface QAManagerProps {
 
 export default function QAManager({ chatbotId }: QAManagerProps) {
   const t = useTranslations('knowledge');
-  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics'>('faq-list');
+  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload'>('faq-list');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleRefresh = () => {
@@ -42,7 +43,7 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <h1 className="text-xl font-semibold text-header-text">
-            {t('faqList')}
+            {t('faqHeaderMessage')}
           </h1>
         </div>
       </header>
@@ -80,6 +81,17 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             >
               {t('topics')}
             </button>
+            <button
+              onClick={() => setActiveTab('bulk-upload')}
+              className={cn(
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
+                activeTab === 'bulk-upload'
+                  ? 'text-primary border-primary bg-grey'
+                  : 'text-label border-transparent hover:text-text hover:bg-grey/50'
+              )}
+            >
+              {t('bulkUploadTab')}
+            </button>
           </div>
         </div>
 
@@ -101,6 +113,12 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             <TopicManager
               chatbotId={chatbotId}
               onRefresh={handleRefresh}
+            />
+          )}
+          {activeTab === 'bulk-upload' && (
+            <BulkUploadView
+              chatbotId={chatbotId}
+              onSuccess={handleRefresh}
             />
           )}
         </div>

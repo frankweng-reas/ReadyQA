@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { topicApi } from '@/lib/api/topic'
-import FaqModal from './FaqModal'
+import QACardEditor from '@/components/chatbot/v2/QACardEditor'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { cn } from '@/lib/utils'
+import { useNotification } from '@/hooks/useNotification'
 
 interface FAQ {
   id: string
@@ -37,6 +38,7 @@ interface FaqListProps {
 export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqListProps) {
   const t = useTranslations('knowledge')
   const tCommon = useTranslations('common')
+  const notify = useNotification()
 
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
@@ -49,6 +51,12 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [faqToDelete, setFaqToDelete] = useState<{ id: string; question: string } | null>(null)
   const [activeFilter, setActiveFilter] = useState<'' | 'active' | 'inactive' | 'uncategorized'>('')
+  
+  // 批量操作狀態
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showBatchActions, setShowBatchActions] = useState(false)
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false)
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
 
   // 計算統計數據
   const stats = {
@@ -61,11 +69,6 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   const handleFilterClick = (filter: '' | 'active' | 'inactive' | 'uncategorized') => {
     setActiveFilter(activeFilter === filter ? '' : filter)
   }
-
-  useEffect(() => {
-    loadFaqs()
-    loadTopics()
-  }, [chatbotId, refreshTrigger])
 
   const loadFaqs = async () => {
     try {
@@ -92,6 +95,12 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       console.error('[FaqList] Failed to load topics:', error)
     }
   }
+
+  useEffect(() => {
+    loadFaqs()
+    loadTopics()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatbotId, refreshTrigger])
 
   const handleCreate = () => {
     setSelectedFaq(null)
@@ -124,9 +133,10 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       setShowDeleteConfirm(false)
       setFaqToDelete(null)
       onRefresh()
+      notify.success(t('deleteSuccess'))
     } catch (error) {
       console.error('[FaqList] Failed to delete FAQ:', error)
-      alert(t('deleteFailed'))
+      notify.error(t('deleteFailed'))
       setShowDeleteConfirm(false)
       setFaqToDelete(null)
     }
@@ -135,6 +145,94 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   const handleModalSuccess = () => {
     onRefresh()
     setShowModal(false)
+  }
+
+  // 批量操作函數
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredFaqs.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredFaqs.map(faq => faq.id))
+    }
+  }
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleBatchUpdateTopic = async (topicId: string | null) => {
+    try {
+      setIsBatchProcessing(true)
+      const promises = selectedIds.map(id =>
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/faqs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topicId }),
+        })
+      )
+      await Promise.all(promises)
+      setSelectedIds([])
+      setShowBatchActions(false)
+      onRefresh()
+      notify.success(t('updateSuccess'))
+    } catch (error) {
+      console.error('[FaqList] Batch update failed:', error)
+      notify.error(t('saveFailed'))
+    } finally {
+      setIsBatchProcessing(false)
+    }
+  }
+
+  const handleBatchUpdateStatus = async (status: 'active' | 'inactive') => {
+    try {
+      setIsBatchProcessing(true)
+      const promises = selectedIds.map(id =>
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/faqs/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        })
+      )
+      await Promise.all(promises)
+      setSelectedIds([])
+      setShowBatchActions(false)
+      onRefresh()
+      notify.success(t('updateSuccess'))
+    } catch (error) {
+      console.error('[FaqList] Batch update status failed:', error)
+      notify.error(t('saveFailed'))
+    } finally {
+      setIsBatchProcessing(false)
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    setShowBatchDeleteConfirm(true)
+  }
+
+  const confirmBatchDelete = async () => {
+    try {
+      setIsBatchProcessing(true)
+      const promises = selectedIds.map(id =>
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/faqs/${id}`, {
+          method: 'DELETE',
+        })
+      )
+      await Promise.all(promises)
+      setSelectedIds([])
+      setShowBatchActions(false)
+      setShowBatchDeleteConfirm(false)
+      onRefresh()
+      notify.success(t('deleteSuccess'))
+    } catch (error) {
+      console.error('[FaqList] Batch delete failed:', error)
+      notify.error(t('deleteFailed'))
+      setShowBatchDeleteConfirm(false)
+    } finally {
+      setIsBatchProcessing(false)
+    }
   }
 
   // 獲取 Topic 的完整路徑（用於顯示）
@@ -200,6 +298,73 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
 
   return (
     <div className="space-y-4">
+      {/* 批量操作欄 */}
+      {selectedIds.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-base font-medium text-blue-900">
+              {isBatchProcessing ? '處理中...' : `已選擇 ${selectedIds.length} 個項目`}
+            </span>
+            {isBatchProcessing ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                <span className="text-base text-gray-600">正在批量處理...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select
+                  className="px-3 py-1.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBatchUpdateTopic(e.target.value === 'null' ? null : e.target.value)
+                      e.target.value = ''
+                    }
+                  }}
+                  defaultValue=""
+                  disabled={isBatchProcessing}
+                >
+                  <option value="">設定分類</option>
+                  <option value="null">{t('noTopic')}</option>
+                  {renderTopicOptions(null, 0)}
+                </select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleBatchUpdateStatus('active')}
+                  disabled={isBatchProcessing}
+                >
+                  啟用
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleBatchUpdateStatus('inactive')}
+                  disabled={isBatchProcessing}
+                >
+                  停用
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={handleBatchDelete}
+                  disabled={isBatchProcessing}
+                >
+                  刪除
+                </Button>
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds([])}
+            disabled={isBatchProcessing}
+          >
+            取消選擇
+          </Button>
+        </div>
+      )}
+
       {/* 工具列 */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -233,7 +398,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                 : 'bg-grey text-text border-header-border hover:bg-grey/80'
             )}
           >
-            問題：{stats.total}
+            {t('statsTotal', { count: stats.total })}
           </button>
           <button 
             onClick={() => handleFilterClick('active')}
@@ -244,7 +409,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                 : 'bg-grey text-text border-header-border hover:bg-grey/80'
             )}
           >
-            啟用：{stats.active}
+            {t('statsActive', { count: stats.active })}
           </button>
           <button 
             onClick={() => handleFilterClick('inactive')}
@@ -255,7 +420,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                 : 'bg-grey text-text border-header-border hover:bg-grey/80'
             )}
           >
-            停用：{stats.inactive}
+            {t('statsInactive', { count: stats.inactive })}
           </button>
           <button 
             onClick={() => handleFilterClick('uncategorized')}
@@ -266,7 +431,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                 : 'bg-grey text-text border-header-border hover:bg-grey/80'
             )}
           >
-            未分類：{stats.uncategorized}
+            {t('statsUncategorized', { count: stats.uncategorized })}
           </button>
         </div>
 
@@ -294,22 +459,30 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
           <table className="min-w-full divide-y border-disabled">
             <thead className="bg-grey">
               <tr>
-                <th className="px-6 py-3 text-left text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-4 py-3 text-center text-base font-medium uppercase tracking-wider text-label w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === filteredFaqs.length && filteredFaqs.length > 0}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-base font-medium uppercase tracking-wider text-label">
                   {t('question')}
                 </th>
-                <th className="px-6 py-3 text-left text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-6 py-3 text-left text-base font-medium uppercase tracking-wider text-label">
                   {t('answer')}
                 </th>
-                <th className="px-6 py-3 text-left text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-6 py-3 text-left text-base font-medium uppercase tracking-wider text-label">
                   {t('topic')}
                 </th>
-                <th className="px-6 py-3 text-left text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-6 py-3 text-left text-base font-medium uppercase tracking-wider text-label">
                   {t('status')}
                 </th>
-                <th className="px-2 py-3 text-center text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-2 py-3 text-center text-base font-medium uppercase tracking-wider text-label">
                   {tCommon('edit')}
                 </th>
-                <th className="px-2 py-3 text-center text-lg font-medium uppercase tracking-wider text-label">
+                <th className="px-2 py-3 text-center text-base font-medium uppercase tracking-wider text-label">
                   {tCommon('delete')}
                 </th>
               </tr>
@@ -323,6 +496,14 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                     key={faq.id} 
                     className="transition-colors hover:bg-grey"
                   >
+                    <td className="px-4 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(faq.id)}
+                        onChange={() => handleSelectOne(faq.id)}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-2 max-w-xs truncate text-base text-text">
                       {faq.question}
                     </td>
@@ -335,16 +516,16 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                     <td className="px-6 py-2">
                       <div className="flex items-center justify-center">
                         <div 
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: faq.status === 'active' ? '#10B981' : '#EF4444',
-                          }}
+                          className={cn(
+                            'w-3 h-3 rounded-full',
+                            faq.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                          )}
                         ></div>
                       </div>
                     </td>
                     <td className="px-2 py-2 text-center">
                       <button
-                        className="p-2 rounded-full transition-colors text-accent hover:bg-blue-50"
+                        className="p-2 rounded-full transition-colors text-primary hover:bg-primary/10"
                         onClick={() => handleEdit(faq)}
                         title={tCommon('edit')}
                       >
@@ -360,16 +541,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                     </td>
                     <td className="px-2 py-2 text-center">
                       <button
-                        className="p-2 rounded-full transition-colors"
-                        style={{ 
-                          color: '#EF4444',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#FEF2F2';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
+                        className="p-2 rounded-full transition-colors text-red-600 hover:bg-red-50"
                         onClick={() => handleDelete(faq.id, faq.question)}
                         title={tCommon('delete')}
                       >
@@ -392,7 +564,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       )}
 
       {/* 新增/編輯 Modal */}
-      <FaqModal
+      <QACardEditor
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         mode={modalMode}
@@ -427,7 +599,18 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
         }}
         type="danger"
       />
+
+      {/* 批量刪除確認對話框 */}
+      <ConfirmDialog
+        isOpen={showBatchDeleteConfirm}
+        title={t('deleteConfirm')}
+        message={`確定要刪除 ${selectedIds.length} 個問答嗎？此操作無法復原。`}
+        confirmText={tCommon('delete')}
+        cancelText={tCommon('cancel')}
+        onConfirm={confirmBatchDelete}
+        onCancel={() => setShowBatchDeleteConfirm(false)}
+        type="danger"
+      />
     </div>
   )
 }
-

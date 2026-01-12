@@ -4,8 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useNotification } from '@/hooks/useNotification'
 
 // Toast UI Editor 類型
+// @ts-ignore
 import type { Editor } from '@toast-ui/editor'
 
 // 導入樣式
@@ -17,7 +19,7 @@ interface Topic {
   parentId: string | null
 }
 
-interface FaqModalProps {
+interface QACardEditorProps {
   isOpen: boolean
   onClose: () => void
   mode: 'create' | 'edit'
@@ -34,7 +36,7 @@ interface FaqModalProps {
   onSuccess: () => void
 }
 
-export default function FaqModal({
+export default function QACardEditor({
   isOpen,
   onClose,
   mode,
@@ -42,9 +44,10 @@ export default function FaqModal({
   faqData,
   topics,
   onSuccess,
-}: FaqModalProps) {
+}: QACardEditorProps) {
   const t = useTranslations('knowledge')
   const tCommon = useTranslations('common')
+  const notify = useNotification()
 
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -52,8 +55,6 @@ export default function FaqModal({
   const [status, setStatus] = useState<'active' | 'inactive'>('active')
   const [topicId, setTopicId] = useState<string>('')
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [isFullScreen, setIsFullScreen] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   
   // Toast UI Editor 引用
@@ -62,13 +63,13 @@ export default function FaqModal({
 
   // 圖片上傳處理函數
   const handleImageUpload = async (file: File): Promise<string> => {
-    console.log('[FaqModal] 開始上傳圖片:', { name: file.name, size: file.size, type: file.type })
+    console.log('[QACardEditor] 開始上傳圖片:', { name: file.name, size: file.size, type: file.type })
     setIsUploadingImage(true)
     try {
       // 驗證檔案類型
       if (!file.type.match(/^image\/(jpg|jpeg|png|gif|webp)$/)) {
         const errorMsg = '只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'
-        setError(errorMsg)
+        notify.error(errorMsg)
         throw new Error(errorMsg)
       }
 
@@ -76,7 +77,7 @@ export default function FaqModal({
       const maxSize = 5 * 1024 * 1024
       if (file.size > maxSize) {
         const errorMsg = '檔案大小不能超過 5MB'
-        setError(errorMsg)
+        notify.error(errorMsg)
         throw new Error(errorMsg)
       }
 
@@ -87,39 +88,38 @@ export default function FaqModal({
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`
       const uploadUrl = `${apiBase}/faqs/upload-image`
-      console.log('[FaqModal] 上傳到:', uploadUrl)
+      console.log('[QACardEditor] 上傳到:', uploadUrl)
 
       const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       })
 
-      console.log('[FaqModal] 上傳回應狀態:', response.status, response.statusText)
+      console.log('[QACardEditor] 上傳回應狀態:', response.status, response.statusText)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         const errorMsg = errorData.message || '圖片上傳失敗'
-        setError(errorMsg)
+        notify.error(errorMsg)
         throw new Error(errorMsg)
       }
 
       const result = await response.json()
-      console.log('[FaqModal] 上傳回應:', result)
+      console.log('[QACardEditor] 上傳回應:', result)
 
       if (result.success && result.data?.imageUrl) {
         // 返回完整的圖片 URL
         const imageBaseUrl = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl
         const imageUrl = `${imageBaseUrl}${result.data.imageUrl}`
-        console.log('[FaqModal] ✅ 圖片上傳成功:', imageUrl)
-        setError('') // 清除錯誤
+        console.log('[QACardEditor] ✅ 圖片上傳成功:', imageUrl)
         return imageUrl
       } else {
         const errorMsg = result.message || '圖片上傳失敗：回應格式錯誤'
-        setError(errorMsg)
+        notify.error(errorMsg)
         throw new Error(errorMsg)
       }
     } catch (error) {
-      console.error('[FaqModal] ❌ 圖片上傳失敗:', error)
+      console.error('[QACardEditor] ❌ 圖片上傳失敗:', error)
       throw error
     } finally {
       setIsUploadingImage(false)
@@ -132,13 +132,24 @@ export default function FaqModal({
 
     // 延遲初始化，確保表單數據已經設置完成
     const timer = setTimeout(async () => {
+      // 檢查 DOM 節點是否還存在
+      if (!editorDivRef.current || !isOpen) return
+
       // 如果編輯器已存在，先銷毀
       if (editorRef.current) {
-        editorRef.current.destroy()
+        try {
+          editorRef.current.destroy()
+        } catch (error) {
+          console.error('[QACardEditor] 銷毀舊編輯器時發生錯誤:', error)
+        }
         editorRef.current = null
       }
 
+      // @ts-ignore
       const { default: Editor } = await import('@toast-ui/editor')
+
+      // 再次檢查 DOM 節點是否還存在（異步操作後）
+      if (!editorDivRef.current || !isOpen) return
 
       // 直接從 faqData 或 answer state 取得初始內容
       let initialContent = ''
@@ -150,7 +161,7 @@ export default function FaqModal({
         initialContent = answer || ''
       }
 
-      console.log('[FaqModal] 初始化編輯器', {
+      console.log('[QACardEditor] 初始化編輯器', {
         mode,
         faqId: faqData?.id,
         contentLength: initialContent.length,
@@ -159,7 +170,7 @@ export default function FaqModal({
 
       const editor = new Editor({
         el: editorDivRef.current!,
-        height: '300px',
+        height: '100%',
         initialEditType: 'wysiwyg',
         previewStyle: 'tab',
         initialValue: initialContent,
@@ -180,13 +191,13 @@ export default function FaqModal({
         ],
         hooks: {
           addImageBlobHook: async (blob: File | Blob, callback: (url: string, altText: string) => void) => {
-            console.log('[FaqModal] addImageBlobHook 觸發')
+            console.log('[QACardEditor] addImageBlobHook 觸發')
             try {
               const file = blob instanceof File ? blob : new File([blob], 'image.png', { type: blob.type })
               const url = await handleImageUpload(file)
               callback(url, '圖片')
             } catch (error) {
-              console.error('[FaqModal] 圖片上傳 hook 失敗:', error)
+              console.error('[QACardEditor] 圖片上傳 hook 失敗:', error)
             }
           },
         },
@@ -204,27 +215,29 @@ export default function FaqModal({
       }
 
       editorRef.current = editor
-      console.log('[FaqModal] ✅ Toast UI Editor 初始化完成')
+      console.log('[QACardEditor] ✅ Toast UI Editor 初始化完成')
     }, 200) // 延遲 200ms 確保數據和 DOM 都就緒
 
     return () => {
       clearTimeout(timer)
       if (editorRef.current) {
-        console.log('[FaqModal] 銷毀 Toast UI Editor')
-        editorRef.current.destroy()
-        editorRef.current = null
+        try {
+          console.log('[QACardEditor] 銷毀 Toast UI Editor')
+          // 先清空編輯器內容再銷毀
+          if (editorDivRef.current) {
+            editorRef.current.destroy()
+            // 清空容器，確保沒有殘留的 DOM
+            editorDivRef.current.innerHTML = ''
+          }
+        } catch (error) {
+          // 完全忽略銷毀時的錯誤，避免中斷應用程式
+          console.warn('[QACardEditor] 編輯器銷毀時發生錯誤（已忽略）:', error)
+        } finally {
+          editorRef.current = null
+        }
       }
     }
   }, [isOpen, mode, faqData?.id]) // 依賴 mode 和 faqData.id，確保切換編輯對象時重新初始化
-  
-  // 調整編輯器高度（全屏模式）
-  useEffect(() => {
-    if (editorRef.current && isOpen) {
-      const newHeight = isFullScreen ? '500px' : '300px'
-      editorRef.current.setHeight(newHeight)
-      console.log('[FaqModal] 調整編輯器高度:', newHeight)
-    }
-  }, [isFullScreen, isOpen])
 
   // 初始化表單數據
   useEffect(() => {
@@ -235,13 +248,11 @@ export default function FaqModal({
       setSynonym('')
       setStatus('active')
       setTopicId('')
-      setError('')
-      setIsFullScreen(false)
       return
     }
 
     if (mode === 'edit' && faqData) {
-      console.log('[FaqModal] 編輯模式 - 載入資料:', {
+      console.log('[QACardEditor] 編輯模式 - 載入資料:', {
         question: faqData.question,
         answer: faqData.answer?.substring(0, 200),
         answerLength: faqData.answer?.length,
@@ -263,30 +274,15 @@ export default function FaqModal({
     }
   }, [isOpen, mode, faqData])
 
-  // ESC 鍵退出全螢幕
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false)
-      }
-    }
-
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown)
-      return () => window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen, isFullScreen])
-
   const validateForm = (): boolean => {
     if (!question.trim()) {
-      setError(t('questionRequired'))
+      notify.error(t('questionRequired'))
       return false
     }
     if (!answer.trim()) {
-      setError(t('answerRequired'))
+      notify.error(t('answerRequired'))
       return false
     }
-    setError('')
     return true
   }
 
@@ -325,7 +321,6 @@ export default function FaqModal({
     if (!validateForm()) return
 
     setIsSaving(true)
-    setError('')
 
     try {
       // 生成 FAQ ID（新增時）
@@ -369,9 +364,11 @@ export default function FaqModal({
 
       onSuccess()
       onClose()
-    } catch (err) {
-      console.error('Save FAQ error:', err)
-      setError(err instanceof Error ? err.message : t('saveFailed'))
+    } catch (err: any) {
+      console.error('[QACardEditor] Save FAQ error:', err)
+      // 提取錯誤訊息（從 Error.message）
+      const errorMessage = err?.message || t('saveFailed')
+      notify.error(errorMessage)
     } finally {
       setIsSaving(false)
     }
@@ -380,105 +377,46 @@ export default function FaqModal({
   if (!isOpen) return null
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ${isFullScreen ? 'p-0' : ''}`}>
-      <div className={`bg-white rounded-lg shadow-2xl ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-4xl'} flex flex-col`}>
-        {/* Header */}
-        <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-lg">
-          <div className="flex items-center justify-between pr-32">
-            <h2 className="text-2xl font-bold text-white">
-              {mode === 'create' ? t('createFaq') : t('editFaq')}
-            </h2>
-            
-            {/* 狀態切換 Toggle Switch */}
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-sm font-medium ${status === 'active' ? 'text-green-200' : 'text-red-200'}`}
-              >
-                {status === 'active' ? t('active') : t('inactive')}
-              </span>
-              <button
-                type="button"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 ${
-                  status === 'active' ? 'bg-green-500' : 'bg-red-500'
-                }`}
-                onClick={() => setStatus(status === 'active' ? 'inactive' : 'active')}
-              >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-[80vh] flex flex-col">
+        {/* Top Container */}
+        <div className="flex-shrink-0 px-6 pt-4 pb-0">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 py-3 px-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t('qaCard')}
+              </h2>
+              {/* 狀態切換 Toggle Switch */}
+              <div className="flex items-center gap-2">
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                    status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                  className={`text-base font-medium ${status === 'active' ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {status === 'active' ? t('active') : t('inactive')}
+                </span>
+                <button
+                  type="button"
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 ${
+                    status === 'active' ? 'bg-green-500' : 'bg-red-500'
                   }`}
-                />
-              </button>
+                  onClick={() => setStatus(status === 'active' ? 'inactive' : 'active')}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                      status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
-          </div>
-          
-          {/* 右上角按鈕 */}
-          <div className="absolute top-3 right-3 flex items-center gap-2">
-            {/* 全螢幕按鈕 */}
-            <button
-              type="button"
-              onClick={() => setIsFullScreen(!isFullScreen)}
-              className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200"
-            >
-              {isFullScreen ? (
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
-                  />
-                </svg>
-              )}
-            </button>
-
-            {/* 關閉按鈕 */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200"
-            >
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div className={`px-6 py-6 overflow-y-auto ${isFullScreen ? 'h-[calc(100vh-180px)]' : 'max-h-[60vh]'}`}>
-          <div className="space-y-6">
+        {/* Content Area - Left and Right Containers */}
+        <div className="flex-1 flex gap-4 overflow-hidden pt-4 px-6 pb-3">
+          {/* Left Container */}
+          <div className="flex-1 rounded-lg border border-gray-200 bg-gray-50 pt-2 px-2 pb-1 flex flex-col overflow-hidden">
             {/* 問題 */}
-            <div>
+            <div className="flex-shrink-0 mb-6">
               <label className="block text-base font-semibold text-gray-700 mb-2.5">
                 {t('question')} <span className="text-red-500">*</span>
               </label>
@@ -487,52 +425,40 @@ export default function FaqModal({
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder={t('questionPlaceholder')}
-                className="text-base"
+                className="text-base rounded"
               />
             </div>
 
             {/* 答案 - Toast UI Editor */}
-            <div>
-              <label className="block text-base font-semibold text-gray-700 mb-2.5">
+            <div className="flex-1 flex flex-col min-h-0">
+              <label className="block text-base font-semibold text-gray-700 mb-2.5 flex-shrink-0">
                 {t('answer')} <span className="text-red-500">*</span>
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-base font-normal text-gray-500">
                   {t('markdownSupported')}
                 </span>
                 {isUploadingImage && (
-                  <span className="ml-2 text-sm text-blue-600 font-normal">
+                  <span className="ml-2 text-base text-blue-600 font-normal">
                     (上傳圖片中...)
                   </span>
                 )}
               </label>
-              <div 
-                ref={editorDivRef} 
-                className="border border-gray-300 rounded-lg overflow-visible"
-                style={{ position: 'relative', zIndex: 1 }}
-              />
+              <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden bg-white min-h-0">
+                <div 
+                  ref={editorDivRef} 
+                  className="h-full"
+                  style={{ position: 'relative', zIndex: 1 }}
+                />
+              </div>
             </div>
+          </div>
 
-            {/* 同義詞 */}
-            <div>
-              <label className="block text-base font-semibold text-gray-700 mb-2.5">
-                {t('synonyms')}
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({t('optional')})
-                </span>
-              </label>
-              <Input
-                type="text"
-                value={synonym}
-                onChange={(e) => setSynonym(e.target.value)}
-                placeholder={t('synonymsPlaceholder')}
-                className="text-base"
-              />
-            </div>
-
+          {/* Right Container */}
+          <div className="w-[200px] flex-shrink-0 rounded-lg border border-gray-200 bg-gray-50 pt-2 px-2 pb-1 flex flex-col overflow-hidden">
             {/* 主題分類 */}
-            <div>
+            <div className="flex-shrink-0 mb-6">
               <label className="block text-base font-semibold text-gray-700 mb-2.5">
                 {t('topic')}
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-base font-normal text-gray-500">
                   ({t('optional')})
                 </span>
               </label>
@@ -545,24 +471,33 @@ export default function FaqModal({
                 {renderTopicOptions()}
               </select>
             </div>
-          </div>
 
-          {/* 錯誤訊息 */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            {/* 同義詞 */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <label className="block text-base font-semibold text-gray-700 mb-2.5 flex-shrink-0">
+                {t('synonyms')}
+                <span className="ml-2 text-base font-normal text-gray-500">
+                  ({t('optional')})
+                </span>
+              </label>
+              <textarea
+                value={synonym}
+                onChange={(e) => setSynonym(e.target.value)}
+                className="flex-1 w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none outline-none"
+                placeholder={t('synonymsPlaceholder')}
+              />
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200 flex justify-end gap-3">
+        <div className="flex-shrink-0 px-6 py-2 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={onClose}
             disabled={isSaving}
-            className="px-6 py-2.5 text-base"
+            className="px-6 py-2 text-base"
           >
             {tCommon('cancel')}
           </Button>
@@ -570,7 +505,7 @@ export default function FaqModal({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-6 py-2.5 text-base bg-blue-600 hover:bg-blue-700"
+            className="px-6 py-2 text-base"
           >
             {isSaving ? tCommon('saving') : tCommon('save')}
           </Button>

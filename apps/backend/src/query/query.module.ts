@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ElasticsearchModule } from '../elasticsearch/elasticsearch.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { ModelConfigService } from '../common/model-config.service';
+import { QuotaService } from '../common/quota.service';
 
 /**
  * 查詢模組
@@ -14,7 +15,7 @@ import { ModelConfigService } from '../common/model-config.service';
 @Module({
   imports: [PrismaModule, ElasticsearchModule, SessionsModule],
   controllers: [QueryController],
-  providers: [QueryService, LlmService, ModelConfigService],
+  providers: [QueryService, LlmService, ModelConfigService, QuotaService],
   exports: [QueryService],
 })
 export class QueryModule {}

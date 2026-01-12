@@ -8,6 +8,7 @@ import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { chatbotApi } from '@/lib/api/chatbot';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ColorInput from '@/components/ui/ColorInput';
+import { useNotification } from '@/hooks/useNotification';
 
 interface DesignManagerProps {
   chatbotId: string;
@@ -18,6 +19,7 @@ type SettingCategory = 'container' | 'header' | 'input' | 'contact' | 'qaCard' |
 export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const t = useTranslations('design');
   const tCommon = useTranslations('common');
+  const notify = useNotification();
 
   const [theme, setTheme] = useState<ChatbotTheme>(defaultTheme);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -66,7 +68,10 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       console.log('✅ Theme 已保存');
     } catch (error) {
       console.error('❌ 保存 theme 失敗:', error);
-      alert('保存失敗：' + (error instanceof Error ? error.message : String(error)));
+      notify.error(
+        t('saveFailed'),
+        error instanceof Error ? error.message : String(error)
+      );
     } finally {
       setIsSaving(false);
     }
@@ -115,13 +120,13 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
     // 驗證檔案大小（5MB）
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert(t('fileTooLarge'));
+      notify.error(t('fileTooLarge'));
       return;
     }
 
     // 驗證檔案類型
     if (!file.type.match(/^image\/(jpg|jpeg|png|gif|webp)$/)) {
-      alert('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）');
+      notify.error('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）');
       return;
     }
 
@@ -148,9 +153,13 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       const logoPath = `http://localhost:8000${result.data.logoPath}`;
       updateTheme({ headerLogo: logoPath });
       setRefreshKey(prev => prev + 1);
+      notify.success(t('uploadLogoSuccess'));
     } catch (error) {
       console.error('上傳 logo 時發生錯誤:', error);
-      alert(error instanceof Error ? error.message : t('uploadLogoFailed'));
+      notify.error(
+        t('uploadLogoFailed'),
+        error instanceof Error ? error.message : undefined
+      );
     } finally {
       setIsUploadingLogo(false);
       // 重置 input，允許重新選擇同一個檔案

@@ -213,10 +213,8 @@ export class SessionsService {
       throw new UnauthorizedException('CHATBOT_MISMATCH');
     }
 
-    // 檢查查詢次數是否超過限制
-    if (session.queryCount >= session.maxQueries) {
-      throw new BadRequestException('QUERY_LIMIT_EXCEEDED');
-    }
+    // 注意：已移除查詢次數限制檢查，改用 Rate Limiting + Quota 機制
+    // queryCount 仍會累積，用於統計分析
 
     return {
       session_id: session.id,

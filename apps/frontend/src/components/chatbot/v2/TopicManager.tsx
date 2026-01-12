@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { topicApi } from '@/lib/api/topic';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useNotification } from '@/hooks/useNotification';
 
 interface Topic {
   id: string;
@@ -225,6 +226,7 @@ function TopicItem({
 export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps) {
   const t = useTranslations('topicManager');
   const tCommon = useTranslations('common');
+  const notify = useNotification();
 
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -287,7 +289,7 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert(t('nameRequired'));
+      notify.error(t('nameRequired'));
       return;
     }
 
@@ -299,7 +301,7 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
       const newLevel = parentLevel + 1;
 
       if (newLevel > 2) {
-        alert(t('maxLevelExceeded'));
+        notify.error(t('maxLevelExceeded'));
         return;
       }
 
@@ -331,9 +333,10 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
       setIsCreating(false);
       setEditingTopic(null);
       if (onRefresh) onRefresh();
+      notify.success(editingTopic ? t('updated') : t('created'));
     } catch (error) {
       console.error('保存失敗:', error);
-      alert(t('saveFailed'));
+      notify.error(t('saveFailed'));
     }
   };
 
@@ -351,9 +354,10 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
       if (onRefresh) onRefresh();
       setShowDeleteConfirm(false);
       setTopicToDelete(null);
+      notify.success(t('deleted'));
     } catch (error) {
       console.error('刪除失敗:', error);
-      alert(t('deleteFailed'));
+      notify.error(t('deleteFailed'));
       setShowDeleteConfirm(false);
       setTopicToDelete(null);
     }
@@ -428,7 +432,7 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error('[TopicManager] 調整順序失敗:', error);
-      alert(t('moveFailed') || '調整順序失敗');
+      notify.error(t('moveFailed') || '調整順序失敗');
     }
   };
 
@@ -454,7 +458,7 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error('[TopicManager] 調整順序失敗:', error);
-      alert(t('moveFailed') || '調整順序失敗');
+      notify.error(t('moveFailed') || '調整順序失敗');
     }
   };
 

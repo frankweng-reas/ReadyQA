@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { faqApi } from '@/lib/api/faq';
 import { topicApi } from '@/lib/api/topic';
 import { chatbotApi } from '@/lib/api/chatbot';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import QACard from './QACard';
+import { useNotification } from '@/hooks/useNotification';
 
 interface ChatbotWidgetProps {
   theme?: Partial<ChatbotTheme>
@@ -61,8 +63,12 @@ export default function ChatbotWidget({
   isInputDisabled = false,
   refreshKey = 0
 }: ChatbotWidgetProps) {
+  // 翻譯
+  const tCommon = useTranslations('common');
+  const notify = useNotification();
+  
   // 直接使用傳入的 theme（資料庫中已有完整資料）
-  const theme: ChatbotTheme = customTheme || defaultTheme;
+  const theme: ChatbotTheme = (customTheme as ChatbotTheme) || defaultTheme;
 
   // 模式切換
   const [activeTab, setActiveTab] = useState<'chat' | 'browse'>('chat');
@@ -218,10 +224,7 @@ export default function ChatbotWidget({
 
   // 處理 FAQ 點擊（Browse mode）
   const handleFaqClick = async (faq: FAQ) => {
-    setSelectedFaq(faq);
-    setSelectedFaqLogId(null); // 重置 log_id
-
-    // ========== 記錄 FAQ 直接瀏覽 ==========
+    // ========== 先檢查 Quota 再顯示 FAQ ==========
     if (!chatbotId) return;
 
     try {
@@ -229,7 +232,7 @@ export default function ChatbotWidget({
       const { getOrInitSessionToken } = await import('@/utils/sessionToken');
       const sessionToken = await getOrInitSessionToken(chatbotId);
 
-      // 調用 log-faq-browse API
+      // 調用 log-faq-browse API（包含 Quota 檢查）
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/query/log-faq-browse`;
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -251,16 +254,26 @@ export default function ChatbotWidget({
           log_id: data.log_id,
         });
         
+        // Quota 檢查通過，顯示 FAQ
+        setSelectedFaq(faq);
+        
         // 儲存 log_id 以便傳給 QACard
         if (data.log_id) {
           setSelectedFaqLogId(data.log_id);
+        } else {
+          setSelectedFaqLogId(null);
         }
       } else {
-        console.warn('[ChatbotWidget] ⚠️ 記錄 FAQ 瀏覽失敗:', response.status);
+        // API 返回錯誤（可能是 Quota 超限）
+        const errorData = await response.json().catch(() => ({ message: '查詢失敗' }));
+        console.warn('[ChatbotWidget] ⚠️ FAQ 瀏覽被阻擋:', response.status, errorData);
+        
+        // 顯示錯誤訊息給用戶
+        notify.warning(errorData.message || '查詢失敗');
       }
     } catch (error) {
-      // 記錄失敗不影響用戶體驗
       console.error('[ChatbotWidget] ❌ 記錄 FAQ 瀏覽錯誤:', error);
+      notify.error('系統發生錯誤');
     }
   };
 
@@ -1346,6 +1359,8 @@ export default function ChatbotWidget({
           </div>
         </div>
       )}
+
+      {/* 錯誤訊息對話框 */}
     </div>
   );
 }
