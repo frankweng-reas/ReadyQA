@@ -15,7 +15,9 @@
     "creating": "建立中...",
     "search": "搜尋",
     "back": "返回",
-    "actions": "操作"
+    "actions": "操作",
+    "clear": "清除",
+    "help": "說明"
   },
   "auth": {
     "login": {
@@ -105,7 +107,7 @@
   "knowledge": {
     "knowledgeManagement": "問答管理",
     "faqList": "問答列表",
-    "faqHeaderMessage": "設定 AI 回答內容",
+    "faqHeaderMessage": "管理問與答，確保答案內容的正確性",
     "topics": "分類管理",
     "bulkUploadTab": "批量上傳",
     "searchPlaceholder": "搜尋問題或答案...",
@@ -224,7 +226,7 @@
     "currentChatbot": "當前助手"
   },
   "design": {
-    "title": "打造你的 AI 助手，這會影響訪客看到的第一印象",
+    "title": "打造你的問答助手，彰顯你的品牌風格！",
     "subtitle": "自訂聊天機器人的外觀與樣式",
     "settings": "設定",
     "saving": "保存中...",
@@ -277,7 +279,7 @@
     "uploadingLogo": "上傳中...",
     "invalidImageFormat": "只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）",
     "supportedImageFormats": "支援 JPG, PNG, GIF, WEBP，最大 5MB",
-    "headerSettingsTitle": "Header 設定",
+    "headerSettingsTitle": "標題列設定",
     "chatSettingsTitle": "問答區設定",
     "inputSettingsTitle": "輸入區設定",
     "advancedSettingsTitle": "進階設定",
@@ -351,6 +353,10 @@
     
     "_comment6_2": "========== 進階設定 ==========",
     "advancedSettings": "進階設定",
+    "queryTypeSetting": "查詢模式設定",
+    "enableAIChat": "僅智能問答",
+    "enableBrowseQA": "僅問答瀏覽",
+    "bothModes": "兩者都提供",
     
     "_comment7": "========== 其他（待整理） ==========",
     "showSettings": "顯示設定",
@@ -407,7 +413,7 @@
     "moveFailed": "調整順序失敗，請稍後再試"
   },
   "publish": {
-    "title": "發佈你的 AI 助手",
+    "title": "依照使用場景，管理並發佈你的問答助手",
     "publishAssistant": "發佈助手",
     "accessControl": "訪問控制",
     "pwaUrl": "PWA 網址",
@@ -437,6 +443,17 @@
     "domainRemoved": "網域已刪除並儲存",
     "domainExists": "此網域已存在",
     "saveFailed": "保存失敗，請稍後再試"
+  },
+  "insight": {
+    "title": "透過分析與洞察，優化你的問答助手",
+    "overview": "總覽",
+    "queries": "查詢分析",
+    "faqs": "問答分析",
+    "sessions": "會話分析",
+    "overviewPlaceholder": "總覽內容待實作",
+    "queriesPlaceholder": "查詢分析內容待實作",
+    "faqsPlaceholder": "問答分析內容待實作",
+    "sessionsPlaceholder": "會話分析內容待實作"
   },
   "errors": {
     "quotaExceeded": "已達到每月查詢次數限制，請升級方案",
@@ -500,52 +517,6 @@
       "deleted": "助手已刪除",
       "statusUpdated": "狀態已更新"
     }
-  },
-  "toastDemo": {
-    "title": "Toast 通知系統比較",
-    "subtitle": "體驗三種不同的 Toast 通知方案，選擇最適合的解決方案",
-    "recommended": "推薦",
-    "answerGoDesc": "目前 AnswerGO 使用的自製 Toast 系統",
-    "hotToastDesc": "輕量、流行的 Toast 解決方案（3.5KB）",
-    "sonnerDesc": "最現代的 Toast 系統，更美觀、功能更強大",
-    "success": "成功",
-    "error": "錯誤",
-    "warning": "警告",
-    "info": "資訊",
-    "promiseTest": "Promise 測試",
-    "withAction": "帶操作按鈕",
-    "successMessage": "✓ 操作成功完成！",
-    "errorMessage": "✕ 操作失敗，請重試",
-    "warningMessage": "⚠ 請注意此操作的風險",
-    "infoMessage": "ℹ 這是一則資訊提示",
-    "actionMessage": "文件已刪除",
-    "undo": "撤銷",
-    "undoSuccess": "已撤銷操作",
-    "loading": "處理中...",
-    "loadingSuccess": "處理完成！",
-    "loadingError": "處理失敗",
-    "customTest": "自訂訊息測試",
-    "customPlaceholder": "輸入自訂訊息...",
-    "testAll": "測試全部",
-    "pros": "優點",
-    "cons": "缺點",
-    "answerGoPro1": "完全掌控程式碼",
-    "answerGoPro2": "無外部依賴（除了 framer-motion）",
-    "answerGoCon1": "每個組件都要管理 state",
-    "answerGoCon2": "淺色背景，視覺不突出",
-    "answerGoCon3": "沒有進度條",
-    "answerGoCon4": "需要維護更多程式碼",
-    "hotToastPro1": "零配置，直接呼叫即可",
-    "hotToastPro2": "支援 Promise 自動轉換",
-    "hotToastPro3": "輕量（3.5KB）且穩定",
-    "hotToastCon1": "設計較簡約",
-    "hotToastCon2": "自訂選項較少",
-    "sonnerPro1": "最現代的視覺設計",
-    "sonnerPro2": "自動顯示倒數進度條",
-    "sonnerPro3": "支援 Action buttons",
-    "sonnerPro4": "完美的動畫效果",
-    "sonnerPro5": "零配置，API 最簡潔",
-    "sonnerCon1": "相對較新（但已很穩定）"
   }
 }
 

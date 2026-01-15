@@ -2,27 +2,19 @@
 
 import { useState } from 'react';
 import { layout } from '@/config/layout';
-import FaqList from '@/components/chatbot/v2/FaqList';
-import TopicManager from '@/components/chatbot/v2/TopicManager';
-import BulkUploadView from '@/components/chatbot/v2/BulkUploadView';
 import HelpModal from '@/components/ui/HelpModal';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
-interface QAManagerProps {
+interface InsightManagerProps {
   chatbotId: string;
 }
 
-export default function QAManager({ chatbotId }: QAManagerProps) {
-  const t = useTranslations('knowledge');
+export default function InsightManager({ chatbotId }: InsightManagerProps) {
+  const t = useTranslations('insight');
   const tCommon = useTranslations('common');
-  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload'>('faq-list');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState<'overview' | 'queries' | 'faqs' | 'sessions'>('overview');
   const [showHelp, setShowHelp] = useState(false);
-
-  const handleRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -43,10 +35,15 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             stroke="currentColor" 
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" 
+            />
           </svg>
           <h1 className="text-xl font-normal text-white">
-            {t('faqHeaderMessage')}
+            {t('title')}
           </h1>
         </div>
 
@@ -77,37 +74,48 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             }}
           >
             <button
-              onClick={() => setActiveTab('faq-list')}
+              onClick={() => setActiveTab('overview')}
               className={cn(
                 'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
-                activeTab === 'faq-list'
+                activeTab === 'overview'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('faqList')}
+              {t('overview')}
             </button>
             <button
-              onClick={() => setActiveTab('topics')}
+              onClick={() => setActiveTab('queries')}
               className={cn(
                 'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
-                activeTab === 'topics'
+                activeTab === 'queries'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('topics')}
+              {t('queries')}
             </button>
             <button
-              onClick={() => setActiveTab('bulk-upload')}
+              onClick={() => setActiveTab('faqs')}
               className={cn(
                 'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
-                activeTab === 'bulk-upload'
+                activeTab === 'faqs'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('bulkUploadTab')}
+              {t('faqs')}
+            </button>
+            <button
+              onClick={() => setActiveTab('sessions')}
+              className={cn(
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
+                activeTab === 'sessions'
+                  ? 'text-primary border-primary bg-grey'
+                  : 'text-label border-transparent hover:text-text hover:bg-grey/50'
+              )}
+            >
+              {t('sessions')}
             </button>
           </div>
         </div>
@@ -119,24 +127,37 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             padding: layout.content.padding,
           }}
         >
-          {activeTab === 'faq-list' && (
-            <FaqList
-              chatbotId={chatbotId}
-              refreshTrigger={refreshTrigger}
-              onRefresh={handleRefresh}
-            />
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* 待實作：總覽內容 */}
+              <div className="text-center py-12">
+                <p className="text-label">{t('overviewPlaceholder')}</p>
+              </div>
+            </div>
           )}
-          {activeTab === 'topics' && (
-            <TopicManager
-              chatbotId={chatbotId}
-              onRefresh={handleRefresh}
-            />
+          {activeTab === 'queries' && (
+            <div className="space-y-6">
+              {/* 待實作：查詢分析內容 */}
+              <div className="text-center py-12">
+                <p className="text-label">{t('queriesPlaceholder')}</p>
+              </div>
+            </div>
           )}
-          {activeTab === 'bulk-upload' && (
-            <BulkUploadView
-              chatbotId={chatbotId}
-              onSuccess={handleRefresh}
-            />
+          {activeTab === 'faqs' && (
+            <div className="space-y-6">
+              {/* 待實作：問答分析內容 */}
+              <div className="text-center py-12">
+                <p className="text-label">{t('faqsPlaceholder')}</p>
+              </div>
+            </div>
+          )}
+          {activeTab === 'sessions' && (
+            <div className="space-y-6">
+              {/* 待實作：會話分析內容 */}
+              <div className="text-center py-12">
+                <p className="text-label">{t('sessionsPlaceholder')}</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -145,7 +166,7 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
       <HelpModal
         isOpen={showHelp}
         onClose={() => setShowHelp(false)}
-        helpFile="knowledge"
+        helpFile="insight"
       />
     </div>
   );

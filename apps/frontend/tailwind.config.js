@@ -27,6 +27,7 @@ module.exports = {
         accent: '#0B3037',
         grey: '#F2F5F5',
         'grey-200': '#E5E7EB',
+        'grey-220': '#ededed',
         'grey-250': '#D1D5DB',
         text: '#0B3037',
         label: '#0B3037',
@@ -40,7 +41,7 @@ module.exports = {
         'sidebar-border': '#374151',
         'sidebar-header-bg': '#111827',
         // Header 顏色
-        'header-bg': '#FFFFFF',
+        'header-bg': '#4b5563',
         'header-border': '#E5E7EB',
         'header-text': '#111827',
         'header-text-secondary': '#6B7280',

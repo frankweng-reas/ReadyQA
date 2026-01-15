@@ -6,6 +6,7 @@ import ChatbotSidebarV2 from '@/components/chatbot/v2/ChatbotSidebarV2';
 import QAManager from '@/components/chatbot/v2/QAManager';
 import DesignManager from '@/components/chatbot/v2/DesignManager';
 import PublishManager from '@/components/chatbot/v2/PublishManager';
+import InsightManager from '@/components/chatbot/v2/InsightManager';
 import { layout } from '@/config/layout';
 
 type ViewType = 'knowledge' | 'design' | 'publish' | 'insight' | 'test';
@@ -63,20 +64,8 @@ export default function ChatbotDetailPage() {
           {currentView === 'knowledge' && <QAManager chatbotId={chatbotId} />}
           {currentView === 'design' && <DesignManager chatbotId={chatbotId} />}
           {currentView === 'publish' && <PublishManager chatbotId={chatbotId} />}
-          {currentView === 'insight' && <PlaceholderView title="分析" />}
+          {currentView === 'insight' && <InsightManager chatbotId={chatbotId} />}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// 占位組件
-function PlaceholderView({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full bg-content-bg rounded-lg">
-      <div className="text-center">
-        <p className="text-lg font-medium text-gray-700 mb-2">{title}</p>
-        <p className="text-label">內容待實作</p>
       </div>
     </div>
   );

@@ -74,7 +74,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
     try {
       setIsLoading(true)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/faqs?chatbotId=${chatbotId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/faqs?chatbotId=${chatbotId}&limit=500`
       )
       if (!response.ok) throw new Error('Failed to load FAQs')
       

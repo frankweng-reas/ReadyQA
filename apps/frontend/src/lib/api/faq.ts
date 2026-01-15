@@ -27,6 +27,7 @@ export const faqApi = {
   async getAll(chatbotId: string, topicId?: string, searchQuery?: string, statusFilter?: string): Promise<FAQ[]> {
     const params = new URLSearchParams();
     params.append('chatbotId', chatbotId);
+    params.append('limit', '500');
     if (topicId) params.append('topicId', topicId);
     if (searchQuery) params.append('search', searchQuery);
     if (statusFilter) params.append('status', statusFilter);

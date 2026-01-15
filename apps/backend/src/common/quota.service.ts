@@ -117,6 +117,16 @@ export class QuotaService {
         };
       }
 
+      // 檢查 tenantId 是否存在
+      if (!tenantId) {
+        return {
+          allowed: false,
+          reason: '租戶 ID 不存在',
+          current_count: 0,
+          max_count: maxQueriesPerMo,
+        };
+      }
+
       // 3. 獲取本月查詢次數
       const currentCount = await this.getMonthlyQueryCount(tenantId);
 

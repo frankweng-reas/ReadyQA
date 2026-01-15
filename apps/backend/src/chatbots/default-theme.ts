@@ -72,6 +72,8 @@ export const getDefaultTheme = () => ({
     phone: '',
     email: '',
   },
+  enableAIChat: true,
+  enableBrowseQA: true,
 });
 
 /**

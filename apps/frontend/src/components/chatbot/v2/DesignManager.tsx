@@ -9,6 +9,7 @@ import { ChatbotTheme, defaultTheme } from '@/types/chat';
 import { chatbotApi } from '@/lib/api/chatbot';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ColorInput from '@/components/ui/ColorInput';
+import HelpModal from '@/components/ui/HelpModal';
 import { useNotification } from '@/hooks/useNotification';
 
 interface DesignManagerProps {
@@ -30,6 +31,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const [selectedSection, setSelectedSection] = useState<'header' | 'chat' | 'input' | 'settings'>('header');
   const [hoveredSection, setHoveredSection] = useState<'header' | 'chat' | 'input' | 'settings' | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 載入當前 chatbot 的 theme
@@ -186,11 +188,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
           faq_id: 'sample-1',
           question: '營業時間',
           answer: '我們的營業時間為：\n\n- 週一至週五：09:00 - 18:00\n- 週六：10:00 - 17:00\n- 週日及國定假日：公休'
-        },
-        {
-          faq_id: 'sample-2',
-          question: '聯絡方式',
-          answer: '您可以透過以下方式聯絡我們：\n\n**電話：** 02-1234-5678\n**Email：** contact@example.com\n**地址：** 台北市信義區信義路五段7號'
         }
       ]
     }
@@ -260,6 +257,19 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
     ? { borderColor: containerStyle.borderColor }
     : {};
 
+  // 查詢模式設定檢查（與 ChatbotWidget 相同邏輯）
+  const enableAIChat = theme.enableAIChat !== false; // 預設 true
+  const enableBrowseQA = theme.enableBrowseQA !== false; // 預設 true
+  
+  // 確保至少有一個模式啟用
+  const safeEnableAIChat = enableAIChat || !enableBrowseQA;
+  const safeEnableBrowseQA = enableBrowseQA || !enableAIChat;
+  
+  const showTabArea = safeEnableAIChat && safeEnableBrowseQA; // 兩個都啟用才顯示 Tab 區域
+  
+  // 預覽區域的預設 Tab（用於顯示）
+  const previewDefaultTab = safeEnableAIChat ? 'chat' : 'browse';
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
@@ -274,7 +284,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
         >
           <div className="flex items-center gap-3">
             <svg 
-              className="w-6 h-6 text-primary" 
+              className="w-6 h-6 text-white" 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -286,9 +296,23 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
               />
             </svg>
-            <h1 className="text-xl font-semibold text-header-text">
+            <h1 className="text-xl font-semibold text-white">
               {t('title')}
             </h1>
+          </div>
+
+          {/* 右側按鈕區 */}
+          <div className="ml-auto flex items-center gap-3">
+            {/* Help 按鈕 */}
+            <button
+              onClick={() => setShowHelp(true)}
+              className="relative group w-8 h-8 rounded-full flex items-center justify-center border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 transition-all duration-200 shadow-sm hover:shadow"
+            >
+              <span className="text-base font-semibold">？</span>
+              <span className="absolute right-full mr-3 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none whitespace-nowrap z-[100]">
+                {tCommon('help')}
+              </span>
+            </button>
           </div>
         </header>
 
@@ -315,7 +339,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
         {/* 標題 */}
         <div className="flex items-center gap-3">
           <svg 
-            className="w-6 h-6 text-primary" 
+            className="w-6 h-6 text-white" 
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
@@ -327,7 +351,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
             />
           </svg>
-          <h1 className="text-xl font-semibold text-header-text">
+          <h1 className="text-xl font-normal text-white">
             {t('title')}
           </h1>
         </div>
@@ -345,6 +369,16 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             </div>
           )}
 
+          {/* Help 按鈕 */}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="relative group w-8 h-8 rounded-full flex items-center justify-center border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 transition-all duration-200 shadow-sm hover:shadow"
+          >
+            <span className="text-base font-semibold">？</span>
+            <span className="absolute right-full mr-3 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none whitespace-nowrap z-[100]">
+              {tCommon('help')}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -357,7 +391,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       >
         {/* 左側容器 - Chatbot 預覽 */}
         <div 
-          className="flex-1 rounded-xl border border-header-border overflow-hidden flex items-center justify-center relative"
+          className={`flex-1 ${containerStyle?.borderRadius || 'rounded-lg'} border border-header-border overflow-hidden flex items-center justify-center relative`}
           style={{
             backgroundColor: previewBgColor === 'white' ? '#ffffff' : '#000000',
             zIndex: 1
@@ -391,8 +425,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               title={t('openPreview')}
             >
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
               </svg>
             </button>
           </div>
@@ -449,7 +482,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 
                 return (
                   <div 
-                    className="flex-shrink-0 relative transition-all duration-200 border-b border-gray-200 cursor-pointer"
+                    className="flex-shrink-0 relative transition-all duration-200 border-b border-transparent cursor-pointer"
                     style={{ 
                       ...backgroundStyle,
                       color: theme.headerTextColor,
@@ -547,145 +580,206 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 );
               })()}
 
-              {/* Tab 切換區域 */}
-              <div 
-                className="flex items-center border-b relative"
-                style={{ 
-                  borderColor: theme.qaCardStyle?.borderColor || '#E5E7EB',
-                }}
-              >
-                <button
-                  className="flex-1 px-4 py-2 font-medium transition-all border-b-2"
-                  style={{
-                    color: '#374151',
-                    borderColor: theme.qaCardStyle?.accentColor || '#3B82F6',
-                    pointerEvents: 'none'
-                  }}
+              {/* Tab 切換區域 - 只在兩個模式都啟用時顯示 */}
+              {showTabArea && (
+                <div 
+                  className="flex items-center border-b border-transparent relative"
                 >
-                  <div className="flex items-center justify-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    <span>智能問答</span>
-                  </div>
-                </button>
-                <button
-                  className="flex-1 px-4 py-2 font-medium transition-all opacity-60"
-                  style={{
-                    color: '#374151',
-                    pointerEvents: 'none'
-                  }}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                    <span>問答瀏覽</span>
-                  </div>
-                </button>
-                
-                {/* 三點選單按鈕 */}
-                <div className="px-3">
                   <button
-                    className="p-2 rounded-md transition-colors flex items-center justify-center"
+                    className={`flex-1 px-4 py-2 font-medium transition-all ${
+                      previewDefaultTab === 'chat' ? 'border-b-2' : ''
+                    }`}
                     style={{
-                      color: '#6B7280',
+                      color: '#374151',
+                      borderColor: previewDefaultTab === 'chat' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
                       pointerEvents: 'none'
                     }}
                   >
-                    <svg 
-                      className="w-5 h-5"
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <span>智能問答</span>
+                    </div>
+                  </button>
+                  <button
+                    className={`flex-1 px-4 py-2 font-medium transition-all ${
+                      previewDefaultTab === 'browse' ? 'border-b-2' : 'opacity-60'
+                    }`}
+                    style={{
+                      color: '#374151',
+                      borderColor: previewDefaultTab === 'browse' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      <span>問答瀏覽</span>
+                    </div>
                   </button>
                 </div>
-              </div>
+              )}
 
-              {/* 內容區域 */}
-              <div 
-                className="flex-1 p-4 overflow-y-auto min-h-0 relative transition-all duration-200 cursor-pointer"
-                style={{ 
-                  order: theme.inputPosition === 'top' ? 2 : 1
-                }}
-                onMouseEnter={() => setHoveredSection('chat')}
-                onMouseLeave={() => setHoveredSection(null)}
-                onClick={() => setSelectedSection('chat')}
-              >
-                {/* 高亮遮罩 - 檢查 hover 或選中 */}
-                {(hoveredSection === 'chat' || selectedSection === 'chat') && (
-                  <div 
-                    className="absolute inset-0 pointer-events-none z-[9999]"
-                    style={{ 
-                      outline: '4px solid #22C55E',
-                      outlineOffset: '-4px',
-                      opacity: hoveredSection === 'chat' ? 0.8 : 1
-                    }}
-                  />
-                )}
-              
-                <div className="space-y-4">
-                  {sampleMessages.map((message, index) => (
-                    <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                      {message.type === 'user' ? (
-                        /* 用戶訊息 */
-                        <div 
-                          className="max-w-[80%] px-4 py-2 rounded-lg"
-                          style={{
-                            backgroundColor: theme.userBubbleColor || '#3B82F6',
-                            color: theme.userTextColor || '#FFFFFF',
-                          }}
-                        >
-                          {message.content}
-                        </div>
-                      ) : (
-                        /* 助手訊息 */
-                        <div className="w-full space-y-3">
-                          {/* Intro 文字 */}
-                          {message.intro && (
-                            <div
-                              className="w-full px-4 py-2 rounded-lg"
-                              style={{
-                                backgroundColor: theme.botBubbleColor || '#F3F4F6',
-                                color: theme.botTextColor || '#1F2937',
-                              }}
-                            >
-                              {message.intro}
-                            </div>
-                          )}
+              {/* 智能問答內容區域 */}
+              {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
+                <div 
+                  className="flex-1 p-4 overflow-y-auto min-h-0 relative transition-all duration-200 cursor-pointer"
+                  style={{ 
+                    order: theme.inputPosition === 'top' ? 2 : 1
+                  }}
+                  onMouseEnter={() => setHoveredSection('chat')}
+                  onMouseLeave={() => setHoveredSection(null)}
+                  onClick={() => setSelectedSection('chat')}
+                >
+                  {/* 高亮遮罩 - 檢查 hover 或選中 */}
+                  {(hoveredSection === 'chat' || selectedSection === 'chat') && (
+                    <div 
+                      className="absolute inset-0 pointer-events-none z-[9999]"
+                      style={{ 
+                        outline: '4px solid #22C55E',
+                        outlineOffset: '-4px',
+                        opacity: hoveredSection === 'chat' ? 0.8 : 1
+                      }}
+                    />
+                  )}
+                
+                  <div className="space-y-4">
+                    {sampleMessages.map((message, index) => (
+                      <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                        {message.type === 'user' ? (
+                          /* 用戶訊息 */
+                          <div 
+                            className="max-w-[80%] px-4 py-2 rounded-lg"
+                            style={{
+                              backgroundColor: theme.userBubbleColor || '#3B82F6',
+                              color: theme.userTextColor || '#FFFFFF',
+                            }}
+                          >
+                            {message.content}
+                          </div>
+                        ) : (
+                          /* 助手訊息 */
+                          <div className="w-full space-y-3">
+                            {/* Intro 文字 */}
+                            {message.intro && (
+                              <div
+                                className="w-full px-4 py-2 rounded-lg"
+                                style={{
+                                  backgroundColor: theme.botBubbleColor || '#F3F4F6',
+                                  color: theme.botTextColor || '#1F2937',
+                                }}
+                              >
+                                {message.intro}
+                              </div>
+                            )}
 
-                          {/* QA 區塊列表 */}
-                          {message.qa_blocks && message.qa_blocks.length > 0 && (
-                            <div className="w-full space-y-3">
-                              {message.qa_blocks.map((qaBlock, qaIndex) => (
-                                <QACard
-                                  key={qaIndex}
-                                  faq_id={qaBlock.faq_id}
-                                  question={qaBlock.question}
-                                  answer={qaBlock.answer}
-                                  theme={theme}
-                                  config={{
-                                    alwaysExpanded: false,
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                            {/* QA 區塊列表 */}
+                            {message.qa_blocks && message.qa_blocks.length > 0 && (
+                              <div className="w-full space-y-3">
+                                {message.qa_blocks.map((qaBlock, qaIndex) => (
+                                  <QACard
+                                    key={qaIndex}
+                                    faq_id={qaBlock.faq_id}
+                                    question={qaBlock.question}
+                                    answer={qaBlock.answer}
+                                    theme={theme}
+                                    config={{
+                                      alwaysExpanded: false,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* 輸入框區域 */}
+              {/* 問答瀏覽內容區域 */}
+              {safeEnableBrowseQA && (previewDefaultTab === 'browse' || !showTabArea) && (
+                <div 
+                  className="flex-1 p-4 overflow-y-auto min-h-0 relative transition-all duration-200 cursor-pointer"
+                  style={{ 
+                    order: theme.inputPosition === 'top' ? 2 : 1
+                  }}
+                  onMouseEnter={() => setHoveredSection('chat')}
+                  onMouseLeave={() => setHoveredSection(null)}
+                  onClick={() => setSelectedSection('chat')}
+                >
+                  {/* 高亮遮罩 - 檢查 hover 或選中 */}
+                  {(hoveredSection === 'chat' || selectedSection === 'chat') && (
+                    <div 
+                      className="absolute inset-0 pointer-events-none z-[9999]"
+                      style={{ 
+                        outline: '4px solid #22C55E',
+                        outlineOffset: '-4px',
+                        opacity: hoveredSection === 'chat' ? 0.8 : 1
+                      }}
+                    />
+                  )}
+                
+                  {/* 問答瀏覽預覽內容 */}
+                  <div className="space-y-3">
+                    {/* 範例分類 */}
+                    <div className="border rounded-lg overflow-hidden border-gray-200">
+                      <button className="w-full px-4 py-3 transition-colors flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          <span className="font-medium text-gray-800">常見問題</span>
+                          <span className="text-xs text-gray-500">(5 問題)</span>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="border rounded-lg overflow-hidden border-gray-200">
+                      <button className="w-full px-4 py-3 transition-colors flex items-center justify-between bg-gray-50 hover:bg-gray-100">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          <span className="font-medium text-gray-700">使用說明</span>
+                          <span className="text-xs text-gray-500">(3 問題)</span>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="border rounded-lg overflow-hidden border-gray-200">
+                      <button className="w-full px-4 py-3 transition-colors flex items-center justify-between bg-gray-50 hover:bg-gray-100">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="font-medium text-gray-700">其他問題</span>
+                          <span className="text-xs text-gray-500">(2 問題)</span>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 輸入框區域 - 僅在智能問答模式顯示 */}
+              {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
               <div 
                 className={`flex-shrink-0 relative transition-all duration-200 cursor-pointer ${
                   theme.inputPosition === 'top' ? 'border-b' : 'border-t'
-                } border-gray-200`}
+                } border-transparent`}
                 style={{ 
                   order: theme.inputPosition === 'top' ? 1 : 2,
                   backgroundColor: theme.inputAreaBackgroundColor
@@ -706,7 +800,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   />
                 )}
                 <div className="p-4">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-center space-x-2">
                     {/* 語音輸入按鈕 */}
                     {theme.enableVoice && (
                       <button
@@ -714,10 +808,10 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         style={{
                           backgroundColor: theme.sendButtonBackgroundColor,
                           color: theme.sendButtonTextColor,
-                          width: '48px',
-                          height: '48px',
-                          minWidth: '48px',
-                          minHeight: '48px'
+                          width: '36px',
+                          height: '36px',
+                          minWidth: '36px',
+                          minHeight: '36px'
                         }}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -725,6 +819,24 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         </svg>
                       </button>
                     )}
+
+                    {/* 清除按鈕 */}
+                    <button
+                      className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm"
+                      style={{
+                        backgroundColor: theme.sendButtonBackgroundColor,
+                        color: theme.sendButtonTextColor,
+                        width: '36px',
+                        height: '36px',
+                        minWidth: '36px',
+                        minHeight: '36px'
+                      }}
+                      title={tCommon('clear')}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
 
                     <div className="flex-1">
                       <textarea
@@ -759,6 +871,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -769,7 +882,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
           style={{ overflow: 'visible' }}
         >
           {/* 左側 Tab 導航 */}
-          <div className="w-20 bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col py-6 gap-3 relative flex-shrink-0" style={{ overflow: 'visible', zIndex: 100 }}>
+          <div className="w-20 bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col py-6 gap-3 relative flex-shrink-0 rounded-l-xl" style={{ overflow: 'visible', zIndex: 100 }}>
             {/* 滑動指示線 */}
             <div 
               className="absolute left-0 w-1 h-12 bg-gradient-to-b transition-all duration-300 ease-out rounded-r-full pointer-events-none"
@@ -1111,10 +1224,22 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                 {selectedSection === 'chat' && (
                   <>
+                    {/* 問答區底色設定 */}
+                    <div>
+                      <ColorInput
+                        label={t('chatBackgroundColor')}
+                        value={theme.chatBackgroundColor || '#FFFFFF'}
+                        onChange={(value) => updateTheme({ chatBackgroundColor: value })}
+                        className="mb-4"
+                      />
+                    </div>
+
+                    <div className="pt-6 border-t border-gray-200">
+                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('userMessageSettings')}</h4>
+                    </div>
+
                     {/* 用戶訊息設定 */}
                     <div>
-                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('userMessageSettings')}</h4>
-                      
                       <ColorInput
                         label={t('userMessageBubbleColor')}
                         value={theme.userBubbleColor || '#2563EB'}
@@ -1552,7 +1677,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   <>
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 mb-1">{t('containerSettings')}</h3>
-                      <p className="text-sm text-gray-600">{t('containerSettingsDesc')}</p>
                     </div>
 
                     <div>
@@ -1634,6 +1758,75 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         })}
                       />
                     )}
+
+                    <div className="pt-6 border-t border-gray-200">
+                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('queryTypeSetting')}</h4>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label 
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                        style={{
+                          borderColor: (theme.enableAIChat !== false && theme.enableBrowseQA !== false) 
+                            ? '#3B82F6' 
+                            : '#E5E7EB',
+                          backgroundColor: (theme.enableAIChat !== false && theme.enableBrowseQA !== false) 
+                            ? '#EFF6FF' 
+                            : 'transparent'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="queryType"
+                          checked={theme.enableAIChat !== false && theme.enableBrowseQA !== false}
+                          onChange={() => updateTheme({ enableAIChat: true, enableBrowseQA: true })}
+                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{t('bothModes')}</span>
+                      </label>
+
+                      <label 
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                        style={{
+                          borderColor: (theme.enableAIChat !== false && theme.enableBrowseQA === false) 
+                            ? '#3B82F6' 
+                            : '#E5E7EB',
+                          backgroundColor: (theme.enableAIChat !== false && theme.enableBrowseQA === false) 
+                            ? '#EFF6FF' 
+                            : 'transparent'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="queryType"
+                          checked={theme.enableAIChat !== false && theme.enableBrowseQA === false}
+                          onChange={() => updateTheme({ enableAIChat: true, enableBrowseQA: false })}
+                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{t('enableAIChat')}</span>
+                      </label>
+
+                      <label 
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                        style={{
+                          borderColor: (theme.enableAIChat === false && theme.enableBrowseQA !== false) 
+                            ? '#3B82F6' 
+                            : '#E5E7EB',
+                          backgroundColor: (theme.enableAIChat === false && theme.enableBrowseQA !== false) 
+                            ? '#EFF6FF' 
+                            : 'transparent'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="queryType"
+                          checked={theme.enableAIChat === false && theme.enableBrowseQA !== false}
+                          onChange={() => updateTheme({ enableAIChat: false, enableBrowseQA: true })}
+                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">{t('enableBrowseQA')}</span>
+                      </label>
+                    </div>
 
                     <div className="pt-6 border-t border-gray-200">
                       <h4 className="text-base font-semibold text-gray-800 mb-3">{t('contactSettings')}</h4>
@@ -1779,6 +1972,13 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
           </div>
         </div>
       )}
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        helpFile="design"
+      />
     </div>
   );
 }

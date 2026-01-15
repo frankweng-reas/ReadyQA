@@ -104,6 +104,10 @@ export interface ChatbotTheme {
     phone?: string // 電話
     email?: string // Email
   }
+  
+  // Tab 功能設定
+  enableAIChat?: boolean      // 是否啟用智能問答 Tab（預設 true）
+  enableBrowseQA?: boolean    // 是否啟用問答瀏覽 Tab（預設 true）
 }
 
 // 預設主題（與後端 getDefaultTheme() 保持一致）
@@ -177,5 +181,7 @@ export const defaultTheme: ChatbotTheme = {
     phone: '',
     email: '',
   },
+  enableAIChat: true,
+  enableBrowseQA: true,
 }
 

@@ -105,7 +105,7 @@ export class FaqQueryDto {
   @Type(() => Number)
   @IsInt()
   @IsOptional()
-  limit?: number = 20;
+  limit?: number = 500;
 
   @ApiPropertyOptional()
   @Type(() => Number)

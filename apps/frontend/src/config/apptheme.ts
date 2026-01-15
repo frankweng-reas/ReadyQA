@@ -28,7 +28,7 @@ export const appTheme = {
 
     // Header 顏色
     header: {
-      bg: '#FFFFFF',          // 白色背景
+      bg: '#4b5563',          // Header 背景
       border: '#E5E7EB',      // 邊框色
       text: '#111827',        // 文字色
       textSecondary: '#6B7280', // 次要文字色

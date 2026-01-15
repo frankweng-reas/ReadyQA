@@ -15,7 +15,9 @@
     "creating": "Creating...",
     "search": "Search",
     "back": "Back",
-    "actions": "Actions"
+    "actions": "Actions",
+    "clear": "Clear",
+    "help": "Help"
   },
   "knowledge": {
     "knowledgeManagement": "Q&A Management",
@@ -135,6 +137,17 @@
     "test": "Test",
     "loading": "Loading...",
     "currentChatbot": "Current Assistant"
+  },
+  "insight": {
+    "title": "Analytics & Insights",
+    "overview": "Overview",
+    "queries": "Query Analytics",
+    "faqs": "FAQ Analytics",
+    "sessions": "Session Analytics",
+    "overviewPlaceholder": "Overview content to be implemented",
+    "queriesPlaceholder": "Query analytics content to be implemented",
+    "faqsPlaceholder": "FAQ analytics content to be implemented",
+    "sessionsPlaceholder": "Session analytics content to be implemented"
   },
   "errors": {
     "quotaExceeded": "Monthly query limit reached, please upgrade your plan",

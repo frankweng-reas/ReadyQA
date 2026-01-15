@@ -70,8 +70,34 @@ export default function ChatbotWidget({
   // 直接使用傳入的 theme（資料庫中已有完整資料）
   const theme: ChatbotTheme = (customTheme as ChatbotTheme) || defaultTheme;
 
-  // 模式切換
-  const [activeTab, setActiveTab] = useState<'chat' | 'browse'>('chat');
+  // Tab 功能設定檢查
+  const enableAIChat = theme.enableAIChat !== false; // 預設 true
+  const enableBrowseQA = theme.enableBrowseQA !== false; // 預設 true
+  
+  // 確保至少有一個模式啟用（如果兩個都關閉，預設啟用智能問答）
+  // 由於使用單選按鈕組，理論上不會出現兩個都關閉的情況，但為了安全起見保留此邏輯
+  const safeEnableAIChat = enableAIChat || !enableBrowseQA;
+  const safeEnableBrowseQA = enableBrowseQA || !enableAIChat;
+  
+  const showTabArea = safeEnableAIChat && safeEnableBrowseQA; // 兩個都啟用才顯示 Tab 區域
+  
+  // 模式切換 - 根據啟用的 Tab 決定預設值
+  const getDefaultTab = (): 'chat' | 'browse' => {
+    if (safeEnableAIChat) return 'chat';
+    if (safeEnableBrowseQA) return 'browse';
+    return 'chat'; // 預設值（理論上不會到這裡）
+  };
+  
+  const [activeTab, setActiveTab] = useState<'chat' | 'browse'>(getDefaultTab());
+  
+  // 當 Tab 設定改變時，確保 activeTab 是有效的
+  useEffect(() => {
+    if (activeTab === 'chat' && !safeEnableAIChat && safeEnableBrowseQA) {
+      setActiveTab('browse');
+    } else if (activeTab === 'browse' && !safeEnableBrowseQA && safeEnableAIChat) {
+      setActiveTab('chat');
+    }
+  }, [safeEnableAIChat, safeEnableBrowseQA, activeTab]);
   
   // Chatbot 狀態檢查（僅 embedded mode）
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -90,7 +116,6 @@ export default function ChatbotWidget({
   // 查詢狀態
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   
   // 對話記錄限制
   const MAX_MESSAGES = 50; // 最多保留 50 條對話（25 組問答）
@@ -179,25 +204,6 @@ export default function ChatbotWidget({
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
 
-  // 點擊外部關閉選單
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showMenu) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.menu-container')) {
-          setShowMenu(false);
-        }
-      }
-    };
-
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showMenu]);
 
   // 載入 FAQs 和 Topics
   useEffect(() => {
@@ -642,7 +648,7 @@ export default function ChatbotWidget({
           
           return (
             <div 
-              className="border-b border-gray-200 flex-shrink-0 relative"
+              className="border-b border-transparent flex-shrink-0 relative"
               style={{ 
                 ...backgroundStyle,
                 color: theme.headerTextColor,
@@ -792,98 +798,55 @@ export default function ChatbotWidget({
           );
         })()}
 
-        {/* Tab 切換區域 */}
-        <div 
-          className="flex items-center border-b relative"
-          style={{ 
-            borderColor: theme.qaCardStyle?.borderColor || '#E5E7EB',
-          }}
-        >
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex-1 px-4 py-2 font-medium transition-all ${
-              activeTab === 'chat'
-                ? 'border-b-2'
-                : 'opacity-60 hover:opacity-100'
-            }`}
-            style={{
-              color: '#374151',
-              borderColor: activeTab === 'chat' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-            }}
+        {/* Tab 切換區域 - 只有兩個 Tab 都啟用時才顯示 */}
+        {showTabArea && (
+          <div 
+            className="flex items-center border-b border-transparent relative"
           >
-            <div className="flex items-center justify-center space-x-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
-              <span>智能問答</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('browse')}
-            className={`flex-1 px-4 py-2 font-medium transition-all ${
-              activeTab === 'browse'
-                ? 'border-b-2'
-                : 'opacity-60 hover:opacity-100'
-            }`}
-            style={{
-              color: '#374151',
-              borderColor: activeTab === 'browse' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-            }}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span>問答瀏覽</span>
-            </div>
-          </button>
-          
-          {/* 三點選單按鈕 */}
-          <div className="px-3 menu-container">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center"
-              style={{
-                color: '#6B7280',
-              }}
-              title="選單"
-            >
-              <svg 
-                className="w-5 h-5"
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
-            </button>
-            
-            {/* 下拉選單 */}
-            {showMenu && (
-              <div 
-                className="absolute right-2 top-full mt-1 w-40 rounded-lg shadow-lg overflow-hidden z-50"
+            {safeEnableAIChat && (
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`flex-1 px-4 py-2 font-medium transition-all ${
+                  activeTab === 'chat'
+                    ? 'border-b-2'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E5E7EB',
+                  color: '#374151',
+                  borderColor: activeTab === 'chat' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
                 }}
               >
-                <button
-                  onClick={() => {
-                    setMessages([]);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                  style={{ color: '#374151' }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <div className="flex items-center justify-center space-x-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                   </svg>
-                  清除對話
-                </button>
-              </div>
+                  <span>智能問答</span>
+                </div>
+              </button>
+            )}
+            {safeEnableBrowseQA && (
+              <button
+                onClick={() => setActiveTab('browse')}
+                className={`flex-1 px-4 py-2 font-medium transition-all ${
+                  activeTab === 'browse'
+                    ? 'border-b-2'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
+                style={{
+                  color: '#374151',
+                  borderColor: activeTab === 'browse' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
+                }}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <span>問答瀏覽</span>
+                </div>
+              </button>
             )}
           </div>
-        </div>
+        )}
 
         {/* 內容區域 */}
         <div 
@@ -891,7 +854,7 @@ export default function ChatbotWidget({
           style={{ order: theme.inputPosition === 'top' ? 2 : 1 }}
         >
           {/* === 智能問答模式 === */}
-          {activeTab === 'chat' && (
+          {safeEnableAIChat && (activeTab === 'chat' || !showTabArea) && (
             <div className="space-y-4">
               {messages.length === 0 ? (
                 /* 歡迎畫面 */
@@ -1005,7 +968,7 @@ export default function ChatbotWidget({
           )}
 
           {/* === 問答瀏覽模式 === */}
-          {activeTab === 'browse' && (
+          {safeEnableBrowseQA && (activeTab === 'browse' || (!showTabArea && !safeEnableAIChat)) && (
             isLoadingFaqs ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1181,18 +1144,18 @@ export default function ChatbotWidget({
         </div>
 
         {/* 輸入框區域 - 僅在智能問答模式顯示 */}
-        {activeTab === 'chat' && (
+        {safeEnableAIChat && (activeTab === 'chat' || !showTabArea) && (
         <div 
           className={`flex-shrink-0 ${
             theme.inputPosition === 'top' ? 'border-b' : 'border-t'
-          } border-gray-200`}
+          } border-transparent`}
           style={{ 
             order: theme.inputPosition === 'top' ? 1 : 2,
             backgroundColor: theme.inputAreaBackgroundColor
           }}
         >
           <div className="p-4">
-            <div className="flex items-start space-x-3">
+            <div className="flex items-center space-x-2">
               {/* 語音輸入按鈕 */}
               {theme.enableVoice && (
                 <button
@@ -1202,10 +1165,10 @@ export default function ChatbotWidget({
                   style={{
                     backgroundColor: isRecording ? '#EF4444' : theme.sendButtonBackgroundColor,
                     color: theme.sendButtonTextColor,
-                    width: '48px',
-                    height: '48px',
-                    minWidth: '48px',
-                    minHeight: '48px'
+                    width: '36px',
+                    height: '36px',
+                    minWidth: '36px',
+                    minHeight: '36px'
                   }}
                   title={isRecording ? '停止錄音' : '開始語音輸入'}
                 >
@@ -1230,6 +1193,29 @@ export default function ChatbotWidget({
                   )}
                 </button>
               )}
+
+              {/* 清除對話按鈕 */}
+              <button
+                onClick={() => {
+                  setMessages([]);
+                  setInputValue('');
+                }}
+                disabled={isInputDisabled || isRecording || isTranscribing}
+                className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed shadow-sm"
+                style={{
+                  backgroundColor: theme.sendButtonBackgroundColor,
+                  color: theme.sendButtonTextColor,
+                  width: '36px',
+                  height: '36px',
+                  minWidth: '36px',
+                  minHeight: '36px'
+                }}
+                title={tCommon('clear')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
 
               <div className="flex-1">
                 <textarea
