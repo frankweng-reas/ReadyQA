@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -97,6 +98,23 @@ export class QueryLogsController {
       success: true,
       data: details,
       total: details.length,
+    };
+  }
+
+  @Patch('ignore-query')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '忽略特定查詢文字的所有記錄' })
+  async ignoreQuery(
+    @Body() body: { chatbotId: string; query: string; ignored: boolean },
+  ) {
+    await this.queryLogsService.ignoreQuery(
+      body.chatbotId,
+      body.query,
+      body.ignored,
+    );
+    return {
+      success: true,
+      message: body.ignored ? 'Query ignored' : 'Query unignored',
     };
   }
 

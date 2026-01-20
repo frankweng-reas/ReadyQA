@@ -70,6 +70,13 @@ export default function ChatbotWidget({
   // 直接使用傳入的 theme（資料庫中已有完整資料）
   const theme: ChatbotTheme = (customTheme as ChatbotTheme) || defaultTheme;
 
+  /**
+   * 取得 CTA 按鈕文字顏色
+   */
+  const getCTATextColor = (): string => {
+    return theme.homePageConfig?.ctaButton?.textColor || '#3a6ba7';
+  };
+
   // Tab 功能設定檢查
   const enableAIChat = theme.enableAIChat !== false; // 預設 true
   const enableBrowseQA = theme.enableBrowseQA !== false; // 預設 true
@@ -88,7 +95,9 @@ export default function ChatbotWidget({
     return 'chat'; // 預設值（理論上不會到這裡）
   };
   
-  const [activeTab, setActiveTab] = useState<'chat' | 'browse'>(getDefaultTab());
+  const [activeTab, setActiveTab] = useState<'chat' | 'browse' | 'home'>(
+    theme.homePageConfig?.enabled ? 'home' : getDefaultTab()
+  );
   
   // 當 Tab 設定改變時，確保 activeTab 是有效的
   useEffect(() => {
@@ -648,7 +657,7 @@ export default function ChatbotWidget({
           
           return (
             <div 
-              className="border-b border-transparent flex-shrink-0 relative"
+              className="border-b border-transparent flex-shrink-0 relative flex items-center"
               style={{ 
                 ...backgroundStyle,
                 color: theme.headerTextColor,
@@ -656,28 +665,49 @@ export default function ChatbotWidget({
                 minHeight: config.minHeight
               }}
             >
-              <div className={`flex items-center ${theme.headerAlign === 'center' ? 'justify-center' : ''}`} style={{ gap: config.space }}>
-                {theme.headerAlign !== 'center' && (
+              <div className={`flex items-center flex-1 ${
+                theme.headerAlign === 'center' ? 'justify-center' : 
+                theme.headerAlign === 'right' ? 'justify-end' : 
+                'justify-start'
+              }`} style={{ gap: config.space }}>
+                {/* Right 對齊時，文字在前 */}
+                {theme.headerAlign === 'right' && (theme.showHeaderTitle || theme.showHeaderSubtitle) && (
+                  <div className="text-right min-w-0">
+                    {theme.showHeaderTitle && (
+                      <h4 
+                        className="font-semibold" 
+                        style={{ fontSize: config.titleSize }}
+                      >
+                        {theme.headerTitle || 'AI 助手'}
+                      </h4>
+                    )}
+                    {theme.showHeaderSubtitle && theme.headerSubtitle && (
+                      <p 
+                        className="opacity-90" 
+                        style={{ fontSize: config.subtitleSize }}
+                      >
+                        {theme.headerSubtitle}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Logo: Left 對齊在前，Center 對齊在前，Right 對齊在後 */}
+                {theme.showHeaderLogo && (
                   <div 
-                    onClick={() => {
-                      const hasContactInfo = theme.contactInfo?.enabled && 
-                        (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email);
-                      if (hasContactInfo) {
-                        setShowContactModal(true);
-                      }
-                    }}
-                    className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
-                      theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
-                    }`}
+                    className="bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
                     style={{
                       width: config.logoSize,
                       height: config.logoSize
                     }}
-                    title={theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? '點擊查看聯絡資訊' : ''}
                   >
                     {theme.headerLogo ? (
                       <img
-                        src={theme.headerLogo}
+                        src={
+                          theme.headerLogo.startsWith('http')
+                            ? theme.headerLogo
+                            : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${theme.headerLogo}`
+                        }
                         alt="Header Logo"
                         className="w-full h-full object-cover rounded-full"
                         onError={(e) => {
@@ -696,165 +726,141 @@ export default function ChatbotWidget({
                     )}
                   </div>
                 )}
-                
-                {theme.headerAlign === 'center' && (
-                  <div 
-                    onClick={() => {
-                      const hasContactInfo = theme.contactInfo?.enabled && 
-                        (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email);
-                      if (hasContactInfo) {
-                        setShowContactModal(true);
-                      }
-                    }}
-                    className={`bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ${
-                      theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? 'cursor-pointer hover:shadow-lg hover:scale-105 transition-all' : ''
-                    }`}
-                    style={{
-                      width: config.logoSize,
-                      height: config.logoSize
-                    }}
-                    title={theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) ? '點擊查看聯絡資訊' : ''}
-                  >
-                    {theme.headerLogo ? (
-                      <img
-                        src={theme.headerLogo}
-                        alt="Header Logo"
-                        className="w-full h-full object-cover rounded-full"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <svg 
-                        style={{ width: config.iconSize, height: config.iconSize }}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
+
+                {/* Left/Center 對齊時，文字在後 */}
+                {theme.headerAlign !== 'right' && (theme.showHeaderTitle || theme.showHeaderSubtitle) && (
+                  <div className={`${
+                    theme.headerAlign === 'center' ? 'text-center' : 'text-left'
+                  } min-w-0`}>
+                    {theme.showHeaderTitle && (
+                      <h4 
+                        className="font-semibold" 
+                        style={{ fontSize: config.titleSize }}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
+                        {theme.headerTitle || 'AI 助手'}
+                      </h4>
+                    )}
+                    {theme.showHeaderSubtitle && theme.headerSubtitle && (
+                      <p 
+                        className="opacity-90" 
+                        style={{ fontSize: config.subtitleSize }}
+                      >
+                        {theme.headerSubtitle}
+                      </p>
                     )}
                   </div>
                 )}
-                
-                <div className={`${
-                  theme.headerAlign === 'center' ? '' :
-                  theme.headerAlign === 'right' ? 'flex-1 text-right' :
-                  'flex-1 text-left'
-                } ${
-                  theme.headerAlign === 'center' ? 'text-center' : ''
-                }`}>
-                  <h4 
-                    className="font-semibold" 
-                    style={{ fontSize: config.titleSize }}
-                  >
-                    {theme.headerTitle || 'AI 助手'}
-                  </h4>
-                  {theme.headerSubtitle && (
-                    <p 
-                      className="opacity-90" 
-                      style={{ fontSize: config.subtitleSize }}
-                    >
-                      {theme.headerSubtitle}
-                    </p>
-                  )}
-                </div>
               </div>
-              
-              {(showCloseButton || theme.showCloseButton) && onClose && (
-                <button
-                  onClick={onClose}
-                  className="absolute rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
-                  style={{
-                    top: config.closeTop,
-                    right: config.closeRight,
-                    width: config.closeButtonSize,
-                    height: config.closeButtonSize,
-                    backgroundColor: theme.closeButtonColor,
-                    color: theme.headerBackgroundColor,
-                    opacity: 0.8
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.closeButtonHoverColor;
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = theme.closeButtonColor;
-                    e.currentTarget.style.opacity = '0.8';
-                  }}
-                  title="關閉聊天視窗"
-                >
-                  <svg 
-                    style={{ width: config.closeIconSize, height: config.closeIconSize }}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
             </div>
           );
         })()}
 
-        {/* Tab 切換區域 - 只有兩個 Tab 都啟用時才顯示 */}
-        {showTabArea && (
-          <div 
-            className="flex items-center border-b border-transparent relative"
-          >
-            {safeEnableAIChat && (
-              <button
-                onClick={() => setActiveTab('chat')}
-                className={`flex-1 px-4 py-2 font-medium transition-all ${
-                  activeTab === 'chat'
-                    ? 'border-b-2'
-                    : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  color: '#374151',
-                  borderColor: activeTab === 'chat' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-                }}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  <span>智能問答</span>
-                </div>
-              </button>
-            )}
-            {safeEnableBrowseQA && (
-              <button
-                onClick={() => setActiveTab('browse')}
-                className={`flex-1 px-4 py-2 font-medium transition-all ${
-                  activeTab === 'browse'
-                    ? 'border-b-2'
-                    : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  color: '#374151',
-                  borderColor: activeTab === 'browse' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-                }}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                  <span>問答瀏覽</span>
-                </div>
-              </button>
-            )}
-          </div>
-        )}
-
         {/* 內容區域 */}
         <div 
-          className="flex-1 p-4 overflow-y-auto min-h-0 relative"
+          className={`flex-1 overflow-y-auto min-h-0 relative ${activeTab === 'home' ? 'p-0' : 'p-4'}`}
           style={{ order: theme.inputPosition === 'top' ? 2 : 1 }}
         >
+          {/* === Home Page 模式 === */}
+          {activeTab === 'home' && theme.homePageConfig?.enabled && (
+            <div className="h-full flex flex-col">
+              {/* 背景图片区域 */}
+              {theme.homePageConfig?.backgroundImage ? (
+                <div className="flex-1 overflow-y-auto bg-gray-50">
+                  <img
+                    src={
+                      theme.homePageConfig.backgroundImage.startsWith('http')
+                        ? theme.homePageConfig.backgroundImage
+                        : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${theme.homePageConfig.backgroundImage}`
+                    }
+                    alt="Home Background"
+                    className="w-full h-auto"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="flex-1"
+                  style={{ backgroundColor: theme.chatBackgroundColor || '#ffffff' }}
+                />
+              )}
+              
+              {/* 按钮区域 */}
+              <div 
+                className="flex-shrink-0 flex flex-col items-center space-y-4 p-6 pb-8"
+                style={
+                  theme.homePageConfig?.buttonAreaUseGradient
+                    ? {
+                        background: `linear-gradient(${theme.homePageConfig.buttonAreaGradientDirection || 'to right'}, ${theme.homePageConfig.buttonAreaGradientStartColor || '#f3f4f6'}, ${theme.homePageConfig.buttonAreaGradientEndColor || '#e5e7eb'})`,
+                      }
+                    : {
+                        backgroundColor: theme.homePageConfig?.buttonAreaBackgroundColor || '#ffffff',
+                      }
+                }
+              >
+                {/* FAQ 按钮 */}
+                <button
+                  onClick={() => {
+                    // 根據 homePageConfig.faqMode 決定導向的頁面
+                    const faqMode = theme.homePageConfig?.faqMode || 'chat';
+                    if (faqMode === 'chat' && safeEnableAIChat) {
+                      setActiveTab('chat');
+                    } else if (faqMode === 'browse' && safeEnableBrowseQA) {
+                      setActiveTab('browse');
+                    } else {
+                      // 如果設定的模式不可用，使用預設值
+                      setActiveTab(getDefaultTab());
+                    }
+                  }}
+                  className="w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center"
+                  style={{
+                    backgroundColor: '#3a6ba7',
+                    color: '#ffffff',
+                    border: '2px solid #3a6ba7',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#2d5689';
+                    e.currentTarget.style.borderColor = '#2d5689';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#3a6ba7';
+                    e.currentTarget.style.borderColor = '#3a6ba7';
+                  }}
+                >
+                  {theme.homePageConfig?.faqButton?.text || 'FAQ'}
+                </button>
+
+                {/* CTA 按钮 */}
+                {theme.homePageConfig?.ctaButton?.show !== false && (
+                  <button
+                    onClick={() => {
+                      if (theme.homePageConfig?.ctaButton?.url) {
+                        window.open(theme.homePageConfig.ctaButton.url, '_blank');
+                      }
+                    }}
+                    className="w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: getCTATextColor(),
+                      border: `2px solid ${getCTATextColor()}60`,
+                    }}
+                    onMouseEnter={(e) => {
+                      const textColor = getCTATextColor();
+                      e.currentTarget.style.backgroundColor = textColor === '#ffffff' 
+                        ? 'rgba(255, 255, 255, 0.1)' 
+                        : 'rgba(58, 107, 167, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    {theme.homePageConfig?.ctaButton?.text || '造訪網站'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* === 智能問答模式 === */}
-          {safeEnableAIChat && (activeTab === 'chat' || !showTabArea) && (
+          {safeEnableAIChat && activeTab === 'chat' && (
             <div className="space-y-4">
               {messages.length === 0 ? (
                 /* 歡迎畫面 */
@@ -968,7 +974,7 @@ export default function ChatbotWidget({
           )}
 
           {/* === 問答瀏覽模式 === */}
-          {safeEnableBrowseQA && (activeTab === 'browse' || (!showTabArea && !safeEnableAIChat)) && (
+          {safeEnableBrowseQA && activeTab === 'browse' && (
             isLoadingFaqs ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -1143,32 +1149,119 @@ export default function ChatbotWidget({
           )}
         </div>
 
-        {/* 輸入框區域 - 僅在智能問答模式顯示 */}
-        {safeEnableAIChat && (activeTab === 'chat' || !showTabArea) && (
+        {/* 快速按鈕區域 - 兩個模式都顯示（Home 模式除外） */}
+        {activeTab !== 'home' && (
+        <div 
+          className="flex-shrink-0 border-t border-transparent"
+          style={{ 
+            order: 2,
+            backgroundColor: theme.chatBackgroundColor
+          }}
+        >
+          <div className="px-3 pt-1.5 pb-1.5">
+            <div className={`grid gap-2 ${
+              // 计算实际显示的按钮数量
+              (() => {
+                let count = 1; // Home 按钮固定
+                if (showTabArea) count++; // 切换模式按钮（只有两个模式都启用才显示）
+                if (theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email)) count++; // Contact 按钮
+                if (activeTab === 'chat') count++; // 清除对话按钮（只在 Chat mode）
+                return `grid-cols-${count}`;
+              })()
+            }`}>
+              {/* 切換模式卡片 - 只有兩個模式都啟用時才顯示 */}
+              {showTabArea && (
+                <div
+                  onClick={() => {
+                    if (activeTab === 'chat') {
+                      setActiveTab('browse');
+                    } else {
+                      setActiveTab('chat');
+                    }
+                  }}
+                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                >
+                  {activeTab === 'chat' ? (
+                    // 當前在 Chat mode，顯示 Browse 圖標
+                    <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  ) : (
+                    // 當前在 Browse mode，顯示 Chat 圖標
+                    <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  )}
+                </div>
+              )}
+              
+              {/* Home 卡片 */}
+              <div
+                onClick={() => setActiveTab('home')}
+                className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+              >
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </div>
+
+              {/* 聯絡資訊卡片 - 只在有聯絡資訊時顯示 */}
+              {theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
+                <div
+                  onClick={() => setShowContactModal(true)}
+                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
+
+              {/* 清除對話卡片 - 只在 Chat mode 顯示 */}
+              {activeTab === 'chat' && (
+                <div
+                  onClick={() => {
+                    setMessages([]);
+                    setInputValue('');
+                  }}
+                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* 輸入框區域 - 僅在智能問答模式顯示（Home 模式除外） */}
+        {safeEnableAIChat && (activeTab === 'chat' || !showTabArea) && activeTab !== 'home' && (
         <div 
           className={`flex-shrink-0 ${
             theme.inputPosition === 'top' ? 'border-b' : 'border-t'
           } border-transparent`}
           style={{ 
-            order: theme.inputPosition === 'top' ? 1 : 2,
+            order: theme.inputPosition === 'top' ? 1 : 3,
             backgroundColor: theme.inputAreaBackgroundColor
           }}
         >
-          <div className="p-4">
+          <div className="pt-4 px-4 pb-3">
             <div className="flex items-center space-x-2">
               {/* 語音輸入按鈕 */}
               {theme.enableVoice && (
                 <button
                   onClick={handleVoiceButtonClick}
                   disabled={isInputDisabled || isTranscribing}
-                  className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed shadow-sm relative"
+                  className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed shadow-sm relative border border-gray-300 -mt-1"
                   style={{
                     backgroundColor: isRecording ? '#EF4444' : theme.sendButtonBackgroundColor,
                     color: theme.sendButtonTextColor,
-                    width: '36px',
-                    height: '36px',
-                    minWidth: '36px',
-                    minHeight: '36px'
+                    width: '40px',
+                    height: '40px',
+                    minWidth: '40px',
+                    minHeight: '40px'
                   }}
                   title={isRecording ? '停止錄音' : '開始語音輸入'}
                 >
@@ -1194,45 +1287,24 @@ export default function ChatbotWidget({
                 </button>
               )}
 
-              {/* 清除對話按鈕 */}
-              <button
-                onClick={() => {
-                  setMessages([]);
-                  setInputValue('');
-                }}
-                disabled={isInputDisabled || isRecording || isTranscribing}
-                className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-not-allowed shadow-sm"
-                style={{
-                  backgroundColor: theme.sendButtonBackgroundColor,
-                  color: theme.sendButtonTextColor,
-                  width: '36px',
-                  height: '36px',
-                  minWidth: '36px',
-                  minHeight: '36px'
-                }}
-                title={tCommon('clear')}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={theme.inputPlaceholderText}
                   disabled={isInputDisabled || isRecording || isTranscribing}
-                  className="w-full px-4 py-3 border rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed shadow-sm transition-all duration-300"
+                  className="chatbot-input-textarea w-full px-4 py-2 border rounded-3xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed shadow-sm transition-all duration-300"
                   style={{
                     fontSize: '16px',
                     backgroundColor: theme.inputBackgroundColor,
                     borderColor: theme.inputBorderColor,
                     color: theme.inputTextColor,
-                    minHeight: '48px',
-                    maxHeight: '120px'
-                  }}
+                    minHeight: '40px',
+                    maxHeight: '120px',
+                    paddingRight: '52px', // 給發送按鈕留空間
+                    '--placeholder-color': theme.inputPlaceholderColor || '#9CA3AF',
+                  } as React.CSSProperties & { '--placeholder-color': string }}
                   rows={1}
                   onInput={(e) => {
                     const target = e.target as HTMLTextAreaElement;
@@ -1240,37 +1312,30 @@ export default function ChatbotWidget({
                     target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                   }}
                 />
+                
+                {/* 發送按鈕 - 放在輸入框內部右側 */}
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isInputDisabled || isRecording || isTranscribing}
+                  className="absolute rounded-full transition-all duration-300 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+                  style={{
+                    backgroundColor: theme.sendButtonBackgroundColor,
+                    color: theme.sendButtonTextColor,
+                    width: '36px',
+                    height: '36px',
+                    right: '2px',
+                    top: '2px'
+                  }}
+                >
+                  {renderSendIcon()}
+                </button>
+                
                 {voiceError && (
                   <div className="mt-2 text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">
                     {voiceError}
                   </div>
                 )}
               </div>
-
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isInputDisabled || isRecording || isTranscribing}
-                className="px-6 py-3 rounded-full transition-all duration-300 hover:opacity-90 flex-shrink-0 disabled:cursor-not-allowed shadow-sm"
-                style={{
-                  backgroundColor: theme.sendButtonBackgroundColor,
-                  color: theme.sendButtonTextColor,
-                  height: '48px',
-                  minHeight: '48px',
-                  maxHeight: '48px'
-                }}
-                onMouseEnter={(e) => {
-                  if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = theme.sendButtonHoverColor;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = theme.sendButtonBackgroundColor;
-                  }
-                }}
-              >
-                {renderSendIcon()}
-              </button>
             </div>
           </div>
         </div>

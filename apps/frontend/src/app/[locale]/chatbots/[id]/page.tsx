@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import ChatbotSidebarV2 from '@/components/chatbot/v2/ChatbotSidebarV2';
 import QAManager from '@/components/chatbot/v2/QAManager';
@@ -11,11 +11,38 @@ import { layout } from '@/config/layout';
 
 type ViewType = 'knowledge' | 'design' | 'publish' | 'insight' | 'test';
 
+interface Topic {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
 export default function ChatbotDetailPage() {
   const params = useParams();
   const chatbotId = params.id as string;
   const locale = params.locale as string;
   const [currentView, setCurrentView] = useState<ViewType>('knowledge');
+  const [topics, setTopics] = useState<Topic[]>([]);
+
+  // 載入 topics（用於 InsightManager 的 QACardEditor）
+  useEffect(() => {
+    const loadTopics = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/topics?chatbotId=${chatbotId}`
+        );
+        if (response.ok) {
+          const result = await response.json();
+          setTopics(result.data || []);
+        }
+      } catch (error) {
+        console.error('[ChatbotDetailPage] 載入 topics 失敗:', error);
+      }
+    };
+    if (chatbotId && chatbotId !== '[id]' && !chatbotId.startsWith('[')) {
+      loadTopics();
+    }
+  }, [chatbotId]);
 
   // 檢查 chatbotId 是否有效
   if (!chatbotId || chatbotId === '[id]' || chatbotId.startsWith('[')) {
@@ -64,7 +91,7 @@ export default function ChatbotDetailPage() {
           {currentView === 'knowledge' && <QAManager chatbotId={chatbotId} />}
           {currentView === 'design' && <DesignManager chatbotId={chatbotId} />}
           {currentView === 'publish' && <PublishManager chatbotId={chatbotId} />}
-          {currentView === 'insight' && <InsightManager chatbotId={chatbotId} />}
+          {currentView === 'insight' && <InsightManager chatbotId={chatbotId} topics={topics} />}
         </div>
       </div>
     </div>

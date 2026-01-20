@@ -17,6 +17,7 @@ import { QueryLogsModule } from './query-logs/query-logs.module';
 import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { AudioModule } from './audio/audio.module';
 import { QueryModule } from './query/query.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { QueryModule } from './query/query.module';
     QueryLogsModule,
     AudioModule,
     QueryModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

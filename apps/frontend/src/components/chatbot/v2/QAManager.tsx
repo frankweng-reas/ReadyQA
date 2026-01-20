@@ -1,13 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { layout } from '@/config/layout';
 import FaqList from '@/components/chatbot/v2/FaqList';
 import TopicManager from '@/components/chatbot/v2/TopicManager';
 import BulkUploadView from '@/components/chatbot/v2/BulkUploadView';
+import AIMultiCard from '@/components/chatbot/v2/AIMultiCard';
+import QACardEditor from '@/components/chatbot/v2/QACardEditor';
 import HelpModal from '@/components/ui/HelpModal';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+
+interface Topic {
+  id: string
+  name: string
+  parentId: string | null
+}
 
 interface QAManagerProps {
   chatbotId: string;
@@ -16,12 +24,52 @@ interface QAManagerProps {
 export default function QAManager({ chatbotId }: QAManagerProps) {
   const t = useTranslations('knowledge');
   const tCommon = useTranslations('common');
-  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload'>('faq-list');
+  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload' | 'ai-cards'>('faq-list');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [showQACardEditor, setShowQACardEditor] = useState(false);
+  const [qaCardMode, setQaCardMode] = useState<'create' | 'edit'>('create');
+  const [qaCardData, setQaCardData] = useState<any>(null);
+  const [qaCardSaveCallback, setQaCardSaveCallback] = useState<((cardId: string) => void) | null>(null);
+  const [topics, setTopics] = useState<Topic[]>([]);
+
+  // 載入 topics
+  useEffect(() => {
+    const loadTopics = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/topics?chatbotId=${chatbotId}`
+        )
+        if (response.ok) {
+          const result = await response.json()
+          // API 回傳格式: { success: true, data: [...], total: 6 }
+          setTopics(result.data || [])
+        }
+      } catch (error) {
+        console.error('[QAManager] 載入 topics 失敗:', error)
+      }
+    }
+    loadTopics()
+  }, [chatbotId, refreshTrigger])
 
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleQnACardOpen = (mode: 'create' | 'edit', faqData?: any, onSaveSuccess?: (cardId: string) => void) => {
+    setQaCardMode(mode);
+    setQaCardData(faqData);
+    setQaCardSaveCallback(() => onSaveSuccess || null);
+    setShowQACardEditor(true);
+  };
+
+  const handleQACardSuccess = () => {
+    // 如果有回調函數，執行它
+    if (qaCardSaveCallback && qaCardData?._aiCardId) {
+      qaCardSaveCallback(qaCardData._aiCardId);
+    }
+    handleRefresh();
+    setShowQACardEditor(false);
   };
 
   return (
@@ -79,35 +127,58 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             <button
               onClick={() => setActiveTab('faq-list')}
               className={cn(
-                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg flex items-center gap-2',
                 activeTab === 'faq-list'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('faqList')}
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <span>{t('faqList')}</span>
             </button>
             <button
               onClick={() => setActiveTab('topics')}
               className={cn(
-                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg flex items-center gap-2',
                 activeTab === 'topics'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('topics')}
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <span>{t('topics')}</span>
             </button>
             <button
               onClick={() => setActiveTab('bulk-upload')}
               className={cn(
-                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg',
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg flex items-center gap-2',
                 activeTab === 'bulk-upload'
                   ? 'text-primary border-primary bg-grey'
                   : 'text-label border-transparent hover:text-text hover:bg-grey/50'
               )}
             >
-              {t('bulkUploadTab')}
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span>{t('bulkUploadTab')}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('ai-cards')}
+              className={cn(
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg flex items-center gap-2',
+                activeTab === 'ai-cards'
+                  ? 'text-primary border-primary bg-grey'
+                  : 'text-label border-transparent hover:text-text hover:bg-grey/50'
+              )}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <span>{t('aiCardsTab')}</span>
             </button>
           </div>
         </div>
@@ -119,27 +190,50 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
             padding: layout.content.padding,
           }}
         >
-          {activeTab === 'faq-list' && (
+          <div style={{ display: activeTab === 'faq-list' ? 'block' : 'none' }}>
             <FaqList
               chatbotId={chatbotId}
               refreshTrigger={refreshTrigger}
               onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === 'topics' && (
+          </div>
+          <div style={{ display: activeTab === 'topics' ? 'block' : 'none' }}>
             <TopicManager
               chatbotId={chatbotId}
               onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === 'bulk-upload' && (
+          </div>
+          <div style={{ display: activeTab === 'bulk-upload' ? 'block' : 'none' }}>
             <BulkUploadView
               chatbotId={chatbotId}
               onSuccess={handleRefresh}
             />
-          )}
+          </div>
+          <div style={{ display: activeTab === 'ai-cards' ? 'block' : 'none' }}>
+            <AIMultiCard
+              isOpen={true}
+              onClose={() => {}}
+              chatbotId={chatbotId}
+              onQnACardOpen={handleQnACardOpen}
+              onRefresh={handleRefresh}
+              inModal={false}
+            />
+          </div>
         </div>
       </div>
+
+      {/* QA Card Editor Modal */}
+      {showQACardEditor && (
+        <QACardEditor
+          isOpen={showQACardEditor}
+          onClose={() => setShowQACardEditor(false)}
+          mode={qaCardMode}
+          chatbotId={chatbotId}
+          faqData={qaCardData}
+          topics={topics}
+          onSuccess={handleQACardSuccess}
+        />
+      )}
 
       {/* Help Modal */}
       <HelpModal

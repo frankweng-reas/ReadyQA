@@ -109,7 +109,35 @@ The input box is where users enter questions. You can configure position, stylin
 
 ---
 
-### 4. Advanced Settings
+### 4. Home Page Settings
+
+The home page is the welcome page of the Chatbot, displayed when users first open the Chatbot. You can configure the following:
+
+#### Basic Settings
+- **Enable Home Page**: Toggle to show or hide the home page
+
+#### Background Settings
+- **Background Image**: Upload a background image for the home page
+  - Recommended: Use a 3:4 aspect ratio vertical image
+  - Supported formats: JPG, PNG, GIF, WEBP
+  - File size limit: Maximum 5MB
+
+#### Button Settings
+- **CTA Button**: Configure an external link button
+  - **Show CTA Button**: Toggle to show or hide the button
+  - **Button Text**: Set the text displayed on the button (e.g., "Visit Website")
+  - **Button URL**: Set the URL to open when the button is clicked (e.g., https://example.com)
+- **FAQ Button**: Configure the button to enter FAQ
+  - **Button Text**: Set the text displayed on the button (default: "FAQ")
+
+#### FAQ Navigation Mode
+Configure which page mode to navigate to when users click the FAQ button:
+- **Chat Mode**: Navigate to AI Chat mode, where users can input questions for conversation
+- **Browse Mode**: Navigate to Browse QA mode, where users can browse the FAQ Q&A list
+
+---
+
+### 5. Advanced Settings
 
 Advanced settings include container styling, query mode, and contact information settings.
 
@@ -167,6 +195,12 @@ The preview area on the left displays your setting changes in real-time, allowin
 - **Real-time Preview**: All setting changes are immediately reflected in the preview area
 - **Background Toggle**: You can toggle the preview background between white and black to test display effects under different backgrounds
 - **Full-screen Preview**: Click the "Open Preview" button to open a full-screen preview window
+- **Section Selection**: When you hover over different sections in the preview area (header, chat area, input box), a turquoise arrow indicator appears on the left side to help you quickly identify which section you're configuring
+
+### Section Selection Guide
+- **Header Section**: Hover over the header area to see the arrow indicator, then click to configure header-related options
+- **Chat Area Section**: Hover over the chat content area to see the arrow indicator, then click to configure chat area-related options
+- **Input Box Section**: Hover over the input box area to see the arrow indicator, then click to configure input box-related options
 
 ---
 

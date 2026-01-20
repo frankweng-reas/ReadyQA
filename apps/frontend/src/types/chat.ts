@@ -31,7 +31,6 @@ export interface ChatbotTheme {
   // 發送按鈕設定
   sendButtonBackgroundColor: string
   sendButtonTextColor: string
-  sendButtonHoverColor: string
   sendButtonIcon: 'arrow-right' | 'paper-plane' | 'arrow-up' | 'send' | 'chevron-right'
   
   // Header 設定
@@ -40,6 +39,9 @@ export interface ChatbotTheme {
   headerTitle: string
   headerSubtitle: string
   showHeader: boolean
+  showHeaderLogo: boolean
+  showHeaderTitle: boolean
+  showHeaderSubtitle: boolean
   headerLogo: string | null
   headerAlign: 'left' | 'center' | 'right'
   headerSize: 'small' | 'medium' | 'large'
@@ -66,13 +68,15 @@ export interface ChatbotTheme {
     shadow?: string // 陰影效果（Tailwind 類名，如 shadow-md hover:shadow-lg）
     questionColor?: string // 問題文字顏色（CSS 顏色值）
     questionFontSize?: string // 標題文字大小（CSS 字體大小值，如 16px、1rem、1.25rem）
+    questionBackgroundColor?: string // 標題背景顏色（CSS 顏色值，如 #F3F4F6）
+    questionUseGradient?: boolean // 是否使用漸層背景（預設 false）
+    questionGradientStartColor?: string // 標題漸層起始顏色（CSS 顏色值）
+    questionGradientEndColor?: string // 標題漸層結束顏色（CSS 顏色值）
+    questionGradientDirection?: 'to right' | 'to bottom' | 'to left' | 'to top' | 'to bottom right' | 'to bottom left' | 'to top right' | 'to top left' // 漸層方向
     answerColor?: string // 答案文字顏色（CSS 顏色值）
     answerFontSize?: string // 內容文字大小（CSS 字體大小值，如 14px、1rem）
     questionPrefixColor?: string // Q: 前綴顏色（CSS 顏色值，保留向後兼容）
-    accentColor?: string // 左側邊框顏色（CSS 顏色值，如 #3B82F6）
     iconColor?: string // 問答圖標顏色（CSS 顏色值，如 #3B82F6）
-    separatorHeight?: string // 標題與內容之間分隔線高度（CSS 高度值，如 1px、2px、3px）
-    separatorColor?: string // 標題與內容之間分隔線顏色（CSS 顏色值，如 #E5E7EB）
   }
   
   // 容器外型設定（Chatbot 整體外框樣式）
@@ -108,6 +112,27 @@ export interface ChatbotTheme {
   // Tab 功能設定
   enableAIChat?: boolean      // 是否啟用智能問答 Tab（預設 true）
   enableBrowseQA?: boolean    // 是否啟用問答瀏覽 Tab（預設 true）
+  
+  // Chatbot Home Page 設定
+  homePageConfig?: {
+    enabled?: boolean           // 是否啟用首頁
+    backgroundImage?: string    // 首頁背景圖片 URL
+    faqMode?: 'chat' | 'browse' // FAQ 導向頁面模式：問答模式或瀏覽模式
+    ctaButton?: {
+      show?: boolean           // 是否顯示 CTA 按鈕
+      text?: string            // 按鈕文字
+      url?: string             // 按鈕連結
+      textColor?: string       // 按鈕文字顏色
+    }
+    faqButton?: {
+      text?: string            // 按鈕文字
+    }
+    buttonAreaUseGradient?: boolean  // 按鈕區域是否使用漸層
+    buttonAreaBackgroundColor?: string  // 按鈕區域背景顏色
+    buttonAreaGradientStartColor?: string  // 按鈕區域漸層起始顏色
+    buttonAreaGradientEndColor?: string  // 按鈕區域漸層結束顏色
+    buttonAreaGradientDirection?: 'to right' | 'to bottom' | 'to left' | 'to top' | 'to bottom right' | 'to bottom left' | 'to top right' | 'to top left'  // 按鈕區域漸層方向
+  }
 }
 
 // 預設主題（與後端 getDefaultTheme() 保持一致）
@@ -123,13 +148,15 @@ export const defaultTheme: ChatbotTheme = {
   enableVoice: false,
   sendButtonBackgroundColor: '#4e4f50',
   sendButtonTextColor: '#FFFFFF',
-  sendButtonHoverColor: '#2563EB',
   sendButtonIcon: 'chevron-right',
   headerBackgroundColor: '#370106',
   headerTextColor: '#FFFFFF',
   headerTitle: 'AI 問答助手',
   headerSubtitle: '不生成、不猜測、快速找到正確答案',
   showHeader: true,
+  showHeaderLogo: true,
+  showHeaderTitle: true,
+  showHeaderSubtitle: true,
   headerLogo: null,
   headerAlign: 'left',
   headerSize: 'large',
@@ -150,12 +177,14 @@ export const defaultTheme: ChatbotTheme = {
     shadow: 'shadow-md hover:shadow-lg',
     questionColor: '#111827',
     questionFontSize: '20px',
+    questionBackgroundColor: 'transparent',
+    questionUseGradient: false,
+    questionGradientStartColor: '#3B82F6',
+    questionGradientEndColor: '#8B5CF6',
+    questionGradientDirection: 'to right',
     answerColor: '#374151',
     answerFontSize: '16px',
     questionPrefixColor: '#2563EB',
-    accentColor: '#d4d6d8',
-    separatorHeight: '1px',
-    separatorColor: '#E5E7EB',
   },
   containerStyle: {
     borderRadius: 'rounded-3xl',
@@ -183,5 +212,24 @@ export const defaultTheme: ChatbotTheme = {
   },
   enableAIChat: true,
   enableBrowseQA: true,
+  homePageConfig: {
+    enabled: false,
+    backgroundImage: null,
+    faqMode: 'chat', // 預設為問答模式
+    ctaButton: {
+      show: true,
+      text: '造訪網站',
+      url: '',
+      textColor: '#3a6ba7'
+    },
+    faqButton: {
+      text: 'FAQ'
+    },
+    buttonAreaUseGradient: false,
+    buttonAreaBackgroundColor: '#ffffff',
+    buttonAreaGradientStartColor: '#f3f4f6',
+    buttonAreaGradientEndColor: '#e5e7eb',
+    buttonAreaGradientDirection: 'to right'
+  }
 }
 

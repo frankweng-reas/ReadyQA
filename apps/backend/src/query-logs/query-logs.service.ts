@@ -204,5 +204,17 @@ export class QueryLogsService {
       ignoredCount,
     };
   }
+
+  async ignoreQuery(chatbotId: string, query: string, ignored: boolean) {
+    return this.prisma.queryLog.updateMany({
+      where: {
+        chatbotId,
+        query,
+      },
+      data: {
+        ignored,
+      },
+    });
+  }
 }
 

@@ -138,7 +138,8 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`http://localhost:8000/api/chatbots/${chatbotId}/upload-logo`, {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${API_BASE}/chatbots/${chatbotId}/upload-logo`, {
         method: 'POST',
         body: formData,
       });
@@ -149,10 +150,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       }
 
       const result = await response.json();
-      
-      // 更新 theme 並重新載入
-      const logoPath = `http://localhost:8000${result.data.logoPath}`;
-      updateTheme({ headerLogo: logoPath });
+
+      // 更新 theme 並重新載入（只存相對路徑）
+      updateTheme({ headerLogo: result.data.logoPath });
       setRefreshKey(prev => prev + 1);
       notify.success(t('uploadLogoSuccess'));
     } catch (error) {
@@ -746,11 +746,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   onChange={(value) => updateTheme({ sendButtonTextColor: value })}
                 />
 
-                <ColorInput
-                  label={t('sendButtonHoverColor')}
-                  value={theme.sendButtonHoverColor}
-                  onChange={(value) => updateTheme({ sendButtonHoverColor: value })}
-                />
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

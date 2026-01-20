@@ -381,16 +381,14 @@ export default function QACardEditor({
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-[80vh] flex flex-col">
         {/* Top Container */}
         <div className="flex-shrink-0 px-6 pt-4 pb-0">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 py-3 px-4">
+          <div className="rounded-lg border border-header-border shadow-sm bg-header-bg py-3 px-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-white">
                 {t('qaCard')}
               </h2>
               {/* 狀態切換 Toggle Switch */}
               <div className="flex items-center gap-2">
-                <span
-                  className={`text-base font-medium ${status === 'active' ? 'text-green-600' : 'text-red-600'}`}
-                >
+                <span className="text-base font-medium text-white">
                   {status === 'active' ? t('active') : t('inactive')}
                 </span>
                 <button
@@ -445,7 +443,7 @@ export default function QACardEditor({
               <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden bg-white min-h-0">
                 <div 
                   ref={editorDivRef} 
-                  className="h-full"
+                  className="h-full text-base"
                   style={{ position: 'relative', zIndex: 1 }}
                 />
               </div>

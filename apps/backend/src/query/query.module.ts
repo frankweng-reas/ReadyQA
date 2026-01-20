@@ -16,7 +16,7 @@ import { QuotaService } from '../common/quota.service';
   imports: [PrismaModule, ElasticsearchModule, SessionsModule],
   controllers: [QueryController],
   providers: [QueryService, LlmService, ModelConfigService, QuotaService],
-  exports: [QueryService],
+  exports: [QueryService, LlmService],
 })
 export class QueryModule {}
 

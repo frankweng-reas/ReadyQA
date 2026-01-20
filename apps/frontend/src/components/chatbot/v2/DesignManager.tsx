@@ -11,6 +11,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ColorInput from '@/components/ui/ColorInput';
 import HelpModal from '@/components/ui/HelpModal';
 import { useNotification } from '@/hooks/useNotification';
+import ImageCropModal from '@/components/ui/ImageCropModal';
 
 interface DesignManagerProps {
   chatbotId: string;
@@ -21,6 +22,11 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const tCommon = useTranslations('common');
   const notify = useNotification();
 
+  // 版本标记 - 用于确认代码是否更新
+  useEffect(() => {
+    console.log('🟢🟢🟢 DesignManager 版本: 2.0 - 已加载新代码 🟢🟢🟢');
+  }, []);
+
   const [theme, setTheme] = useState<ChatbotTheme>(defaultTheme);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,10 +34,12 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [previewBgColor, setPreviewBgColor] = useState<'white' | 'black'>('white');
-  const [selectedSection, setSelectedSection] = useState<'header' | 'chat' | 'input' | 'settings'>('header');
-  const [hoveredSection, setHoveredSection] = useState<'header' | 'chat' | 'input' | 'settings' | null>(null);
+  const [selectedSection, setSelectedSection] = useState<'header' | 'chat' | 'input' | 'home' | 'settings'>('header');
+  const [hoveredSection, setHoveredSection] = useState<'header' | 'chat' | 'input' | 'home' | 'settings' | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 載入當前 chatbot 的 theme
@@ -141,7 +149,8 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`http://localhost:8000/api/chatbots/${chatbotId}/upload-logo`, {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${API_BASE}/chatbots/${chatbotId}/upload-logo`, {
         method: 'POST',
         body: formData,
       });
@@ -152,10 +161,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       }
 
       const result = await response.json();
-      
-      // 更新 theme 並重新載入
-      const logoPath = `http://localhost:8000${result.data.logoPath}`;
-      updateTheme({ headerLogo: logoPath });
+
+      // 更新 theme 並重新載入（只存相對路徑）
+      updateTheme({ headerLogo: result.data.logoPath });
       setRefreshKey(prev => prev + 1);
       notify.success(t('uploadLogoSuccess'));
     } catch (error) {
@@ -169,6 +177,98 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       // 重置 input，允許重新選擇同一個檔案
       e.target.value = '';
     }
+  };
+
+  // 首頁背景圖上傳處理
+  const handleHomeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    console.log('🔵 [handleHomeImageUpload] chatbotId:', chatbotId);
+    console.log('🔵 [handleHomeImageUpload] file:', file.name, file.type, file.size);
+
+    // 驗證檔案大小（5MB）
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      notify.error(t('fileTooLarge'));
+      e.target.value = '';
+      return;
+    }
+
+    // 驗證檔案類型
+    if (!file.type.match(/^image\/(jpg|jpeg|png|gif|webp)$/)) {
+      notify.error(t('invalidImageFormat'));
+      e.target.value = '';
+      return;
+    }
+
+    // 讀取圖片並顯示裁切 Modal
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageToCrop(reader.result as string);
+      setShowCropModal(true);
+    };
+    reader.readAsDataURL(file);
+
+    // 重置 input
+    e.target.value = '';
+  };
+
+  // 處理裁切完成
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setShowCropModal(false);
+    setImageToCrop(null);
+    setIsUploadingLogo(true);
+
+    try {
+      // 使用 FormData 上傳裁切後的檔案
+      const formData = new FormData();
+      formData.append('file', croppedBlob, 'cropped-image.jpg');
+
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const uploadUrl = `${API_BASE}/chatbots/${chatbotId}/upload-homeimage`;
+      console.log('🔵 [handleCropComplete] uploadUrl:', uploadUrl);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('🔵 [handleCropComplete] response.status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ [handleCropComplete] errorData:', errorData);
+        throw new Error(errorData.message || '上傳失敗');
+      }
+
+      const result = await response.json();
+      console.log('✅ [handleCropComplete] result:', result);
+      
+      // 更新 theme 並重新載入（只存相對路徑）
+      updateTheme({ 
+        homePageConfig: {
+          ...theme.homePageConfig,
+          backgroundImage: result.data.imagePath
+        }
+      });
+      setRefreshKey(prev => prev + 1);
+      notify.success('上傳成功', '首頁背景圖已更新');
+    } catch (error) {
+      console.error('上傳首頁背景圖時發生錯誤:', error);
+      notify.error(
+        '上傳失敗',
+        error instanceof Error ? error.message : undefined
+      );
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  // 取消裁切
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setImageToCrop(null);
   };
 
   // 手機裝置配置
@@ -391,9 +491,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       >
         {/* 左側容器 - Chatbot 預覽 */}
         <div 
-          className={`flex-1 ${containerStyle?.borderRadius || 'rounded-lg'} border border-header-border overflow-hidden flex items-center justify-center relative`}
+          className={`flex-1 ${containerStyle?.borderRadius || 'rounded-lg'} border border-header-border overflow-visible flex items-center justify-center relative`}
           style={{
-            backgroundColor: previewBgColor === 'white' ? '#ffffff' : '#000000',
+            background: previewBgColor === 'white' ? '#ffffff' : 'linear-gradient(to top, #000000, #1a1a1a, #333333)',
             zIndex: 1
           }}
         >
@@ -430,7 +530,154 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             </button>
           </div>
           
-          <div style={{ width: mobileDevice.width, height: mobileDevice.height }}>
+          <div style={{ width: mobileDevice.width, height: mobileDevice.height }} className="relative">
+            {/* 左側箭頭指示器 - 放在 chatbot 容器外部 */}
+            {(() => {
+              // 計算各區域的位置
+              const headerSizeConfig = {
+                small: { minHeight: '60px' },
+                medium: { minHeight: '80px' },
+                large: { minHeight: '100px' }
+              };
+              const headerConfig = headerSizeConfig[theme.headerSize || 'medium'];
+              const headerHeight = headerConfig.minHeight;
+              
+              // Header 箭頭位置
+              const headerCenterTop = `calc(${headerHeight} / 2)`;
+              
+              // Chat 區域位置：在 header 下方，垂直置中於剩餘空間
+              // 簡化計算：假設 chat 區域在 header 下方，高度約為容器高度的一半
+              const chatCenterTop = `calc(${headerHeight} + 50%)`;
+              
+              // Input 區域位置：在底部
+              const inputHeight = '60px'; // 輸入區域大約高度
+              const inputCenterTop = `calc(100% - ${inputHeight} / 2)`;
+              
+              return (
+                <>
+                  {/* Header 箭頭 */}
+                  {theme.showHeader && selectedSection === 'header' && (
+                    <div 
+                      className="absolute pointer-events-none z-[9999] flex items-center"
+                      style={{ 
+                        left: '-40px',
+                        top: headerCenterTop,
+                        transform: 'translateY(-50%)',
+                        opacity: 1 
+                      }}
+                    >
+                      <div style={{ position: 'relative' }}>
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '22px solid transparent',
+                            borderBottom: '22px solid transparent',
+                            borderLeft: '32px solid black',
+                            left: 0,
+                            top: '-22px'
+                          }}
+                        />
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '18px solid transparent',
+                            borderBottom: '18px solid transparent',
+                            borderLeft: '28px solid #20B2AA',
+                            left: '2px',
+                            top: '-18px'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Chat 箭頭 */}
+                  {selectedSection === 'chat' && (
+                    <div 
+                      className="absolute pointer-events-none z-[9999] flex items-center"
+                      style={{ 
+                        left: '-40px',
+                        top: chatCenterTop,
+                        transform: 'translateY(-50%)',
+                        opacity: 1 
+                      }}
+                    >
+                      <div style={{ position: 'relative' }}>
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '22px solid transparent',
+                            borderBottom: '22px solid transparent',
+                            borderLeft: '32px solid black',
+                            left: 0,
+                            top: '-22px'
+                          }}
+                        />
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '18px solid transparent',
+                            borderBottom: '18px solid transparent',
+                            borderLeft: '28px solid #20B2AA',
+                            left: '2px',
+                            top: '-18px'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Input 箭頭 */}
+                  {selectedSection === 'input' && (
+                    <div 
+                      className="absolute pointer-events-none z-[9999] flex items-center"
+                      style={{ 
+                        left: '-40px',
+                        top: inputCenterTop,
+                        transform: 'translateY(-50%)',
+                        opacity: 1 
+                      }}
+                    >
+                      <div style={{ position: 'relative' }}>
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '22px solid transparent',
+                            borderBottom: '22px solid transparent',
+                            borderLeft: '32px solid black',
+                            left: 0,
+                            top: '-22px'
+                          }}
+                        />
+                        <div 
+                          style={{ 
+                            position: 'absolute',
+                            width: 0,
+                            height: 0,
+                            borderTop: '18px solid transparent',
+                            borderBottom: '18px solid transparent',
+                            borderLeft: '28px solid #20B2AA',
+                            left: '2px',
+                            top: '-18px'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            
             <div 
               className={containerClasses}
               style={{ 
@@ -481,58 +728,48 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     };
                 
                 return (
-                  <div 
-                    className="flex-shrink-0 relative transition-all duration-200 border-b border-transparent cursor-pointer"
-                    style={{ 
-                      ...backgroundStyle,
-                      color: theme.headerTextColor,
-                      padding: config.padding,
-                      minHeight: config.minHeight
-                    }}
-                    onMouseEnter={() => setHoveredSection('header')}
-                    onMouseLeave={() => setHoveredSection(null)}
-                    onClick={() => setSelectedSection('header')}
-                  >
-                    {/* 高亮遮罩 - 檢查 hover 或選中 */}
-                    {(hoveredSection === 'header' || selectedSection === 'header') && (
-                      <div 
-                        className="absolute inset-0 pointer-events-none z-[9999]"
-                        style={{ 
-                          outline: '4px solid #3B82F6',
-                          outlineOffset: '-4px',
-                          opacity: hoveredSection === 'header' ? 0.8 : 1
-                        }}
-                      />
-                    )}
-                    <div className={`flex items-center ${theme.headerAlign === 'center' ? 'justify-center' : ''}`} style={{ gap: config.space }}>
-                      {theme.headerAlign !== 'center' && (
-                        <div 
-                          className="bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
-                          style={{
-                            width: config.logoSize,
-                            height: config.logoSize
-                          }}
-                        >
-                          {theme.headerLogo ? (
-                            <img
-                              src={theme.headerLogo}
-                              alt="Header Logo"
-                              className="w-full h-full object-cover rounded-full"
-                            />
-                          ) : (
-                            <svg 
-                              style={{ width: config.iconSize, height: config.iconSize }}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
+                    
+                    <div 
+                      className="flex-shrink-0 relative transition-all duration-200 border-b border-transparent cursor-pointer flex items-center"
+                      style={{ 
+                        ...backgroundStyle,
+                        color: theme.headerTextColor,
+                        padding: config.padding,
+                        minHeight: config.minHeight
+                      }}
+                      onMouseEnter={() => setHoveredSection('header')}
+                      onMouseLeave={() => setHoveredSection(null)}
+                      onClick={() => setSelectedSection('header')}
+                    >
+                    <div className={`flex items-center flex-1 ${
+                      theme.headerAlign === 'center' ? 'justify-center' : 
+                      theme.headerAlign === 'right' ? 'justify-end' : 
+                      'justify-start'
+                    }`} style={{ gap: config.space }}>
+                      {/* Left/Right 對齊時，文字在前 */}
+                      {theme.headerAlign === 'right' && (theme.showHeaderTitle || theme.showHeaderSubtitle) && (
+                        <div className="text-right min-w-0">
+                          {theme.showHeaderTitle && (
+                            <h3 
+                              className="font-semibold truncate"
+                              style={{ fontSize: config.titleSize }}
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
+                              {theme.headerTitle}
+                            </h3>
+                          )}
+                          {theme.showHeaderSubtitle && theme.headerSubtitle && (
+                            <p 
+                              className="mt-1 opacity-90 truncate"
+                              style={{ fontSize: config.subtitleSize }}
+                            >
+                              {theme.headerSubtitle}
+                            </p>
                           )}
                         </div>
                       )}
                       
-                      {theme.headerAlign === 'center' && (
+                      {/* Logo: Left 對齊在前，Center 對齊在前，Right 對齊在後 */}
+                      {theme.showHeaderLogo && (
                         <div 
                           className="bg-white rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
                           style={{
@@ -542,7 +779,11 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         >
                           {theme.headerLogo ? (
                             <img
-                              src={theme.headerLogo}
+                              src={
+                                theme.headerLogo.startsWith('http')
+                                  ? theme.headerLogo
+                                  : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${theme.headerLogo}`
+                              }
                               alt="Header Logo"
                               className="w-full h-full object-cover rounded-full"
                             />
@@ -559,68 +800,33 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         </div>
                       )}
 
-                      <div className="flex-1 min-w-0">
-                        <h3 
-                          className="font-semibold truncate"
-                          style={{ fontSize: config.titleSize }}
-                        >
-                          {theme.headerTitle}
-                        </h3>
-                        {theme.headerSubtitle && (
-                          <p 
-                            className="mt-1 opacity-90 truncate"
-                            style={{ fontSize: config.subtitleSize }}
-                          >
-                            {theme.headerSubtitle}
-                          </p>
-                        )}
-                      </div>
+                      {/* Left/Center 對齊時，文字在後 */}
+                      {theme.headerAlign !== 'right' && (theme.showHeaderTitle || theme.showHeaderSubtitle) && (
+                        <div className={`${
+                          theme.headerAlign === 'center' ? 'text-center' : 'text-left'
+                        } min-w-0`}>
+                          {theme.showHeaderTitle && (
+                            <h3 
+                              className="font-semibold truncate"
+                              style={{ fontSize: config.titleSize }}
+                            >
+                              {theme.headerTitle}
+                            </h3>
+                          )}
+                          {theme.showHeaderSubtitle && theme.headerSubtitle && (
+                            <p 
+                              className="mt-1 opacity-90 truncate"
+                              style={{ fontSize: config.subtitleSize }}
+                            >
+                              {theme.headerSubtitle}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })()}
-
-              {/* Tab 切換區域 - 只在兩個模式都啟用時顯示 */}
-              {showTabArea && (
-                <div 
-                  className="flex items-center border-b border-transparent relative"
-                >
-                  <button
-                    className={`flex-1 px-4 py-2 font-medium transition-all ${
-                      previewDefaultTab === 'chat' ? 'border-b-2' : ''
-                    }`}
-                    style={{
-                      color: '#374151',
-                      borderColor: previewDefaultTab === 'chat' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <span>智能問答</span>
-                    </div>
-                  </button>
-                  <button
-                    className={`flex-1 px-4 py-2 font-medium transition-all ${
-                      previewDefaultTab === 'browse' ? 'border-b-2' : 'opacity-60'
-                    }`}
-                    style={{
-                      color: '#374151',
-                      borderColor: previewDefaultTab === 'browse' ? (theme.qaCardStyle?.accentColor || '#3B82F6') : 'transparent',
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                      <span>問答瀏覽</span>
-                    </div>
-                  </button>
-                </div>
-              )}
 
               {/* 智能問答內容區域 */}
               {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
@@ -633,19 +839,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   onMouseLeave={() => setHoveredSection(null)}
                   onClick={() => setSelectedSection('chat')}
                 >
-                  {/* 高亮遮罩 - 檢查 hover 或選中 */}
-                  {(hoveredSection === 'chat' || selectedSection === 'chat') && (
-                    <div 
-                      className="absolute inset-0 pointer-events-none z-[9999]"
-                      style={{ 
-                        outline: '4px solid #22C55E',
-                        outlineOffset: '-4px',
-                        opacity: hoveredSection === 'chat' ? 0.8 : 1
-                      }}
-                    />
-                  )}
-                
-                  <div className="space-y-4">
+                  <div className="space-y-6 pt-4">
                     {sampleMessages.map((message, index) => (
                       <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                         {message.type === 'user' ? (
@@ -662,19 +856,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         ) : (
                           /* 助手訊息 */
                           <div className="w-full space-y-3">
-                            {/* Intro 文字 */}
-                            {message.intro && (
-                              <div
-                                className="w-full px-4 py-2 rounded-lg"
-                                style={{
-                                  backgroundColor: theme.botBubbleColor || '#F3F4F6',
-                                  color: theme.botTextColor || '#1F2937',
-                                }}
-                              >
-                                {message.intro}
-                              </div>
-                            )}
-
                             {/* QA 區塊列表 */}
                             {message.qa_blocks && message.qa_blocks.length > 0 && (
                               <div className="w-full space-y-3">
@@ -686,7 +867,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     answer={qaBlock.answer}
                                     theme={theme}
                                     config={{
-                                      alwaysExpanded: false,
+                                      alwaysExpanded: true,
                                     }}
                                   />
                                 ))}
@@ -711,18 +892,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   onMouseLeave={() => setHoveredSection(null)}
                   onClick={() => setSelectedSection('chat')}
                 >
-                  {/* 高亮遮罩 - 檢查 hover 或選中 */}
-                  {(hoveredSection === 'chat' || selectedSection === 'chat') && (
-                    <div 
-                      className="absolute inset-0 pointer-events-none z-[9999]"
-                      style={{ 
-                        outline: '4px solid #22C55E',
-                        outlineOffset: '-4px',
-                        opacity: hoveredSection === 'chat' ? 0.8 : 1
-                      }}
-                    />
-                  )}
-                
                   {/* 問答瀏覽預覽內容 */}
                   <div className="space-y-3">
                     {/* 範例分類 */}
@@ -774,6 +943,59 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </div>
               )}
 
+              {/* 快速按鈕區域 - 兩個模式都顯示 */}
+              <div
+                className="flex-shrink-0 border-t border-transparent"
+                style={{
+                  order: 2,
+                  backgroundColor: theme.chatBackgroundColor
+                }}
+              >
+                <div className="px-3 pt-1.5 pb-1.5">
+                  <div className={`grid gap-2 ${previewDefaultTab === 'chat' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    {/* 切換模式卡片 */}
+                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                      {previewDefaultTab === 'chat' ? (
+                        // 當前在 Chat mode，顯示 Browse 圖標
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      ) : (
+                        // 當前在 Browse mode，顯示 Chat 圖標
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                      )}
+                    </div>
+                    
+                    {/* Home 卡片 */}
+                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                    </div>
+
+                    {/* 聯絡資訊卡片 - 只在有聯絡資訊時顯示 */}
+                    {theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
+                      <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* 清除對話卡片 - 只在 Chat mode 顯示 */}
+                    {previewDefaultTab === 'chat' && (
+                      <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* 輸入框區域 - 僅在智能問答模式顯示 */}
               {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
               <div 
@@ -781,37 +1003,26 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   theme.inputPosition === 'top' ? 'border-b' : 'border-t'
                 } border-transparent`}
                 style={{ 
-                  order: theme.inputPosition === 'top' ? 1 : 2,
+                  order: theme.inputPosition === 'top' ? 1 : 3,
                   backgroundColor: theme.inputAreaBackgroundColor
                 }}
                 onMouseEnter={() => setHoveredSection('input')}
                 onMouseLeave={() => setHoveredSection(null)}
                 onClick={() => setSelectedSection('input')}
               >
-                {/* 高亮遮罩 - 檢查 hover 或選中 */}
-                {(hoveredSection === 'input' || selectedSection === 'input') && (
-                  <div 
-                    className="absolute inset-0 pointer-events-none z-[9999]"
-                    style={{ 
-                      outline: '4px solid #A855F7',
-                      outlineOffset: '-4px',
-                      opacity: hoveredSection === 'input' ? 0.8 : 1
-                    }}
-                  />
-                )}
-                <div className="p-4">
+                <div className="pt-4 px-4 pb-3">
                   <div className="flex items-center space-x-2">
                     {/* 語音輸入按鈕 */}
                     {theme.enableVoice && (
                       <button
-                        className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm"
+                        className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm border border-gray-300 -mt-1"
                         style={{
                           backgroundColor: theme.sendButtonBackgroundColor,
                           color: theme.sendButtonTextColor,
-                          width: '36px',
-                          height: '36px',
-                          minWidth: '36px',
-                          minHeight: '36px'
+                          width: '40px',
+                          height: '40px',
+                          minWidth: '40px',
+                          minHeight: '40px'
                         }}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -820,54 +1031,40 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </button>
                     )}
 
-                    {/* 清除按鈕 */}
-                    <button
-                      className="flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm"
-                      style={{
-                        backgroundColor: theme.sendButtonBackgroundColor,
-                        color: theme.sendButtonTextColor,
-                        width: '36px',
-                        height: '36px',
-                        minWidth: '36px',
-                        minHeight: '36px'
-                      }}
-                      title={tCommon('clear')}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </button>
-
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <textarea
                         value=""
                         placeholder={theme.inputPlaceholderText}
-                        className="w-full px-4 py-3 border rounded-xl resize-none shadow-sm transition-all duration-300"
+                        className="chatbot-input-textarea w-full px-4 py-2 border rounded-3xl resize-none shadow-sm transition-all duration-300"
                         style={{
                           fontSize: '16px',
                           backgroundColor: theme.inputBackgroundColor,
                           borderColor: theme.inputBorderColor,
                           color: theme.inputTextColor,
-                          minHeight: '48px',
-                          maxHeight: '120px'
-                        }}
+                          minHeight: '40px',
+                          maxHeight: '120px',
+                          paddingRight: '52px', // 給發送按鈕留空間
+                          '--placeholder-color': theme.inputPlaceholderColor || '#9CA3AF',
+                        } as React.CSSProperties & { '--placeholder-color': string }}
                         rows={1}
                         readOnly
                       />
+                      
+                      {/* 發送按鈕 - 放在輸入框內部右側 */}
+                      <button
+                        className="absolute rounded-full transition-all duration-300 flex items-center justify-center"
+                        style={{
+                          backgroundColor: theme.sendButtonBackgroundColor,
+                          color: theme.sendButtonTextColor,
+                          width: '36px',
+                          height: '36px',
+                          right: '2px',
+                          top: '2px'
+                        }}
+                      >
+                        {renderSendIcon()}
+                      </button>
                     </div>
-
-                    <button
-                      className="px-6 py-3 rounded-full transition-all duration-300 flex-shrink-0 shadow-sm"
-                      style={{
-                        backgroundColor: theme.sendButtonBackgroundColor,
-                        color: theme.sendButtonTextColor,
-                        height: '48px',
-                        minHeight: '48px',
-                        maxHeight: '48px'
-                      }}
-                    >
-                      {renderSendIcon()}
-                    </button>
                   </div>
                 </div>
               </div>
@@ -890,11 +1087,13 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 top: selectedSection === 'header' ? '24px' : 
                      selectedSection === 'chat' ? '84px' : 
                      selectedSection === 'input' ? '144px' :
-                     selectedSection === 'settings' ? '204px' : '24px',
+                     selectedSection === 'home' ? '249px' :
+                     selectedSection === 'settings' ? '309px' : '24px',
                 background: selectedSection === 'header' ? 'linear-gradient(to bottom, #3B82F6, #2563EB)' :
                            selectedSection === 'chat' ? 'linear-gradient(to bottom, #10B981, #059669)' :
                            selectedSection === 'input' ? 'linear-gradient(to bottom, #A855F7, #9333EA)' :
-                           selectedSection === 'settings' ? 'linear-gradient(to bottom, #6B7280, #4B5563)' : ''
+                           selectedSection === 'home' ? 'linear-gradient(to bottom, #F97316, #EA580C)' :
+                           selectedSection === 'settings' ? 'linear-gradient(to bottom, #06B6D4, #0891B2)' : ''
               }}
             />
 
@@ -977,6 +1176,34 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </span>
             </button>
 
+            {/* 分隔線 */}
+            <div className="w-full h-px bg-slate-600 my-4"></div>
+
+            {/* Home Page Tab */}
+            <button
+              onMouseEnter={() => setHoveredSection('home')}
+              onMouseLeave={() => setHoveredSection(null)}
+              onClick={() => setSelectedSection('home')}
+              className={`relative group transition-all duration-300 ${
+                selectedSection === 'home' ? 'scale-110' : 'scale-100 hover:scale-105'
+              }`}
+            >
+              <div className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center transition-all duration-300 ${
+                selectedSection === 'home'
+                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/50'
+                  : 'bg-slate-700 group-hover:bg-slate-600 group-hover:shadow-md'
+              }`}>
+                <svg className={`w-6 h-6 transition-all duration-300 ${
+                  selectedSection === 'home' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </div>
+              <span className="absolute right-full mr-3 px-3 py-2 bg-slate-900 text-white text-base font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none whitespace-nowrap z-[100]">
+                首頁設定
+              </span>
+            </button>
+
             {/* 設定 Tab */}
             <button
               onMouseEnter={() => setHoveredSection('settings')}
@@ -988,7 +1215,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             >
               <div className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center transition-all duration-300 ${
                 selectedSection === 'settings'
-                  ? 'bg-gradient-to-br from-gray-500 to-gray-600 shadow-lg shadow-gray-500/50'
+                  ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700 group-hover:bg-slate-600 group-hover:shadow-md'
               }`}>
                 <svg className={`w-6 h-6 transition-all duration-300 ${
@@ -1012,6 +1239,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 {selectedSection === 'header' ? t('headerSettingsTitle') :
                  selectedSection === 'chat' ? t('chatSettingsTitle') :
                  selectedSection === 'input' ? t('inputSettingsTitle') :
+                 selectedSection === 'home' ? '首頁設定' :
                  selectedSection === 'settings' ? t('advancedSettingsTitle') : ''}
               </h3>
             </div>
@@ -1022,8 +1250,8 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 {selectedSection === 'header' && (
                   <>
                     {/* 顯示 Header */}
-                    <div className="flex items-center gap-3">
-                      <label className="text-sm font-medium text-gray-700">
+                    <div className="flex items-center justify-between">
+                      <label className="text-base font-medium text-gray-700">
                         {t('showHeader')}
                       </label>
                       <button
@@ -1043,9 +1271,17 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     {theme.showHeader && (
                       <>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('headerLogo')}
-                          </label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={theme.showHeaderLogo}
+                                onChange={(e) => updateTheme({ showHeaderLogo: e.target.checked })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-base font-medium text-gray-700">{t('showHeaderLogo')}</span>
+                            </label>
+                          </div>
                           <div className="flex items-center space-x-3">
                             <div className="relative flex-1">
                               <input
@@ -1058,7 +1294,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               />
                               <label
                                 htmlFor="header-logo-input-design"
-                                className={`block w-full px-4 py-2 text-sm font-medium rounded-lg text-center transition-colors ${
+                                className={`block w-full px-4 py-2 text-base font-medium rounded-lg text-center transition-colors ${
                                   isUploadingLogo
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                     : 'bg-white text-gray-700 border border-gray-300 cursor-pointer hover:bg-gray-50'
@@ -1070,7 +1306,11 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                             {theme.headerLogo && (
                               <div className="w-16 h-16 border border-gray-300 rounded-lg overflow-hidden flex-shrink-0 bg-gray-50">
                                 <img
-                                  src={theme.headerLogo}
+                                  src={
+                                    theme.headerLogo.startsWith('http')
+                                      ? theme.headerLogo
+                                      : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${theme.headerLogo}`
+                                  }
                                   alt="Header Logo"
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -1080,42 +1320,60 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               </div>
                             )}
                             {!theme.headerLogo && !isUploadingLogo && (
-                              <div className="text-sm text-gray-500">{t('noLogoSet')}</div>
+                              <div className="text-base text-gray-500">{t('noLogoSet')}</div>
                             )}
                           </div>
-                          <p className="mt-1 text-xs text-gray-500">
+                          <p className="mt-1 text-base text-gray-500">
                             {t('supportedImageFormats')}
                           </p>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('headerTitle')}
-                          </label>
+                          <div className="flex items-center gap-2 mb-2">
+                            <input
+                              type="checkbox"
+                              id="show-header-title"
+                              checked={theme.showHeaderTitle}
+                              onChange={(e) => updateTheme({ showHeaderTitle: e.target.checked })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="show-header-title" className="text-base font-medium text-gray-700 cursor-pointer">
+                              {t('headerTitle')}
+                            </label>
+                          </div>
                           <input
                             type="text"
                             value={theme.headerTitle}
                             onChange={(e) => updateTheme({ headerTitle: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder={t('headerTitlePlaceholder')}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t('headerSubtitle')}
-                          </label>
+                          <div className="flex items-center gap-2 mb-2">
+                            <input
+                              type="checkbox"
+                              id="show-header-subtitle"
+                              checked={theme.showHeaderSubtitle}
+                              onChange={(e) => updateTheme({ showHeaderSubtitle: e.target.checked })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="show-header-subtitle" className="text-base font-medium text-gray-700 cursor-pointer">
+                              {t('headerSubtitle')}
+                            </label>
+                          </div>
                           <input
                             type="text"
                             value={theme.headerSubtitle}
                             onChange={(e) => updateTheme({ headerSubtitle: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder={t('headerSubtitlePlaceholder')}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('headerAlign')}
                           </label>
                           <div className="grid grid-cols-3 gap-2">
@@ -1123,7 +1381,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               <button
                                 key={align}
                                 onClick={() => updateTheme({ headerAlign: align as any })}
-                                className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                                className={`px-3 py-2 text-base font-medium rounded-lg border-2 transition-all ${
                                   theme.headerAlign === align
                                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
@@ -1136,7 +1394,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('headerSize')}
                           </label>
                           <div className="grid grid-cols-3 gap-2">
@@ -1144,7 +1402,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               <button
                                 key={size}
                                 onClick={() => updateTheme({ headerSize: size as any })}
-                                className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                                className={`px-3 py-2 text-base font-medium rounded-lg border-2 transition-all ${
                                   theme.headerSize === size
                                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
@@ -1157,7 +1415,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('headerBackgroundColor')}
                           </label>
                           <div className="space-y-3">
@@ -1168,29 +1426,35 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 onChange={(e) => updateTheme({ headerUseGradient: e.target.checked })}
                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
-                              <span className="ml-2 text-sm text-gray-700">{t('useGradient')}</span>
+                              <span className="ml-2 text-base text-gray-700">{t('useGradient')}</span>
                             </div>
                             
                             {theme.headerUseGradient ? (
                               <>
-                                <ColorInput
-                                  label={t('gradientStartColor')}
-                                  value={theme.headerGradientStartColor}
-                                  onChange={(value) => updateTheme({ headerGradientStartColor: value })}
-                                />
-                                
-                                <ColorInput
-                                  label={t('gradientEndColor')}
-                                  value={theme.headerGradientEndColor}
-                                  onChange={(value) => updateTheme({ headerGradientEndColor: value })}
-                                />
+                                {/* 漸層起始顏色和結束顏色 */}
+                                <div className="flex gap-2 mb-4 min-w-0">
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label={t('gradientStartColor')}
+                                      value={theme.headerGradientStartColor}
+                                      onChange={(value) => updateTheme({ headerGradientStartColor: value })}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label={t('gradientEndColor')}
+                                      value={theme.headerGradientEndColor}
+                                      onChange={(value) => updateTheme({ headerGradientEndColor: value })}
+                                    />
+                                  </div>
+                                </div>
                                 
                                 <div>
-                                  <label className="block text-xs text-gray-600 mb-1">{t('gradientDirection')}</label>
+                                  <label className="block text-base text-gray-600 mb-1">{t('gradientDirection')}</label>
                                   <select
                                     value={theme.headerGradientDirection}
                                     onChange={(e) => updateTheme({ headerGradientDirection: e.target.value as any })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   >
                                     <option value="to right">{t('toRight')}</option>
                                     <option value="to bottom">{t('toBottom')}</option>
@@ -1226,12 +1490,16 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   <>
                     {/* 問答區底色設定 */}
                     <div>
-                      <ColorInput
-                        label={t('chatBackgroundColor')}
-                        value={theme.chatBackgroundColor || '#FFFFFF'}
-                        onChange={(value) => updateTheme({ chatBackgroundColor: value })}
-                        className="mb-4"
-                      />
+                      <div className="flex gap-2 mb-4 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('chatBackgroundColor')}
+                            value={theme.chatBackgroundColor || '#FFFFFF'}
+                            onChange={(value) => updateTheme({ chatBackgroundColor: value })}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0"></div>
+                      </div>
                     </div>
 
                     <div className="pt-6 border-t border-gray-200">
@@ -1240,19 +1508,22 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                     {/* 用戶訊息設定 */}
                     <div>
-                      <ColorInput
-                        label={t('userMessageBubbleColor')}
-                        value={theme.userBubbleColor || '#2563EB'}
-                        onChange={(value) => updateTheme({ userBubbleColor: value })}
-                        className="mb-4"
-                      />
-
-                      <ColorInput
-                        label={t('userMessageTextColor')}
-                        value={theme.userTextColor || '#FFFFFF'}
-                        onChange={(value) => updateTheme({ userTextColor: value })}
-                        className="mb-4"
-                      />
+                      <div className="flex gap-2 mb-4 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('userMessageBubbleColor')}
+                            value={theme.userBubbleColor || '#2563EB'}
+                            onChange={(value) => updateTheme({ userBubbleColor: value })}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('userMessageTextColor')}
+                            value={theme.userTextColor || '#FFFFFF'}
+                            onChange={(value) => updateTheme({ userTextColor: value })}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="pt-6 border-t border-gray-200">
@@ -1261,256 +1532,348 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                     {/* QA Card 設定 - 背景和邊框 */}
                     <div>
-                      <ColorInput
-                        label={t('cardBackgroundColor')}
-                        value={theme.qaCardStyle?.backgroundColor || '#FFFFFF'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            backgroundColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
-
-                      <ColorInput
-                        label={t('borderColor')}
-                        value={theme.qaCardStyle?.borderColor || '#E5E7EB'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            borderColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
+                      <div className="flex gap-2 mb-4 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('cardBackgroundColor')}
+                            value={theme.qaCardStyle?.backgroundColor || '#FFFFFF'}
+                            onChange={(value) => updateTheme({ 
+                              qaCardStyle: { 
+                                ...theme.qaCardStyle, 
+                                backgroundColor: value 
+                              } 
+                            })}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('borderColor')}
+                            value={theme.qaCardStyle?.borderColor || '#E5E7EB'}
+                            onChange={(value) => updateTheme({ 
+                              qaCardStyle: { 
+                                ...theme.qaCardStyle, 
+                                borderColor: value 
+                              } 
+                            })}
+                          />
+                        </div>
+                      </div>
 
                       {/* 圓角 */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('borderRadius')}
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { value: 'rounded', label: t('small') },
-                            { value: 'rounded-xl', label: t('medium') },
-                            { value: 'rounded-2xl', label: t('large') }
-                          ].map(({ value, label }) => (
-                            <button
-                              key={value}
-                              onClick={() => updateTheme({ 
+                        <div className="flex items-center gap-3">
+                          <label className="text-base font-medium text-gray-700 whitespace-nowrap">
+                            {t('borderRadius')}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="3"
+                            value={(() => {
+                              const current = theme.qaCardStyle?.borderRadius || 'rounded-xl';
+                              const options = ['rounded', 'rounded-xl', 'rounded-2xl', 'rounded-3xl'];
+                              const index = options.indexOf(current);
+                              return index >= 0 ? index : 1;
+                            })()}
+                            onChange={(e) => {
+                              const options = ['rounded', 'rounded-xl', 'rounded-2xl', 'rounded-3xl'];
+                              const value = options[parseInt(e.target.value)];
+                              updateTheme({ 
                                 qaCardStyle: { 
                                   ...theme.qaCardStyle, 
                                   borderRadius: value 
                                 } 
-                              })}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                                (theme.qaCardStyle?.borderRadius || 'rounded-xl') === value
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
+                              });
+                            }}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <span className="text-base text-gray-600 whitespace-nowrap min-w-[40px] text-right">
+                            {(() => {
+                              const current = theme.qaCardStyle?.borderRadius || 'rounded-xl';
+                              const options = [
+                                { value: 'rounded', label: t('small') },
+                                { value: 'rounded-xl', label: t('medium') },
+                                { value: 'rounded-2xl', label: t('large') },
+                                { value: 'rounded-3xl', label: t('superLarge') }
+                              ];
+                              return options.find(opt => opt.value === current)?.label || t('medium');
+                            })()}
+                          </span>
                         </div>
                       </div>
 
                       {/* 內邊距 */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('padding')}
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { value: 'p-3', label: t('small') },
-                            { value: 'p-4', label: t('medium') },
-                            { value: 'p-5', label: t('large') }
-                          ].map(({ value, label }) => (
-                            <button
-                              key={value}
-                              onClick={() => updateTheme({ 
+                        <div className="flex items-center gap-3">
+                          <label className="text-base font-medium text-gray-700 whitespace-nowrap">
+                            {t('padding')}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="2"
+                            value={(() => {
+                              const current = theme.qaCardStyle?.padding || 'p-4';
+                              const options = ['p-3', 'p-4', 'p-5'];
+                              const index = options.indexOf(current);
+                              return index >= 0 ? index : 1;
+                            })()}
+                            onChange={(e) => {
+                              const options = ['p-3', 'p-4', 'p-5'];
+                              const value = options[parseInt(e.target.value)];
+                              updateTheme({ 
                                 qaCardStyle: { 
                                   ...theme.qaCardStyle, 
                                   padding: value 
                                 } 
-                              })}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                                (theme.qaCardStyle?.padding || 'p-4') === value
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
+                              });
+                            }}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <span className="text-base text-gray-600 whitespace-nowrap min-w-[40px] text-right">
+                            {(() => {
+                              const current = theme.qaCardStyle?.padding || 'p-4';
+                              const options = [
+                                { value: 'p-3', label: t('small') },
+                                { value: 'p-4', label: t('medium') },
+                                { value: 'p-5', label: t('large') }
+                              ];
+                              return options.find(opt => opt.value === current)?.label || t('medium');
+                            })()}
+                          </span>
                         </div>
                       </div>
 
                       {/* 陰影效果 */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('shadow')}
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { value: 'shadow-none', label: t('no') },
-                            { value: 'shadow-sm hover:shadow-md', label: t('small') },
-                            { value: 'shadow-md hover:shadow-lg', label: t('medium') },
-                            { value: 'shadow-lg hover:shadow-xl', label: t('large') }
-                          ].map(({ value, label }) => (
-                            <button
-                              key={value}
-                              onClick={() => updateTheme({ 
+                        <div className="flex items-center gap-3">
+                          <label className="text-base font-medium text-gray-700 whitespace-nowrap">
+                            {t('shadow')}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="3"
+                            value={(() => {
+                              const current = theme.qaCardStyle?.shadow || 'shadow-md hover:shadow-lg';
+                              const options = ['shadow-none', 'shadow-sm hover:shadow-md', 'shadow-md hover:shadow-lg', 'shadow-lg hover:shadow-xl'];
+                              const index = options.indexOf(current);
+                              return index >= 0 ? index : 2;
+                            })()}
+                            onChange={(e) => {
+                              const options = ['shadow-none', 'shadow-sm hover:shadow-md', 'shadow-md hover:shadow-lg', 'shadow-lg hover:shadow-xl'];
+                              const value = options[parseInt(e.target.value)];
+                              updateTheme({ 
                                 qaCardStyle: { 
                                   ...theme.qaCardStyle, 
                                   shadow: value 
                                 } 
-                              })}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                                (theme.qaCardStyle?.shadow || 'shadow-md hover:shadow-lg') === value
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
+                              });
+                            }}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          />
+                          <span className="text-base text-gray-600 whitespace-nowrap min-w-[40px] text-right">
+                            {(() => {
+                              const current = theme.qaCardStyle?.shadow || 'shadow-md hover:shadow-lg';
+                              const options = [
+                                { value: 'shadow-none', label: t('no') },
+                                { value: 'shadow-sm hover:shadow-md', label: t('small') },
+                                { value: 'shadow-md hover:shadow-lg', label: t('medium') },
+                                { value: 'shadow-lg hover:shadow-xl', label: t('large') }
+                              ];
+                              return options.find(opt => opt.value === current)?.label || t('medium');
+                            })()}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 文字設定 */}
+                    {/* 分隔線 */}
+                    <div className="border-t border-gray-200 my-4"></div>
+
+                    {/* 標題背景設定 */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">{t('textSettings')}</h4>
+                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('questionBackgroundSettings')}</h4>
                       
-                      <ColorInput
-                        label={t('questionTextColor')}
-                        value={theme.qaCardStyle?.questionColor || '#111827'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            questionColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
+                      {/* 是否使用漸層 */}
+                      <div className="mb-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={theme.qaCardStyle?.questionUseGradient || false}
+                            onChange={(e) => updateTheme({
+                              qaCardStyle: {
+                                ...theme.qaCardStyle,
+                                questionUseGradient: e.target.checked
+                              }
+                            })}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-base font-medium text-gray-700">{t('useGradientBackground')}</span>
+                        </label>
+                      </div>
+
+                      {/* 根據是否使用漸層顯示不同的選項 */}
+                      {theme.qaCardStyle?.questionUseGradient ? (
+                        <>
+                          {/* 漸層起始顏色和結束顏色 */}
+                          <div className="flex gap-2 mb-4 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <ColorInput
+                                label={t('gradientStartColor')}
+                                value={theme.qaCardStyle?.questionGradientStartColor || '#3B82F6'}
+                                onChange={(value) => updateTheme({
+                                  qaCardStyle: {
+                                    ...theme.qaCardStyle,
+                                    questionGradientStartColor: value
+                                  }
+                                })}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <ColorInput
+                                label={t('gradientEndColor')}
+                                value={theme.qaCardStyle?.questionGradientEndColor || '#8B5CF6'}
+                                onChange={(value) => updateTheme({
+                                  qaCardStyle: {
+                                    ...theme.qaCardStyle,
+                                    questionGradientEndColor: value
+                                  }
+                                })}
+                              />
+                            </div>
+                          </div>
+
+                          {/* 漸層方向 */}
+                          <div className="mb-4">
+                            <label className="block text-base font-medium text-gray-700 mb-2">
+                              {t('gradientDirection')}
+                            </label>
+                            <select
+                              value={theme.qaCardStyle?.questionGradientDirection || 'to right'}
+                              onChange={(e) => updateTheme({
+                                qaCardStyle: {
+                                  ...theme.qaCardStyle,
+                                  questionGradientDirection: e.target.value as any
+                                }
+                              })}
+                              className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            >
+                              <option value="to right">{t('toRight')}</option>
+                              <option value="to left">{t('toLeft')}</option>
+                              <option value="to bottom">{t('toBottom')}</option>
+                              <option value="to top">{t('toTop')}</option>
+                              <option value="to bottom right">{t('toBottomRight')}</option>
+                              <option value="to bottom left">{t('toBottomLeft')}</option>
+                              <option value="to top right">{t('toTopRight')}</option>
+                              <option value="to top left">{t('toTopLeft')}</option>
+                            </select>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* 純色背景 */}
+                          <div className="flex gap-2 mb-4 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <ColorInput
+                                label={t('questionBackgroundColor')}
+                                value={theme.qaCardStyle?.questionBackgroundColor || 'transparent'}
+                                onChange={(value) => updateTheme({
+                                  qaCardStyle: {
+                                    ...theme.qaCardStyle,
+                                    questionBackgroundColor: value
+                                  }
+                                })}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <ColorInput
+                                label={t('questionTextColor')}
+                                value={theme.qaCardStyle?.questionColor || '#111827'}
+                                onChange={(value) => updateTheme({ 
+                                  qaCardStyle: { 
+                                    ...theme.qaCardStyle, 
+                                    questionColor: value 
+                                  } 
+                                })}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="border-t border-gray-200 my-4"></div>
+
+                    <div>
 
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-base font-medium text-gray-700 mb-2">
                           {t('questionTextSize')}
                         </label>
                         <select
                           value={theme.qaCardStyle?.questionFontSize || '16px'}
-                          onChange={(e) => updateTheme({ 
-                            qaCardStyle: { 
-                              ...theme.qaCardStyle, 
-                              questionFontSize: e.target.value 
-                            } 
+                          onChange={(e) => updateTheme({
+                            qaCardStyle: {
+                              ...theme.qaCardStyle,
+                              questionFontSize: e.target.value
+                            }
                           })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                         >
-                          <option value="18px">18px ({t('small')})</option>
-                          <option value="20px">20px</option>
-                          <option value="16px">16px ({t('medium')})</option>
+                          <option value="16px">16px ({t('small')})</option>
+                          <option value="18px">18px</option>
+                          <option value="20px">20px ({t('medium')})</option>
                           <option value="24px">24px</option>
                           <option value="28px">28px</option>
                           <option value="32px">32px ({t('large')})</option>
                         </select>
                       </div>
 
-                      <ColorInput
-                        label={t('answerTextColor')}
-                        value={theme.qaCardStyle?.answerColor || '#374151'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            answerColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('answerTextSize')}
-                        </label>
-                        <select
-                          value={theme.qaCardStyle?.answerFontSize || '14px'}
-                          onChange={(e) => updateTheme({ 
-                            qaCardStyle: { 
-                              ...theme.qaCardStyle, 
-                              answerFontSize: e.target.value 
-                            } 
-                          })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        >
+                      <div className="flex gap-2 mb-4 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('answerTextColor')}
+                            value={theme.qaCardStyle?.answerColor || '#374151'}
+                            onChange={(value) => updateTheme({ 
+                              qaCardStyle: { 
+                                ...theme.qaCardStyle, 
+                                answerColor: value 
+                              } 
+                            })}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
+                            {t('answerTextSize')}
+                          </label>
+                          <select
+                            value={theme.qaCardStyle?.answerFontSize || '14px'}
+                            onChange={(e) => updateTheme({ 
+                              qaCardStyle: { 
+                                ...theme.qaCardStyle, 
+                                answerFontSize: e.target.value 
+                              } 
+                            })}
+                            className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          >
                           <option value="12px">12px ({t('extraSmall')})</option>
                           <option value="14px">14px ({t('small')})</option>
                           <option value="16px">16px ({t('medium')})</option>
                           <option value="18px">18px ({t('large')})</option>
                           <option value="20px">20px</option>
                         </select>
+                        </div>
                       </div>
                     </div>
 
-                    {/* 邊框設定 */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">{t('borderSettings')}</h4>
-                      
-                      <ColorInput
-                        label={t('accentColor')}
-                        value={theme.qaCardStyle?.accentColor || '#3B82F6'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            accentColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {t('separatorHeight')}
-                        </label>
-                        <select
-                          value={theme.qaCardStyle?.separatorHeight || '1px'}
-                          onChange={(e) => updateTheme({ 
-                            qaCardStyle: { 
-                              ...theme.qaCardStyle, 
-                              separatorHeight: e.target.value 
-                            } 
-                          })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        >
-                          <option value="1px">1px</option>
-                          <option value="2px">2px</option>
-                          <option value="4px">4px</option>
-                          <option value="8px">8px</option>
-                          <option value="16px">16px</option>
-                        </select>
-                      </div>
-
-                      <ColorInput
-                        label={t('separatorColor')}
-                        value={theme.qaCardStyle?.separatorColor || theme.qaCardStyle?.borderColor || '#E5E7EB'}
-                        onChange={(value) => updateTheme({ 
-                          qaCardStyle: { 
-                            ...theme.qaCardStyle, 
-                            separatorColor: value 
-                          } 
-                        })}
-                        className="mb-4"
-                      />
-                    </div>
                   </>
                 )}
 
                 {selectedSection === 'input' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-base font-medium text-gray-700 mb-2">
                         {t('inputPosition')}
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -1518,7 +1881,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           <button
                             key={position}
                             onClick={() => updateTheme({ inputPosition: position as any })}
-                            className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            className={`px-3 py-2 text-base font-medium rounded-lg border-2 transition-all ${
                               theme.inputPosition === position
                                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                                 : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
@@ -1530,8 +1893,10 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </div>
                     </div>
 
+                    <div className="border-t border-gray-200 my-4"></div>
+
                     <div className="flex items-center gap-3">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-base font-medium text-gray-700">
                         {t('enableVoice')}
                       </label>
                       <button
@@ -1548,69 +1913,85 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </button>
                     </div>
 
-                    <ColorInput
-                      label={t('inputAreaBackgroundColor')}
-                      value={theme.inputAreaBackgroundColor}
-                      onChange={(value) => updateTheme({ inputAreaBackgroundColor: value })}
-                    />
+                    <div className="border-t border-gray-200 my-4"></div>
 
-                    <ColorInput
-                      label={t('inputBackgroundColor')}
-                      value={theme.inputBackgroundColor}
-                      onChange={(value) => updateTheme({ inputBackgroundColor: value })}
-                    />
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('inputAreaBackgroundColor')}
+                          value={theme.inputAreaBackgroundColor}
+                          onChange={(value) => updateTheme({ inputAreaBackgroundColor: value })}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0"></div>
+                    </div>
 
-                    <ColorInput
-                      label={t('inputBorderColor')}
-                      value={theme.inputBorderColor}
-                      onChange={(value) => updateTheme({ inputBorderColor: value })}
-                    />
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('inputBackgroundColor')}
+                          value={theme.inputBackgroundColor}
+                          onChange={(value) => updateTheme({ inputBackgroundColor: value })}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('inputBorderColor')}
+                          value={theme.inputBorderColor}
+                          onChange={(value) => updateTheme({ inputBorderColor: value })}
+                        />
+                      </div>
+                    </div>
 
-                    <ColorInput
-                      label={t('inputTextColor')}
-                      value={theme.inputTextColor}
-                      onChange={(value) => updateTheme({ inputTextColor: value })}
-                    />
-
-                    <ColorInput
-                      label={t('inputPlaceholderColor')}
-                      value={theme.inputPlaceholderColor}
-                      onChange={(value) => updateTheme({ inputPlaceholderColor: value })}
-                    />
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('inputTextColor')}
+                          value={theme.inputTextColor}
+                          onChange={(value) => updateTheme({ inputTextColor: value })}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('inputPlaceholderColor')}
+                          value={theme.inputPlaceholderColor}
+                          onChange={(value) => updateTheme({ inputPlaceholderColor: value })}
+                        />
+                      </div>
+                    </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-base font-medium text-gray-700 mb-2">
                         {t('inputPlaceholder')}
                       </label>
                       <input
                         type="text"
                         value={theme.inputPlaceholderText}
                         onChange={(e) => updateTheme({ inputPlaceholderText: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder={t('inputPlaceholderExample')}
                       />
                     </div>
 
-                    <ColorInput
-                      label={t('sendButtonBackgroundColor')}
-                      value={theme.sendButtonBackgroundColor}
-                      onChange={(value) => updateTheme({ sendButtonBackgroundColor: value })}
-                    />
-
-                    <ColorInput
-                      label={t('sendButtonTextColor')}
-                      value={theme.sendButtonTextColor}
-                      onChange={(value) => updateTheme({ sendButtonTextColor: value })}
-                    />
-
-                    <ColorInput
-                      label={t('sendButtonHoverColor')}
-                      value={theme.sendButtonHoverColor}
-                      onChange={(value) => updateTheme({ sendButtonHoverColor: value })}
-                    />
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('sendButtonBackgroundColor')}
+                          value={theme.sendButtonBackgroundColor}
+                          onChange={(value) => updateTheme({ sendButtonBackgroundColor: value })}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <ColorInput
+                          label={t('sendButtonTextColor')}
+                          value={theme.sendButtonTextColor}
+                          onChange={(value) => updateTheme({ sendButtonTextColor: value })}
+                        />
+                      </div>
+                    </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-base font-medium text-gray-700 mb-2">
                         {t('sendButtonIcon')}
                       </label>
                       <div className="grid grid-cols-5 gap-2">
@@ -1676,88 +2057,96 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 {selectedSection === 'settings' && (
                   <>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">{t('containerSettings')}</h3>
+                      <h3 className="text-base font-bold text-gray-900 mb-1">{t('containerSettings')}</h3>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('borderRadius')}
-                      </label>
-                      <select
-                        value={theme.containerStyle?.borderRadius || 'rounded-lg'}
-                        onChange={(e) => updateTheme({ 
-                          containerStyle: { 
-                            ...theme.containerStyle, 
-                            borderRadius: e.target.value 
-                          } 
-                        })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      >
-                        <option value="rounded-none">{t('no')}</option>
-                        <option value="rounded">{t('small')}</option>
-                        <option value="rounded-lg">{t('medium')}</option>
-                        <option value="rounded-xl">{t('large')}</option>
-                        <option value="rounded-2xl">{t('extraLarge')}</option>
-                        <option value="rounded-3xl">{t('superLarge')}</option>
-                      </select>
+                    {/* 圓角和陰影 */}
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-base font-medium text-gray-700 mb-2">
+                          {t('borderRadius')}
+                        </label>
+                        <select
+                          value={theme.containerStyle?.borderRadius || 'rounded-lg'}
+                          onChange={(e) => updateTheme({ 
+                            containerStyle: { 
+                              ...theme.containerStyle, 
+                              borderRadius: e.target.value 
+                            } 
+                          })}
+                          className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          <option value="rounded-none">{t('no')}</option>
+                          <option value="rounded">{t('small')}</option>
+                          <option value="rounded-lg">{t('medium')}</option>
+                          <option value="rounded-xl">{t('large')}</option>
+                          <option value="rounded-2xl">{t('extraLarge')}</option>
+                          <option value="rounded-3xl">{t('superLarge')}</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-base font-medium text-gray-700 mb-2">
+                          {t('shadow')}
+                        </label>
+                        <select
+                          value={theme.containerStyle?.shadow ?? ''}
+                          onChange={(e) => updateTheme({ 
+                            containerStyle: { 
+                              ...theme.containerStyle, 
+                              shadow: e.target.value 
+                            } 
+                          })}
+                          className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          <option value="">{t('no')}</option>
+                          <option value="shadow-sm">{t('small')}</option>
+                          <option value="shadow-md">{t('medium')}</option>
+                          <option value="shadow-lg">{t('large')}</option>
+                          <option value="shadow-xl">{t('extraLarge')}</option>
+                          <option value="shadow-2xl">{t('superLarge')}</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('shadow')}
-                      </label>
-                      <select
-                        value={theme.containerStyle?.shadow ?? ''}
-                        onChange={(e) => updateTheme({ 
-                          containerStyle: { 
-                            ...theme.containerStyle, 
-                            shadow: e.target.value 
-                          } 
-                        })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      >
-                        <option value="">{t('no')}</option>
-                        <option value="shadow-sm">{t('small')}</option>
-                        <option value="shadow-md">{t('medium')}</option>
-                        <option value="shadow-lg">{t('large')}</option>
-                        <option value="shadow-xl">{t('extraLarge')}</option>
-                        <option value="shadow-2xl">{t('superLarge')}</option>
-                      </select>
-                    </div>
+                    {/* 邊框和邊框顏色 */}
+                    <div className="flex gap-2 mb-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-base font-medium text-gray-700 mb-2">
+                          {t('border')}
+                        </label>
+                        <select
+                          value={theme.containerStyle?.border || ''}
+                          onChange={(e) => updateTheme({ 
+                            containerStyle: { 
+                              ...theme.containerStyle, 
+                              border: e.target.value 
+                            } 
+                          })}
+                          className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          <option value="">{t('no')}</option>
+                          <option value="border">{t('small')}</option>
+                          <option value="border-2">{t('medium')}</option>
+                          <option value="border-4">{t('large')}</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('border')}
-                      </label>
-                      <select
-                        value={theme.containerStyle?.border || ''}
-                        onChange={(e) => updateTheme({ 
-                          containerStyle: { 
-                            ...theme.containerStyle, 
-                            border: e.target.value 
-                          } 
-                        })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      >
-                        <option value="">{t('no')}</option>
-                        <option value="border">{t('small')}</option>
-                        <option value="border-2">{t('medium')}</option>
-                        <option value="border-4">{t('large')}</option>
-                      </select>
+                      {(theme.containerStyle?.border && theme.containerStyle.border !== '') && (
+                        <div className="flex-1 min-w-0">
+                          <ColorInput
+                            label={t('borderColor')}
+                            value={theme.containerStyle?.borderColor || '#E5E7EB'}
+                            onChange={(value) => updateTheme({ 
+                              containerStyle: { 
+                                ...theme.containerStyle, 
+                                borderColor: value 
+                              } 
+                            })}
+                          />
+                        </div>
+                      )}
                     </div>
-
-                    {(theme.containerStyle?.border && theme.containerStyle.border !== '') && (
-                      <ColorInput
-                        label={t('borderColor')}
-                        value={theme.containerStyle?.borderColor || '#E5E7EB'}
-                        onChange={(value) => updateTheme({ 
-                          containerStyle: { 
-                            ...theme.containerStyle, 
-                            borderColor: value 
-                          } 
-                        })}
-                      />
-                    )}
 
                     <div className="pt-6 border-t border-gray-200">
                       <h4 className="text-base font-semibold text-gray-800 mb-3">{t('queryTypeSetting')}</h4>
@@ -1782,7 +2171,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           onChange={() => updateTheme({ enableAIChat: true, enableBrowseQA: true })}
                           className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="text-sm font-medium text-gray-700">{t('bothModes')}</span>
+                        <span className="text-base font-medium text-gray-700">{t('bothModes')}</span>
                       </label>
 
                       <label 
@@ -1803,7 +2192,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           onChange={() => updateTheme({ enableAIChat: true, enableBrowseQA: false })}
                           className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="text-sm font-medium text-gray-700">{t('enableAIChat')}</span>
+                        <span className="text-base font-medium text-gray-700">{t('enableAIChat')}</span>
                       </label>
 
                       <label 
@@ -1824,7 +2213,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           onChange={() => updateTheme({ enableAIChat: false, enableBrowseQA: true })}
                           className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="text-sm font-medium text-gray-700">{t('enableBrowseQA')}</span>
+                        <span className="text-base font-medium text-gray-700">{t('enableBrowseQA')}</span>
                       </label>
                     </div>
 
@@ -1833,7 +2222,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-base font-medium text-gray-700">
                         {t('contactInfoEnabled')}
                       </label>
                       <button
@@ -1858,7 +2247,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     {theme.contactInfo?.enabled && (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('contactName')}
                           </label>
                           <input
@@ -1871,12 +2260,12 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               }
                             })}
                             placeholder={t('contactNamePlaceholder')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('contactPhone')}
                           </label>
                           <input
@@ -1889,12 +2278,12 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               }
                             })}
                             placeholder={t('contactPhonePlaceholder')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-base font-medium text-gray-700 mb-2">
                             {t('contactEmail')}
                           </label>
                           <input
@@ -1907,8 +2296,354 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               }
                             })}
                             placeholder={t('contactEmailPlaceholder')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Home Page 設定 */}
+                {selectedSection === 'home' && (
+                  <>
+                    {/* 啟用首頁 */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-base font-medium text-gray-700">
+                        啟用首頁
+                      </label>
+                      <button
+                        onClick={() => updateTheme({ 
+                          homePageConfig: { 
+                            ...theme.homePageConfig,
+                            enabled: !theme.homePageConfig?.enabled 
+                          } 
+                        })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          theme.homePageConfig?.enabled ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            theme.homePageConfig?.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="border-t border-gray-200 my-4"></div>
+
+                    {theme.homePageConfig?.enabled && (
+                      <div className="space-y-4">
+                        {/* 背景圖片上傳 */}
+                        <div>
+                          <label className="block text-base font-medium text-gray-700 mb-2">
+                            背景圖片（建議3:4比例的豎向圖片）
+                          </label>
+                          {theme.homePageConfig?.backgroundImage ? (
+                            <div className="flex items-center space-x-3">
+                              <img
+                                src={
+                                  theme.homePageConfig.backgroundImage.startsWith('http')
+                                    ? theme.homePageConfig.backgroundImage
+                                    : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${theme.homePageConfig.backgroundImage}`
+                                }
+                                alt="Background"
+                                className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                              />
+                              <button
+                                onClick={() => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    backgroundImage: undefined
+                                  }
+                                })}
+                                className="px-3 py-2 text-base text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                移除圖片
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleHomeImageUpload}
+                                disabled={isUploadingLogo}
+                                className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+                              />
+                              {isUploadingLogo && (
+                                <p className="mt-2 text-base text-gray-500">上傳中...</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* CTA 按鈕設定 */}
+                        <div className="pt-4 border-t border-gray-200">
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <label className="text-base font-medium text-gray-700">
+                            顯示 CTA 按鈕
+                          </label>
+                          <button
+                            onClick={() => updateTheme({
+                              homePageConfig: {
+                                ...theme.homePageConfig,
+                                ctaButton: {
+                                  ...theme.homePageConfig?.ctaButton,
+                                  show: !theme.homePageConfig?.ctaButton?.show
+                                }
+                              }
+                            })}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              theme.homePageConfig?.ctaButton?.show !== false ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                theme.homePageConfig?.ctaButton?.show !== false ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {theme.homePageConfig?.ctaButton?.show !== false && (
+                          <>
+                            <div>
+                              <label className="block text-base font-medium text-gray-700 mb-2">
+                                CTA 按鈕文字
+                              </label>
+                              <input
+                                type="text"
+                                value={theme.homePageConfig?.ctaButton?.text ?? ''}
+                                onChange={(e) => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    ctaButton: {
+                                      ...theme.homePageConfig?.ctaButton,
+                                      text: e.target.value
+                                    }
+                                  }
+                                })}
+                                placeholder="造訪網站"
+                                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-base font-medium text-gray-700 mb-2">
+                                CTA 按鈕連結
+                              </label>
+                              <input
+                                type="url"
+                                value={theme.homePageConfig?.ctaButton?.url || ''}
+                                onChange={(e) => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    ctaButton: {
+                                      ...theme.homePageConfig?.ctaButton,
+                                      url: e.target.value
+                                    }
+                                  }
+                                })}
+                                placeholder="https://example.com"
+                                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+
+                            <div>
+                              <ColorInput
+                                label="CTA 按鈕文字顏色"
+                                value={theme.homePageConfig?.ctaButton?.textColor || '#3a6ba7'}
+                                onChange={(value) => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    ctaButton: {
+                                      ...theme.homePageConfig?.ctaButton,
+                                      textColor: value
+                                    }
+                                  }
+                                })}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* FAQ 按鈕設定 */}
+                        <div className="pt-4 border-t border-gray-200">
+                        </div>
+
+                        <div>
+                          <label className="block text-base font-medium text-gray-700 mb-2">
+                            FAQ 按鈕文字
+                          </label>
+                          <input
+                            type="text"
+                            value={theme.homePageConfig?.faqButton?.text ?? ''}
+                            onChange={(e) => updateTheme({
+                              homePageConfig: {
+                                ...theme.homePageConfig,
+                                faqButton: {
+                                  ...theme.homePageConfig?.faqButton,
+                                  text: e.target.value
+                                }
+                              }
+                            })}
+                            placeholder="FAQ"
+                            className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+
+                        {/* 按鈕區域背景設定 */}
+                        <div className="pt-4 border-t border-gray-200">
+                        </div>
+
+                        <div>
+                          <label className="block text-base font-medium text-gray-700 mb-2">
+                            按鈕區域背景
+                          </label>
+                          <div className="space-y-3">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={theme.homePageConfig?.buttonAreaUseGradient || false}
+                                onChange={(e) => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    buttonAreaUseGradient: e.target.checked
+                                  }
+                                })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="ml-2 text-base text-gray-700">使用漸層</span>
+                            </div>
+                            
+                            {theme.homePageConfig?.buttonAreaUseGradient ? (
+                              <>
+                                {/* 漸層起始顏色和結束顏色 */}
+                                <div className="flex gap-2 mb-4 min-w-0">
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label="漸層起始顏色"
+                                      value={theme.homePageConfig?.buttonAreaGradientStartColor || '#f3f4f6'}
+                                      onChange={(value) => updateTheme({
+                                        homePageConfig: {
+                                          ...theme.homePageConfig,
+                                          buttonAreaGradientStartColor: value
+                                        }
+                                      })}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label="漸層結束顏色"
+                                      value={theme.homePageConfig?.buttonAreaGradientEndColor || '#e5e7eb'}
+                                      onChange={(value) => updateTheme({
+                                        homePageConfig: {
+                                          ...theme.homePageConfig,
+                                          buttonAreaGradientEndColor: value
+                                        }
+                                      })}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-base text-gray-600 mb-1">漸層方向</label>
+                                  <select
+                                    value={theme.homePageConfig?.buttonAreaGradientDirection || 'to right'}
+                                    onChange={(e) => updateTheme({
+                                      homePageConfig: {
+                                        ...theme.homePageConfig,
+                                        buttonAreaGradientDirection: e.target.value as any
+                                      }
+                                    })}
+                                    className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  >
+                                    <option value="to right">向右</option>
+                                    <option value="to bottom">向下</option>
+                                    <option value="to left">向左</option>
+                                    <option value="to top">向上</option>
+                                    <option value="to bottom right">向右下</option>
+                                    <option value="to bottom left">向左下</option>
+                                    <option value="to top right">向右上</option>
+                                    <option value="to top left">向左上</option>
+                                  </select>
+                                </div>
+                              </>
+                            ) : (
+                              <ColorInput
+                                value={theme.homePageConfig?.buttonAreaBackgroundColor || '#ffffff'}
+                                onChange={(value) => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    buttonAreaBackgroundColor: value
+                                  }
+                                })}
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* FAQ 導向頁面模式選擇 */}
+                        <div>
+                          <label className="block text-base font-medium text-gray-700 mb-3">
+                            FAQ 導向頁面模式
+                          </label>
+                          <div className="flex gap-2">
+                            <label
+                              className="flex-1 flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all"
+                              style={{
+                                borderColor: theme.homePageConfig?.faqMode === 'chat' 
+                                  ? '#3B82F6' 
+                                  : '#E5E7EB',
+                                backgroundColor: theme.homePageConfig?.faqMode === 'chat' 
+                                  ? '#EFF6FF' 
+                                  : 'transparent'
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="faqMode"
+                                checked={theme.homePageConfig?.faqMode === 'chat'}
+                                onChange={() => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    faqMode: 'chat'
+                                  }
+                                })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                              />
+                              <span className="ml-3 text-base font-medium text-gray-700">問答模式</span>
+                            </label>
+                            <label
+                              className="flex-1 flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all"
+                              style={{
+                                borderColor: theme.homePageConfig?.faqMode === 'browse' 
+                                  ? '#3B82F6' 
+                                  : '#E5E7EB',
+                                backgroundColor: theme.homePageConfig?.faqMode === 'browse' 
+                                  ? '#EFF6FF' 
+                                  : 'transparent'
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="faqMode"
+                                checked={theme.homePageConfig?.faqMode === 'browse'}
+                                onChange={() => updateTheme({
+                                  homePageConfig: {
+                                    ...theme.homePageConfig,
+                                    faqMode: 'browse'
+                                  }
+                                })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                              />
+                              <span className="ml-3 text-base font-medium text-gray-700">瀏覽模式</span>
+                            </label>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1979,6 +2714,15 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
         onClose={() => setShowHelp(false)}
         helpFile="design"
       />
+
+      {/* Image Crop Modal */}
+      {showCropModal && imageToCrop && (
+        <ImageCropModal
+          image={imageToCrop}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   );
 }

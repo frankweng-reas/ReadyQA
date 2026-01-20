@@ -187,6 +187,45 @@ export class ChatbotsController {
     };
   }
 
+  @Get(':id/overview-stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '取得 Chatbot 總覽統計資料（用於分析頁面）' })
+  @ApiQuery({ name: 'days', required: false, description: '統計天數（預設 30 天）' })
+  @ApiResponse({ status: 200, description: '成功取得總覽統計' })
+  @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
+  async getOverviewStats(
+    @Param('id') id: string,
+    @Query('days') days?: string,
+  ) {
+    const daysNum = days ? parseInt(days, 10) : 30;
+    const stats = await this.chatbotsService.getOverviewStats(id, daysNum);
+    return {
+      success: true,
+      data: stats,
+    };
+  }
+
+  @Get(':id/zero-result-queries')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '取得零結果查詢詳細清單' })
+  @ApiQuery({ name: 'days', required: false, description: '統計天數（預設 30 天）' })
+  @ApiQuery({ name: 'limit', required: false, description: '返回數量（預設 20）' })
+  @ApiResponse({ status: 200, description: '成功取得零結果查詢清單' })
+  @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
+  async getZeroResultQueries(
+    @Param('id') id: string,
+    @Query('days') days?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const daysNum = days ? parseInt(days, 10) : 30;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    const data = await this.chatbotsService.getZeroResultQueries(id, daysNum, limitNum);
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '取得單一 Chatbot' })
@@ -273,6 +312,56 @@ export class ChatbotsController {
         filename: file.filename,
       },
       message: 'Logo 上傳成功',
+    };
+  }
+
+  @Post(':id/upload-homeimage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '上傳 Chatbot 首頁背景圖' })
+  @ApiResponse({ status: 200, description: '首頁背景圖上傳成功' })
+  @ApiResponse({ status: 400, description: '檔案格式或大小不符' })
+  @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/chatbot-logos',
+        filename: (req, file, cb) => {
+          // 生成唯一檔名: chatbot-{id}-home-{timestamp}{ext}
+          const chatbotId = req.params.id;
+          const timestamp = Date.now();
+          const ext = extname(file.originalname);
+          cb(null, `chatbot-${chatbotId}-home-${timestamp}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        // 只允許圖片檔案
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(new BadRequestException('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadHomeImage(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('請上傳檔案');
+    }
+
+    const imagePath = await this.chatbotsService.updateHomeImage(id, file.filename);
+
+    return {
+      success: true,
+      data: {
+        imagePath,
+        filename: file.filename,
+      },
+      message: '首頁背景圖上傳成功',
     };
   }
 }

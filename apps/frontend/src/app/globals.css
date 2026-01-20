@@ -97,6 +97,15 @@ body > div[style*="z-index"] {
 }
 
 /* Toast UI Editor 樣式修復 */
+/* 設定編輯器字體大小為 text-base (16px) */
+.toastui-editor-contents {
+  font-size: 1rem !important; /* text-base = 16px */
+}
+
+.toastui-editor-md-container .ProseMirror {
+  font-size: 1rem !important; /* text-base = 16px */
+}
+
 /* 確保下拉選單不被截斷 */
 .toastui-editor-dropdown-toolbar {
   z-index: 9999 !important;
@@ -213,4 +222,10 @@ div[contenteditable="true"] table thead td {
   min-width: 1100px;
   width: 1100px;
   margin: 0 auto;
+}
+
+/* ChatbotWidget 輸入框 placeholder 顏色 */
+.chatbot-input-textarea::placeholder {
+  color: var(--placeholder-color, #9CA3AF) !important;
+  opacity: 1 !important;
 }

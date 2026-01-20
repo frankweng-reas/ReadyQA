@@ -16,7 +16,8 @@ export async function getOrCreateUserId(
   name?: string
 ): Promise<number> {
   try {
-    const response = await fetch('http://localhost:8000/api/auth/get-or-create-user', {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+    const response = await fetch(`${API_URL}/auth/get-or-create-user`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

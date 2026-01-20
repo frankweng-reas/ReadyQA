@@ -646,7 +646,7 @@ export default function DashboardPage() {
                                 <img
                                   src={chatbot.theme.headerLogo.startsWith('http') 
                                     ? chatbot.theme.headerLogo 
-                                    : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${chatbot.theme.headerLogo}`}
+                                    : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000'}${chatbot.theme.headerLogo}`}
                                   alt={`${chatbot.name} logo`}
                                   className="h-full w-full object-cover"
                                   onError={() => {

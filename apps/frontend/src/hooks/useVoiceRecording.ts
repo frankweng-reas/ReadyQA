@@ -62,8 +62,9 @@ export function useVoiceRecording({
       formData.append('denoise', 'true')
       
       console.log('[useVoiceRecording] 發送轉錄請求，chatbotId:', chatbotId)
-      
-      const response = await fetch('http://localhost:8000/api/audio/transcribe', {
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${API_URL}/audio/transcribe`, {
         method: 'POST',
         body: formData
       })

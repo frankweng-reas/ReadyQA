@@ -37,6 +37,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'http://192.168.0.38:3000',
       'https://qaplus.example.com',
     ],
     credentials: true,
@@ -65,9 +66,10 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 8000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   
   console.log(`🚀 Backend API is running on: http://localhost:${port}/api`);
+  console.log(`🚀 Backend API is also accessible at: http://192.168.0.38:${port}/api`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
 

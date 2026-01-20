@@ -74,7 +74,7 @@ export default function ColorInput({ value, onChange, label, className = '', dis
   return (
     <div className={className}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-base font-medium text-gray-700 mb-2">
           {label}
         </label>
       )}
@@ -93,7 +93,7 @@ export default function ColorInput({ value, onChange, label, className = '', dis
         onChange={handleTextChange}
         onBlur={handleTextBlur}
         disabled={disabled}
-        className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent font-mono text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+        className={`w-24 px-2 py-2 border rounded-lg focus:ring-2 focus:border-transparent font-mono text-sm disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed ${
           error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
         }`}
         placeholder="#000000"
