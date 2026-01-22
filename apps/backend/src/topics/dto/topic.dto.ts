@@ -38,21 +38,21 @@ export class UpdateTopicDto {
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsString()
   @IsOptional()
-  parentId?: string;
+  parentId?: string | null;
 
   @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @IsOptional()
   sortOrder?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   @IsString()
   @IsOptional()
-  description?: string;
+  description?: string | null;
 }
 
 export class TopicQueryDto {

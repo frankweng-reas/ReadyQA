@@ -103,9 +103,20 @@ export class TopicsService {
   async update(id: string, updateDto: UpdateTopicDto) {
     await this.findOne(id);
 
-    return this.prisma.topic.update({
+    console.log('[TopicsService] 更新 Topic:', { id, updateDto, sortOrderType: typeof updateDto.sortOrder });
+
+    // 明確構建更新資料，確保 sortOrder 被包含
+    const updateData: any = {};
+    if (updateDto.name !== undefined) updateData.name = updateDto.name;
+    if (updateDto.parentId !== undefined) updateData.parentId = updateDto.parentId;
+    if (updateDto.sortOrder !== undefined) updateData.sortOrder = updateDto.sortOrder;
+    if (updateDto.description !== undefined) updateData.description = updateDto.description;
+
+    console.log('[TopicsService] 更新資料:', updateData);
+
+    const result = await this.prisma.topic.update({
       where: { id },
-      data: updateDto,
+      data: updateData,
       include: {
         parent: true,
         _count: {
@@ -116,6 +127,10 @@ export class TopicsService {
         },
       },
     });
+
+    console.log('[TopicsService] 更新後:', { id, sortOrder: result.sortOrder });
+
+    return result;
   }
 
   async remove(id: string) {

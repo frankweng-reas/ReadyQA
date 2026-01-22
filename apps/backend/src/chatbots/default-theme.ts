@@ -84,6 +84,7 @@ export const getDefaultTheme = () => ({
   },
   enableAIChat: true,
   enableBrowseQA: true,
+  topicCardColor: '#9333EA', // 預設紫色
   homePageConfig: {
     enabled: true,
     backgroundImage: null, // 圖片參數保留為 null
@@ -96,6 +97,8 @@ export const getDefaultTheme = () => ({
     },
     faqButton: {
       text: '',
+      backgroundColor: '#3a6ba7',
+      textColor: '#ffffff',
     },
     buttonAreaUseGradient: false,
     buttonAreaBackgroundColor: '#ffffff',

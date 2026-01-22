@@ -37,6 +37,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   const [selectedSection, setSelectedSection] = useState<'header' | 'chat' | 'input' | 'home' | 'settings'>('header');
   const [hoveredSection, setHoveredSection] = useState<'header' | 'chat' | 'input' | 'home' | 'settings' | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'chat' | 'browse' | 'home'>('chat');
   const [showHelp, setShowHelp] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
@@ -248,7 +249,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       // 更新 theme 並重新載入（只存相對路徑）
       updateTheme({ 
         homePageConfig: {
-          ...theme.homePageConfig,
+          ...(theme.homePageConfig || {}),
           backgroundImage: result.data.imagePath
         }
       });
@@ -367,8 +368,25 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   
   const showTabArea = safeEnableAIChat && safeEnableBrowseQA; // 兩個都啟用才顯示 Tab 區域
   
-  // 預覽區域的預設 Tab（用於顯示）
-  const previewDefaultTab = safeEnableAIChat ? 'chat' : 'browse';
+  // 預覽區域的預設 Tab（用於顯示）- 根據啟用的模式自動設定初始值
+  useEffect(() => {
+    if (!safeEnableAIChat && safeEnableBrowseQA && previewTab === 'chat') {
+      setPreviewTab('browse');
+    } else if (safeEnableAIChat && previewTab === 'browse' && !safeEnableBrowseQA) {
+      setPreviewTab('chat');
+    }
+  }, [safeEnableAIChat, safeEnableBrowseQA, previewTab]);
+
+  // 當預覽 Tab 改變時，自動切換右側設定面板
+  useEffect(() => {
+    if (previewTab === 'chat') {
+      setSelectedSection('header');
+    } else if (previewTab === 'browse') {
+      setSelectedSection('settings');
+    } else if (previewTab === 'home') {
+      setSelectedSection('home');
+    }
+  }, [previewTab]);
 
   if (isLoading) {
     return (
@@ -499,6 +517,54 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
         >
           {/* 右上角按鈕組 */}
           <div className="absolute top-2 right-2 flex flex-col gap-2 z-50">
+            {/* 預覽 Tab 切換 - 智能問答 */}
+            {safeEnableAIChat && (
+              <button
+                onClick={() => setPreviewTab('chat')}
+                className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
+                  previewTab === 'chat' ? 'bg-blue-50 border-blue-400' : ''
+                }`}
+                style={{ backgroundColor: previewTab === 'chat' ? '#EFF6FF' : 'white' }}
+                title={t('aiChatPreview')}
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+              </button>
+            )}
+            
+            {/* 預覽 Tab 切換 - 瀏覽問答 */}
+            {safeEnableBrowseQA && (
+              <button
+                onClick={() => setPreviewTab('browse')}
+                className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
+                  previewTab === 'browse' ? 'bg-blue-50 border-blue-400' : ''
+                }`}
+                style={{ backgroundColor: previewTab === 'browse' ? '#EFF6FF' : 'white' }}
+                title={t('browseQAPreview')}
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </button>
+            )}
+            
+            {/* 預覽 Tab 切換 - 首頁 */}
+            {theme.homePageConfig?.enabled && (
+              <button
+                onClick={() => setPreviewTab('home')}
+                className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
+                  previewTab === 'home' ? 'bg-blue-50 border-blue-400' : ''
+                }`}
+                style={{ backgroundColor: previewTab === 'home' ? '#EFF6FF' : 'white' }}
+                title={tCommon('home')}
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </button>
+            )}
+            
             {/* 背景顏色切換按鈕 */}
             <button
               onClick={() => setPreviewBgColor(prev => prev === 'white' ? 'black' : 'white')}
@@ -678,13 +744,29 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               );
             })()}
             
-            <div 
-              className={containerClasses}
-              style={{ 
-                backgroundColor: theme.chatBackgroundColor,
-                ...containerBorderStyle
-              }}
-            >
+            {/* 使用 ChatbotWidget 顯示完整預覽 */}
+            {(previewTab === 'browse' || previewTab === 'home') ? (
+              <div className="w-full h-full">
+                <ChatbotWidget
+                  key={`preview-${previewTab}-${refreshKey}`}
+                  mode="interactive"
+                  chatbotId={chatbotId}
+                  theme={theme}
+                  initialTab={previewTab}
+                  isInputDisabled={true}
+                  showCloseButton={false}
+                  refreshKey={refreshKey}
+                  isPreviewMode={true}
+                />
+              </div>
+            ) : (
+              <div 
+                className={containerClasses}
+                style={{ 
+                  backgroundColor: theme.chatBackgroundColor,
+                  ...containerBorderStyle
+                }}
+              >
               {/* Header 區域 */}
               {theme.showHeader && (() => {
                 const sizeConfig = {
@@ -829,7 +911,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               })()}
 
               {/* 智能問答內容區域 */}
-              {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
+              {previewTab === 'chat' && safeEnableAIChat && (
                 <div 
                   className="flex-1 p-4 overflow-y-auto min-h-0 relative transition-all duration-200 cursor-pointer"
                   style={{ 
@@ -881,8 +963,8 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </div>
               )}
 
-              {/* 問答瀏覽內容區域 */}
-              {safeEnableBrowseQA && (previewDefaultTab === 'browse' || !showTabArea) && (
+              {/* 問答瀏覽內容區域 - 已改用 ChatbotWidget，此處保留作為備用 */}
+              {false && safeEnableBrowseQA && previewTab === 'browse' && (
                 <div 
                   className="flex-1 p-4 overflow-y-auto min-h-0 relative transition-all duration-200 cursor-pointer"
                   style={{ 
@@ -899,7 +981,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       <button className="w-full px-4 py-3 transition-colors flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100">
                         <div className="flex items-center space-x-2">
                           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                           </svg>
                           <span className="font-medium text-gray-800">常見問題</span>
                           <span className="text-xs text-gray-500">(5 問題)</span>
@@ -914,7 +996,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       <button className="w-full px-4 py-3 transition-colors flex items-center justify-between bg-gray-50 hover:bg-gray-100">
                         <div className="flex items-center space-x-2">
                           <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                           </svg>
                           <span className="font-medium text-gray-700">使用說明</span>
                           <span className="text-xs text-gray-500">(3 問題)</span>
@@ -944,6 +1026,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               )}
 
               {/* 快速按鈕區域 - 兩個模式都顯示 */}
+              {previewTab === 'chat' && (
               <div
                 className="flex-shrink-0 border-t border-transparent"
                 style={{
@@ -952,28 +1035,30 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 }}
               >
                 <div className="px-3 pt-1.5 pb-1.5">
-                  <div className={`grid gap-2 ${previewDefaultTab === 'chat' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <div className={`grid gap-2 grid-cols-4`}>
                     {/* 切換模式卡片 */}
-                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
-                      {previewDefaultTab === 'chat' ? (
-                        // 當前在 Chat mode，顯示 Browse 圖標
+                    {safeEnableBrowseQA && (
+                      <div 
+                        onClick={() => setPreviewTab('browse')}
+                        className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                      >
                         <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                      ) : (
-                        // 當前在 Browse mode，顯示 Chat 圖標
-                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     
                     {/* Home 卡片 */}
-                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
-                      <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                      </svg>
-                    </div>
+                    {theme.homePageConfig?.enabled && (
+                      <div 
+                        onClick={() => setPreviewTab('home')}
+                        className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                      >
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                      </div>
+                    )}
 
                     {/* 聯絡資訊卡片 - 只在有聯絡資訊時顯示 */}
                     {theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
@@ -984,20 +1069,19 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </div>
                     )}
 
-                    {/* 清除對話卡片 - 只在 Chat mode 顯示 */}
-                    {previewDefaultTab === 'chat' && (
-                      <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
-                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      </div>
-                    )}
+                    {/* 清除對話卡片 */}
+                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
+              )}
 
               {/* 輸入框區域 - 僅在智能問答模式顯示 */}
-              {safeEnableAIChat && (previewDefaultTab === 'chat' || !showTabArea) && (
+              {previewTab === 'chat' && safeEnableAIChat && (
               <div 
                 className={`flex-shrink-0 relative transition-all duration-200 cursor-pointer ${
                   theme.inputPosition === 'top' ? 'border-b' : 'border-t'
@@ -1070,6 +1154,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               </div>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -1769,23 +1854,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               <option value="to top left">{t('toTopLeft')}</option>
                             </select>
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* 純色背景 */}
+
+                          {/* 標題文字顏色和大小 */}
                           <div className="flex gap-2 mb-4 min-w-0">
-                            <div className="flex-1 min-w-0">
-                              <ColorInput
-                                label={t('questionBackgroundColor')}
-                                value={theme.qaCardStyle?.questionBackgroundColor || 'transparent'}
-                                onChange={(value) => updateTheme({
-                                  qaCardStyle: {
-                                    ...theme.qaCardStyle,
-                                    questionBackgroundColor: value
-                                  }
-                                })}
-                              />
-                            </div>
                             <div className="flex-1 min-w-0">
                               <ColorInput
                                 label={t('questionTextColor')}
@@ -1798,6 +1869,82 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 })}
                               />
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <label className="block text-base font-medium text-gray-700 mb-2">
+                                {t('questionTextSize')}
+                              </label>
+                              <select
+                                value={theme.qaCardStyle?.questionFontSize || '16px'}
+                                onChange={(e) => updateTheme({
+                                  qaCardStyle: {
+                                    ...theme.qaCardStyle,
+                                    questionFontSize: e.target.value
+                                  }
+                                })}
+                                className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              >
+                                <option value="16px">16px ({t('small')})</option>
+                                <option value="18px">18px</option>
+                                <option value="20px">20px ({t('medium')})</option>
+                                <option value="24px">24px</option>
+                                <option value="28px">28px</option>
+                                <option value="32px">32px ({t('large')})</option>
+                              </select>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* 純色背景 */}
+                          <div className="mb-4">
+                            <ColorInput
+                              label={t('questionBackgroundColor')}
+                              value={theme.qaCardStyle?.questionBackgroundColor || 'transparent'}
+                              onChange={(value) => updateTheme({
+                                qaCardStyle: {
+                                  ...theme.qaCardStyle,
+                                  questionBackgroundColor: value
+                                }
+                              })}
+                            />
+                          </div>
+
+                          {/* 標題文字顏色和大小 */}
+                          <div className="flex gap-2 mb-4 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <ColorInput
+                                label={t('questionTextColor')}
+                                value={theme.qaCardStyle?.questionColor || '#111827'}
+                                onChange={(value) => updateTheme({ 
+                                  qaCardStyle: { 
+                                    ...theme.qaCardStyle, 
+                                    questionColor: value 
+                                  } 
+                                })}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <label className="block text-base font-medium text-gray-700 mb-2">
+                                {t('questionTextSize')}
+                              </label>
+                              <select
+                                value={theme.qaCardStyle?.questionFontSize || '16px'}
+                                onChange={(e) => updateTheme({
+                                  qaCardStyle: {
+                                    ...theme.qaCardStyle,
+                                    questionFontSize: e.target.value
+                                  }
+                                })}
+                                className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              >
+                                <option value="16px">16px ({t('small')})</option>
+                                <option value="18px">18px</option>
+                                <option value="20px">20px ({t('medium')})</option>
+                                <option value="24px">24px</option>
+                                <option value="28px">28px</option>
+                                <option value="32px">32px ({t('large')})</option>
+                              </select>
+                            </div>
                           </div>
                         </>
                       )}
@@ -1806,29 +1953,6 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     <div className="border-t border-gray-200 my-4"></div>
 
                     <div>
-
-                      <div className="mb-4">
-                        <label className="block text-base font-medium text-gray-700 mb-2">
-                          {t('questionTextSize')}
-                        </label>
-                        <select
-                          value={theme.qaCardStyle?.questionFontSize || '16px'}
-                          onChange={(e) => updateTheme({
-                            qaCardStyle: {
-                              ...theme.qaCardStyle,
-                              questionFontSize: e.target.value
-                            }
-                          })}
-                          className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                        >
-                          <option value="16px">16px ({t('small')})</option>
-                          <option value="18px">18px</option>
-                          <option value="20px">20px ({t('medium')})</option>
-                          <option value="24px">24px</option>
-                          <option value="28px">28px</option>
-                          <option value="32px">32px ({t('large')})</option>
-                        </select>
-                      </div>
 
                       <div className="flex gap-2 mb-4 min-w-0">
                         <div className="flex-1 min-w-0">
@@ -2217,6 +2341,16 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </label>
                     </div>
 
+                    {/* Topic 卡片顏色設定 */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('browseQASettings')}</h4>
+                      <ColorInput
+                        label={t('topicCardColor')}
+                        value={theme.topicCardColor || '#9333EA'}
+                        onChange={(value) => updateTheme({ topicCardColor: value })}
+                      />
+                    </div>
+
                     <div className="pt-6 border-t border-gray-200">
                       <h4 className="text-base font-semibold text-gray-800 mb-3">{t('contactSettings')}</h4>
                     </div>
@@ -2313,12 +2447,12 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         啟用首頁
                       </label>
                       <button
-                        onClick={() => updateTheme({ 
-                          homePageConfig: { 
-                            ...theme.homePageConfig,
-                            enabled: !theme.homePageConfig?.enabled 
-                          } 
-                        })}
+                            onClick={() => updateTheme({
+                              homePageConfig: {
+                                ...(theme.homePageConfig || {}),
+                                enabled: !theme.homePageConfig?.enabled
+                              }
+                            })}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                           theme.homePageConfig?.enabled ? 'bg-blue-600' : 'bg-gray-300'
                         }`}
@@ -2354,7 +2488,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               <button
                                 onClick={() => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     backgroundImage: undefined
                                   }
                                 })}
@@ -2390,9 +2524,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           <button
                             onClick={() => updateTheme({
                               homePageConfig: {
-                                ...theme.homePageConfig,
+                                ...(theme.homePageConfig || {}),
                                 ctaButton: {
-                                  ...theme.homePageConfig?.ctaButton,
+                                  ...(theme.homePageConfig?.ctaButton || {}),
                                   show: !theme.homePageConfig?.ctaButton?.show
                                 }
                               }
@@ -2420,9 +2554,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 value={theme.homePageConfig?.ctaButton?.text ?? ''}
                                 onChange={(e) => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     ctaButton: {
-                                      ...theme.homePageConfig?.ctaButton,
+                                      ...(theme.homePageConfig?.ctaButton || {}),
                                       text: e.target.value
                                     }
                                   }
@@ -2441,9 +2575,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 value={theme.homePageConfig?.ctaButton?.url || ''}
                                 onChange={(e) => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     ctaButton: {
-                                      ...theme.homePageConfig?.ctaButton,
+                                      ...(theme.homePageConfig?.ctaButton || {}),
                                       url: e.target.value
                                     }
                                   }
@@ -2459,9 +2593,9 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 value={theme.homePageConfig?.ctaButton?.textColor || '#3a6ba7'}
                                 onChange={(value) => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     ctaButton: {
-                                      ...theme.homePageConfig?.ctaButton,
+                                      ...(theme.homePageConfig?.ctaButton || {}),
                                       textColor: value
                                     }
                                   }
@@ -2477,16 +2611,16 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-2">
-                            FAQ 按鈕文字
+                            {t('faqButtonText')}
                           </label>
                           <input
                             type="text"
                             value={theme.homePageConfig?.faqButton?.text ?? ''}
                             onChange={(e) => updateTheme({
                               homePageConfig: {
-                                ...theme.homePageConfig,
+                                ...(theme.homePageConfig || {}),
                                 faqButton: {
-                                  ...theme.homePageConfig?.faqButton,
+                                  ...(theme.homePageConfig?.faqButton || {}),
                                   text: e.target.value
                                 }
                               }
@@ -2496,94 +2630,37 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           />
                         </div>
 
-                        {/* 按鈕區域背景設定 */}
-                        <div className="pt-4 border-t border-gray-200">
-                        </div>
-
-                        <div>
-                          <label className="block text-base font-medium text-gray-700 mb-2">
-                            按鈕區域背景
-                          </label>
-                          <div className="space-y-3">
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={theme.homePageConfig?.buttonAreaUseGradient || false}
-                                onChange={(e) => updateTheme({
-                                  homePageConfig: {
-                                    ...theme.homePageConfig,
-                                    buttonAreaUseGradient: e.target.checked
+                        {/* FAQ 按鈕顏色和文字顏色 */}
+                        <div className="flex gap-2 mb-4 min-w-0">
+                          <div className="flex-1 min-w-0">
+                            <ColorInput
+                              label={t('faqButtonColor')}
+                              value={theme.homePageConfig?.faqButton?.backgroundColor || '#3a6ba7'}
+                              onChange={(value) => updateTheme({
+                                homePageConfig: {
+                                  ...(theme.homePageConfig || {}),
+                                  faqButton: {
+                                    ...(theme.homePageConfig?.faqButton || {}),
+                                    backgroundColor: value
                                   }
-                                })}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="ml-2 text-base text-gray-700">使用漸層</span>
-                            </div>
-                            
-                            {theme.homePageConfig?.buttonAreaUseGradient ? (
-                              <>
-                                {/* 漸層起始顏色和結束顏色 */}
-                                <div className="flex gap-2 mb-4 min-w-0">
-                                  <div className="flex-1 min-w-0">
-                                    <ColorInput
-                                      label="漸層起始顏色"
-                                      value={theme.homePageConfig?.buttonAreaGradientStartColor || '#f3f4f6'}
-                                      onChange={(value) => updateTheme({
-                                        homePageConfig: {
-                                          ...theme.homePageConfig,
-                                          buttonAreaGradientStartColor: value
-                                        }
-                                      })}
-                                    />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <ColorInput
-                                      label="漸層結束顏色"
-                                      value={theme.homePageConfig?.buttonAreaGradientEndColor || '#e5e7eb'}
-                                      onChange={(value) => updateTheme({
-                                        homePageConfig: {
-                                          ...theme.homePageConfig,
-                                          buttonAreaGradientEndColor: value
-                                        }
-                                      })}
-                                    />
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-base text-gray-600 mb-1">漸層方向</label>
-                                  <select
-                                    value={theme.homePageConfig?.buttonAreaGradientDirection || 'to right'}
-                                    onChange={(e) => updateTheme({
-                                      homePageConfig: {
-                                        ...theme.homePageConfig,
-                                        buttonAreaGradientDirection: e.target.value as any
-                                      }
-                                    })}
-                                    className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                  >
-                                    <option value="to right">向右</option>
-                                    <option value="to bottom">向下</option>
-                                    <option value="to left">向左</option>
-                                    <option value="to top">向上</option>
-                                    <option value="to bottom right">向右下</option>
-                                    <option value="to bottom left">向左下</option>
-                                    <option value="to top right">向右上</option>
-                                    <option value="to top left">向左上</option>
-                                  </select>
-                                </div>
-                              </>
-                            ) : (
-                              <ColorInput
-                                value={theme.homePageConfig?.buttonAreaBackgroundColor || '#ffffff'}
-                                onChange={(value) => updateTheme({
-                                  homePageConfig: {
-                                    ...theme.homePageConfig,
-                                    buttonAreaBackgroundColor: value
+                                }
+                              })}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <ColorInput
+                              label={t('faqTextColor')}
+                              value={theme.homePageConfig?.faqButton?.textColor || '#ffffff'}
+                              onChange={(value) => updateTheme({
+                                homePageConfig: {
+                                  ...(theme.homePageConfig || {}),
+                                  faqButton: {
+                                    ...(theme.homePageConfig?.faqButton || {}),
+                                    textColor: value
                                   }
-                                })}
-                              />
-                            )}
+                                }
+                              })}
+                            />
                           </div>
                         </div>
 
@@ -2610,7 +2687,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 checked={theme.homePageConfig?.faqMode === 'chat'}
                                 onChange={() => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     faqMode: 'chat'
                                   }
                                 })}
@@ -2635,7 +2712,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 checked={theme.homePageConfig?.faqMode === 'browse'}
                                 onChange={() => updateTheme({
                                   homePageConfig: {
-                                    ...theme.homePageConfig,
+                                    ...(theme.homePageConfig || {}),
                                     faqMode: 'browse'
                                   }
                                 })}
@@ -2643,6 +2720,97 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               />
                               <span className="ml-3 text-base font-medium text-gray-700">瀏覽模式</span>
                             </label>
+                          </div>
+                        </div>
+
+                        {/* 按鈕區域背景設定 */}
+                        <div className="pt-4 border-t border-gray-200">
+                        </div>
+
+                        <div>
+                          <label className="block text-base font-medium text-gray-700 mb-2">
+                            按鈕區域背景
+                          </label>
+                          <div className="space-y-3">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={theme.homePageConfig?.buttonAreaUseGradient || false}
+                                onChange={(e) => updateTheme({
+                                  homePageConfig: {
+                                    ...(theme.homePageConfig || {}),
+                                    buttonAreaUseGradient: e.target.checked
+                                  }
+                                })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="ml-2 text-base text-gray-700">使用漸層</span>
+                            </div>
+                            
+                            {theme.homePageConfig?.buttonAreaUseGradient ? (
+                              <>
+                                {/* 漸層起始顏色和結束顏色 */}
+                                <div className="flex gap-2 mb-4 min-w-0">
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label="漸層起始顏色"
+                                      value={theme.homePageConfig?.buttonAreaGradientStartColor || '#f3f4f6'}
+                                      onChange={(value) => updateTheme({
+                                        homePageConfig: {
+                                          ...(theme.homePageConfig || {}),
+                                          buttonAreaGradientStartColor: value
+                                        }
+                                      })}
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <ColorInput
+                                      label="漸層結束顏色"
+                                      value={theme.homePageConfig?.buttonAreaGradientEndColor || '#e5e7eb'}
+                                      onChange={(value) => updateTheme({
+                                        homePageConfig: {
+                                          ...(theme.homePageConfig || {}),
+                                          buttonAreaGradientEndColor: value
+                                        }
+                                      })}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-base text-gray-600 mb-1">漸層方向</label>
+                                  <select
+                                    value={theme.homePageConfig?.buttonAreaGradientDirection || 'to right'}
+                                    onChange={(e) => updateTheme({
+                                      homePageConfig: {
+                                        ...(theme.homePageConfig || {}),
+                                        buttonAreaGradientDirection: e.target.value as any
+                                      }
+                                    })}
+                                    className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  >
+                                    <option value="to right">向右</option>
+                                    <option value="to bottom">向下</option>
+                                    <option value="to left">向左</option>
+                                    <option value="to top">向上</option>
+                                    <option value="to bottom right">向右下</option>
+                                    <option value="to bottom left">向左下</option>
+                                    <option value="to top right">向右上</option>
+                                    <option value="to top left">向左上</option>
+                                  </select>
+                                </div>
+                              </>
+                            ) : (
+                              <ColorInput
+                                value={theme.homePageConfig?.buttonAreaBackgroundColor || '#ffffff'}
+                                onChange={(value) => updateTheme({
+                                  homePageConfig: {
+                                    ...(theme.homePageConfig || {}),
+                                    buttonAreaBackgroundColor: value
+                                  }
+                                })}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>

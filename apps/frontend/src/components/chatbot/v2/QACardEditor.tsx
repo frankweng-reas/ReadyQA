@@ -17,6 +17,7 @@ interface Topic {
   id: string
   name: string
   parentId: string | null
+  sortOrder?: number
 }
 
 interface QACardEditorProps {
@@ -300,21 +301,29 @@ export default function QACardEditor({
   }
 
   // 遞歸渲染 Topic 選項（用於下拉選單）
-  const renderTopicOptions = (parentId: string | null = null, level: number = 0): React.ReactNode => {
+  const renderTopicOptions = (parentId: string | null = null, level: number = 0): React.ReactNode[] => {
     const children = topics
       .filter(topic => topic.parentId === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     
-    return children.map(topic => {
+    const options: React.ReactNode[] = []
+    
+    children.forEach(topic => {
       const indent = '  '.repeat(level)
       const path = getTopicPath(topic.id)
       
-      return (
+      options.push(
         <option key={topic.id} value={topic.id}>
           {indent}{path}
         </option>
       )
+      
+      // 遞歸渲染子層級
+      const childOptions = renderTopicOptions(topic.id, level + 1)
+      options.push(...childOptions)
     })
+    
+    return options
   }
 
   const handleSave = async () => {

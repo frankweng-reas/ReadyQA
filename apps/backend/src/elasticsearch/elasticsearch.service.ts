@@ -518,7 +518,7 @@ export class ElasticsearchService implements OnModuleInit {
       // ========== 步驟 1: 執行 BM25 查詢（關鍵詞匹配）==========
       const bm25Query: any = {
         size: topK * 2, // 多取候選以確保覆蓋
-        _source: ['faq_id', 'question', 'answer', 'chatbot_id', 'created_at', 'updated_at'],
+        _source: ['faq_id', 'question', 'answer', 'synonym', 'chatbot_id', 'created_at', 'updated_at'],
         query: {
           bool: {
             must: [
@@ -560,7 +560,7 @@ export class ElasticsearchService implements OnModuleInit {
       // ========== 步驟 2: 執行 kNN 查詢（語義向量相似度）==========
       const knnQuery: any = {
         size: topK * 2, // 多取候選以確保覆蓋
-        _source: ['faq_id', 'question', 'answer', 'chatbot_id', 'created_at', 'updated_at'],
+        _source: ['faq_id', 'question', 'answer', 'synonym', 'chatbot_id', 'created_at', 'updated_at'],
         query: {
           bool: {
             must: [
@@ -675,6 +675,7 @@ export class ElasticsearchService implements OnModuleInit {
           faq_id: fid,
           question: sourceDoc.question,
           answer: sourceDoc.answer,
+          synonym: sourceDoc.synonym || '', // 加入 synonym 欄位
           chatbot_id: sourceDoc.chatbot_id,
           score: score, // RRF 最終分數
           metadata: {

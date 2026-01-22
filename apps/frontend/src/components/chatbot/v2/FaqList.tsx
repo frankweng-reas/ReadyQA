@@ -27,6 +27,7 @@ interface Topic {
   id: string
   name: string
   parentId: string | null
+  sortOrder?: number
 }
 
 interface FaqListProps {
@@ -50,6 +51,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   const [selectedFaq, setSelectedFaq] = useState<FAQ | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [faqToDelete, setFaqToDelete] = useState<{ id: string; question: string } | null>(null)
+  const [showDownloadCsvConfirm, setShowDownloadCsvConfirm] = useState(false)
   const [activeFilter, setActiveFilter] = useState<'' | 'active' | 'inactive' | 'uncategorized'>('')
   
   // 批量操作狀態
@@ -249,21 +251,97 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
   }
 
   // 遞歸渲染 Topic 選項（用於下拉選單）
-  const renderTopicOptions = (parentId: string | null = null, level: number = 0): React.ReactNode => {
+  const renderTopicOptions = (parentId: string | null = null, level: number = 0): React.ReactNode[] => {
     const children = topics
       .filter(topic => topic.parentId === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     
-    return children.map(topic => {
+    const options: React.ReactNode[] = []
+    
+    children.forEach(topic => {
       const indent = '  '.repeat(level)
       const path = getTopicPath(topic.id)
       
-      return (
+      options.push(
         <option key={topic.id} value={topic.id}>
           {indent}{path}
         </option>
       )
+      
+      // 遞歸渲染子層級
+      const childOptions = renderTopicOptions(topic.id, level + 1)
+      options.push(...childOptions)
     })
+    
+    return options
+  }
+
+  // 下載 CSV（顯示確認對話框）
+  const handleDownloadCsv = () => {
+    setShowDownloadCsvConfirm(true)
+  }
+
+  // 確認下載 CSV
+  const confirmDownloadCsv = () => {
+    // CSV 標題行
+    const headers = [
+      t('question'),
+      t('answer'),
+      t('topic'),
+      t('status'),
+      t('synonyms'),
+      t('hitCount'),
+    ]
+
+    // 轉換資料為 CSV 格式
+    const csvRows = [
+      headers.join(','),
+      ...filteredFaqs.map(faq => {
+        const topic = faq.topicId ? getTopicPath(faq.topicId) : t('uncategorized')
+        const status = faq.status === 'active' ? t('active') : t('inactive')
+        const synonyms = faq.synonym || ''
+        
+        // 處理包含逗號、換行或引號的欄位
+        const escapeCsvField = (field: string) => {
+          if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+            return `"${field.replace(/"/g, '""')}"`
+          }
+          return field
+        }
+
+        return [
+          escapeCsvField(faq.question),
+          escapeCsvField(faq.answer),
+          escapeCsvField(topic),
+          escapeCsvField(status),
+          escapeCsvField(synonyms),
+          faq.hitCount || 0,
+        ].join(',')
+      }),
+    ]
+
+    const csvContent = csvRows.join('\n')
+    
+    // 添加 UTF-8 BOM 以支援 Excel 正確顯示中文
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    
+    // 創建下載連結
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    // 檔名包含日期
+    const date = new Date().toISOString().split('T')[0].replace(/-/g, '')
+    link.download = `問答列表_${date}.csv`
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    setShowDownloadCsvConfirm(false)
+    notify.success(t('downloadCsvSuccess'))
   }
 
   // 過濾 FAQs
@@ -374,75 +452,72 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-60"
+            className="w-60 border-gray-400"
           />
 
           {/* Topic 篩選 */}
           <Select
             value={selectedTopicId}
             onChange={(e) => setSelectedTopicId(e.target.value)}
-            className="w-48"
+            className="w-48 [&>div>select]:border-gray-400"
           >
             <option value="">{t('allTopics')}</option>
             <option value="uncategorized">{t('uncategorized')}</option>
             {renderTopicOptions(null, 0)}
           </Select>
 
-          {/* 統計按鈕 */}
-          <button 
-            onClick={() => handleFilterClick('')}
-            className={cn(
-              'px-4 py-2 text-lg font-medium rounded-full border transition-colors whitespace-nowrap',
-              activeFilter === '' 
-                ? 'bg-primary text-white border-primary'
-                : 'bg-grey text-text border-header-border hover:bg-grey/80'
-            )}
-          >
-            {t('statsTotal', { count: stats.total })}
-          </button>
-          <button 
-            onClick={() => handleFilterClick('active')}
-            className={cn(
-              'px-4 py-2 text-lg font-medium rounded-full border transition-colors whitespace-nowrap',
-              activeFilter === 'active' 
-                ? 'bg-primary text-white border-primary'
-                : 'bg-grey text-text border-header-border hover:bg-grey/80'
-            )}
-          >
-            {t('statsActive', { count: stats.active })}
-          </button>
-          <button 
-            onClick={() => handleFilterClick('inactive')}
-            className={cn(
-              'px-4 py-2 text-lg font-medium rounded-full border transition-colors whitespace-nowrap',
-              activeFilter === 'inactive' 
-                ? 'bg-primary text-white border-primary'
-                : 'bg-grey text-text border-header-border hover:bg-grey/80'
-            )}
-          >
-            {t('statsInactive', { count: stats.inactive })}
-          </button>
-          <button 
-            onClick={() => handleFilterClick('uncategorized')}
-            className={cn(
-              'px-4 py-2 text-lg font-medium rounded-full border transition-colors whitespace-nowrap',
-              activeFilter === 'uncategorized' 
-                ? 'bg-primary text-white border-primary'
-                : 'bg-grey text-text border-header-border hover:bg-grey/80'
-            )}
-          >
-            {t('statsUncategorized', { count: stats.uncategorized })}
-          </button>
+          {/* 統計篩選下拉選單 */}
+          <div className="relative">
+            <select
+              value={activeFilter}
+              onChange={(e) => handleFilterClick(e.target.value as '' | 'active' | 'inactive' | 'uncategorized')}
+              className="px-4 py-2 pr-10 text-lg font-medium border border-gray-400 rounded-full focus:ring-2 focus:ring-primary bg-white min-w-[140px] hover:bg-grey/80 transition-colors appearance-none cursor-pointer"
+            >
+              <option value="">{t('statsTotal', { count: stats.total })}</option>
+              <option value="active">{t('statsActive', { count: stats.active })}</option>
+              <option value="inactive">{t('statsInactive', { count: stats.inactive })}</option>
+              <option value="uncategorized">{t('statsUncategorized', { count: stats.uncategorized })}</option>
+            </select>
+            {/* 下拉箭頭圖標 */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg
+                className="w-5 h-5 text-label"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
         </div>
 
-        {/* 新增問答按鈕 */}
-        <Button 
-          onClick={handleCreate} 
-          variant="primary" 
-          className="whitespace-nowrap"
-        >
-          + {t('createFaq')}
-        </Button>
+        {/* 右側按鈕組 */}
+        <div className="flex items-center gap-2">
+          {/* 下載 CSV 按鈕 */}
+          <Button 
+            onClick={handleDownloadCsv}
+            variant="secondary"
+            className="whitespace-nowrap"
+            disabled={filteredFaqs.length === 0}
+          >
+            {t('downloadCsv')}
+          </Button>
+          
+          {/* 新增問答按鈕 */}
+          <Button 
+            onClick={handleCreate} 
+            variant="primary" 
+            className="whitespace-nowrap"
+          >
+            + {t('createFaq')}
+          </Button>
+        </div>
       </div>
 
       {/* FAQ 列表 */}
@@ -610,6 +685,18 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
         onConfirm={confirmBatchDelete}
         onCancel={() => setShowBatchDeleteConfirm(false)}
         type="danger"
+      />
+
+      {/* CSV 下載確認對話框 */}
+      <ConfirmDialog
+        isOpen={showDownloadCsvConfirm}
+        title={t('downloadCsv')}
+        message={t('downloadCsvConfirm', { count: filteredFaqs.length })}
+        confirmText={tCommon('confirm')}
+        cancelText={tCommon('cancel')}
+        onConfirm={confirmDownloadCsv}
+        onCancel={() => setShowDownloadCsvConfirm(false)}
+        type="info"
       />
     </div>
   )

@@ -133,6 +133,9 @@
     "active": "啟用",
     "inactive": "停用",
     "hitCount": "命中次數",
+    "downloadCsv": "下載 CSV",
+    "downloadCsvConfirm": "確定要下載 {count} 筆問答資料為 CSV 檔案嗎？",
+    "downloadCsvSuccess": "CSV 下載成功",
     "deleteConfirm": "確定要刪除這個問答嗎？",
     "deleteFailed": "刪除失敗",
     "deleteSuccess": "刪除成功",
@@ -358,6 +361,10 @@
     "enableAIChat": "僅智能問答",
     "enableBrowseQA": "僅問答瀏覽",
     "bothModes": "兩者都提供",
+    "browseQASettings": "瀏覽問答",
+    "aiChatPreview": "智能問答",
+    "browseQAPreview": "瀏覽問答",
+    "topicCardColor": "分類卡片顏色",
     
     "_comment7": "========== 其他（待整理） ==========",
     "showSettings": "顯示設定",
@@ -400,7 +407,10 @@
     "toTopLeft": "向左上",
     "answerTextColor": "內容文字顏色",
     "answerTextSize": "內容文字大小",
-    "padding": "內邊距"
+    "padding": "內邊距",
+    "faqButtonText": "FAQ 按鈕文字",
+    "faqButtonColor": "FAQ 按鈕顏色",
+    "faqTextColor": "FAQ 文字顏色"
   },
   "topicManager": {
     "topics": "分類管理",

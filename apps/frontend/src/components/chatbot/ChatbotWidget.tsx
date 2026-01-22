@@ -18,6 +18,8 @@ interface ChatbotWidgetProps {
   showCloseButton?: boolean
   isInputDisabled?: boolean
   refreshKey?: number
+  initialTab?: 'chat' | 'browse' | 'home'  // 初始 Tab（用於預覽等場景）
+  isPreviewMode?: boolean  // 是否為預覽模式（禁用所有互動）
 }
 
 interface FAQ {
@@ -61,7 +63,9 @@ export default function ChatbotWidget({
   onClose,
   showCloseButton = true,
   isInputDisabled = false,
-  refreshKey = 0
+  refreshKey = 0,
+  initialTab,
+  isPreviewMode = false
 }: ChatbotWidgetProps) {
   // 翻譯
   const tCommon = useTranslations('common');
@@ -76,6 +80,50 @@ export default function ChatbotWidget({
   const getCTATextColor = (): string => {
     return theme.homePageConfig?.ctaButton?.textColor || '#3a6ba7';
   };
+
+  /**
+   * 根據主色生成 Topic 卡片顏色變體
+   */
+  const getTopicCardColors = () => {
+    const primaryColor = theme.topicCardColor || '#9333EA'; // 預設紫色
+    
+    // 將 hex 轉換為 RGB
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 147, g: 51, b: 234 };
+    };
+
+    const rgb = hexToRgb(primaryColor);
+    
+    // 生成淺色背景（未展開）
+    const lightBg = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`;
+    const lightBgHover = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`;
+    
+    // 生成中等背景（已展開）
+    const mediumBg = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`;
+    
+    // 生成邊框顏色
+    const borderColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`;
+    const borderColorExpanded = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5)`;
+    
+    // 圖標顏色使用主色
+    const iconColor = primaryColor;
+    
+    return {
+      backgroundCollapsed: `linear-gradient(to right, ${lightBg}, ${lightBgHover})`,
+      backgroundCollapsedHover: `linear-gradient(to right, ${lightBgHover}, ${mediumBg})`,
+      backgroundExpanded: `linear-gradient(to right, ${lightBgHover}, ${mediumBg})`,
+      borderColor,
+      borderColorExpanded,
+      iconColor
+    };
+  };
+
+  const topicColors = getTopicCardColors();
 
   // Tab 功能設定檢查
   const enableAIChat = theme.enableAIChat !== false; // 預設 true
@@ -96,7 +144,7 @@ export default function ChatbotWidget({
   };
   
   const [activeTab, setActiveTab] = useState<'chat' | 'browse' | 'home'>(
-    theme.homePageConfig?.enabled ? 'home' : getDefaultTab()
+    initialTab || (theme.homePageConfig?.enabled ? 'home' : getDefaultTab())
   );
   
   // 當 Tab 設定改變時，確保 activeTab 是有效的
@@ -796,9 +844,40 @@ export default function ChatbotWidget({
                       }
                 }
               >
+                {/* CTA 按钮 */}
+                {theme.homePageConfig?.ctaButton?.show !== false && (
+                  <button
+                    onClick={isPreviewMode ? undefined : () => {
+                      if (theme.homePageConfig?.ctaButton?.url) {
+                        window.open(theme.homePageConfig.ctaButton.url, '_blank');
+                      }
+                    }}
+                    disabled={isPreviewMode}
+                    className={`w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg transition-all duration-200 ${
+                      isPreviewMode ? 'cursor-not-allowed' : 'hover:shadow-xl transform hover:scale-105'
+                    }`}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: getCTATextColor(),
+                      border: `2px solid ${getCTATextColor()}60`,
+                    }}
+                    onMouseEnter={isPreviewMode ? undefined : (e) => {
+                      const textColor = getCTATextColor();
+                      e.currentTarget.style.backgroundColor = textColor === '#ffffff' 
+                        ? 'rgba(255, 255, 255, 0.1)' 
+                        : 'rgba(58, 107, 167, 0.1)';
+                    }}
+                    onMouseLeave={isPreviewMode ? undefined : (e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    {theme.homePageConfig?.ctaButton?.text || '造訪網站'}
+                  </button>
+                )}
+
                 {/* FAQ 按钮 */}
                 <button
-                  onClick={() => {
+                  onClick={isPreviewMode ? undefined : () => {
                     // 根據 homePageConfig.faqMode 決定導向的頁面
                     const faqMode = theme.homePageConfig?.faqMode || 'chat';
                     if (faqMode === 'chat' && safeEnableAIChat) {
@@ -810,51 +889,42 @@ export default function ChatbotWidget({
                       setActiveTab(getDefaultTab());
                     }
                   }}
-                  className="w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center"
+                  disabled={isPreviewMode}
+                  className={`w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg transition-all duration-200 flex items-center justify-center ${
+                    isPreviewMode ? 'cursor-not-allowed' : 'hover:shadow-xl transform hover:scale-105'
+                  }`}
                   style={{
-                    backgroundColor: '#3a6ba7',
-                    color: '#ffffff',
-                    border: '2px solid #3a6ba7',
+                    backgroundColor: theme.homePageConfig?.faqButton?.backgroundColor || '#3a6ba7',
+                    color: theme.homePageConfig?.faqButton?.textColor || '#ffffff',
+                    border: `2px solid ${(theme.homePageConfig?.faqButton?.textColor || '#ffffff')}60`,
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#2d5689';
-                    e.currentTarget.style.borderColor = '#2d5689';
+                  onMouseEnter={isPreviewMode ? undefined : (e) => {
+                    const bgColor = theme.homePageConfig?.faqButton?.backgroundColor || '#3a6ba7';
+                    const textColor = theme.homePageConfig?.faqButton?.textColor || '#ffffff';
+                    // 將顏色變暗 20% 作為 hover 效果
+                    if (bgColor.startsWith('#')) {
+                      const hex = bgColor.slice(1);
+                      if (hex.length === 6) {
+                        const r = Math.floor(parseInt(hex.slice(0, 2), 16) * 0.8);
+                        const g = Math.floor(parseInt(hex.slice(2, 4), 16) * 0.8);
+                        const b = Math.floor(parseInt(hex.slice(4, 6), 16) * 0.8);
+                        const hoverColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                        e.currentTarget.style.backgroundColor = hoverColor;
+                        // 外框顏色保持與 CTA 按鈕相同（文字顏色 + 60 透明度）
+                        e.currentTarget.style.borderColor = `${textColor}60`;
+                      }
+                    }
                   }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#3a6ba7';
-                    e.currentTarget.style.borderColor = '#3a6ba7';
+                  onMouseLeave={isPreviewMode ? undefined : (e) => {
+                    const bgColor = theme.homePageConfig?.faqButton?.backgroundColor || '#3a6ba7';
+                    const textColor = theme.homePageConfig?.faqButton?.textColor || '#ffffff';
+                    e.currentTarget.style.backgroundColor = bgColor;
+                    // 外框顏色保持與 CTA 按鈕相同（文字顏色 + 60 透明度）
+                    e.currentTarget.style.borderColor = `${textColor}60`;
                   }}
                 >
                   {theme.homePageConfig?.faqButton?.text || 'FAQ'}
                 </button>
-
-                {/* CTA 按钮 */}
-                {theme.homePageConfig?.ctaButton?.show !== false && (
-                  <button
-                    onClick={() => {
-                      if (theme.homePageConfig?.ctaButton?.url) {
-                        window.open(theme.homePageConfig.ctaButton.url, '_blank');
-                      }
-                    }}
-                    className="w-full max-w-xs px-8 py-2.5 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: getCTATextColor(),
-                      border: `2px solid ${getCTATextColor()}60`,
-                    }}
-                    onMouseEnter={(e) => {
-                      const textColor = getCTATextColor();
-                      e.currentTarget.style.backgroundColor = textColor === '#ffffff' 
-                        ? 'rgba(255, 255, 255, 0.1)' 
-                        : 'rgba(58, 107, 167, 0.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    {theme.homePageConfig?.ctaButton?.text || '造訪網站'}
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -978,7 +1048,7 @@ export default function ChatbotWidget({
             isLoadingFaqs ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 mx-auto mb-4 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-600">載入問答列表中...</p>
+                <p className="text-base text-gray-600">載入問答列表中...</p>
               </div>
             ) : selectedFaq ? (
               /* 顯示 QACard */
@@ -988,12 +1058,12 @@ export default function ChatbotWidget({
                     setSelectedFaq(null);
                     setSelectedFaqLogId(null);
                   }}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors mb-4"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 text-gray-700 hover:text-blue-700 mb-4 group"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  <span className="text-sm font-medium">返回問答列表</span>
+                  <span className="text-base font-medium">返回問答列表</span>
                 </button>
                 <QACard
                   faq_id={selectedFaq.id}
@@ -1007,7 +1077,7 @@ export default function ChatbotWidget({
                 />
               </div>
             ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Topics 和 FAQs 列表 */}
               {(() => {
                 // 遞歸渲染 Topic 樹
@@ -1026,26 +1096,56 @@ export default function ChatbotWidget({
 
                     return (
                       <div key={topic.id}>
-                        <div className={`border rounded-lg overflow-hidden transition-all ${
-                          isExpanded ? 'border-blue-300 shadow-md' : 'border-gray-200'
-                        }`} style={{ marginLeft: `${marginLeft}px` }}>
+                        <div 
+                          className={`rounded-lg overflow-hidden transition-shadow duration-200 shadow-lg ${
+                            isPreviewMode ? '' : 'hover:shadow-xl'
+                          }`}
+                          style={{ 
+                            marginLeft: `${marginLeft}px`,
+                            border: `1px solid ${isExpanded ? topicColors.borderColorExpanded : topicColors.borderColor}`
+                          }}
+                        >
                           <button
-                            onClick={() => setSelectedTopicId(isExpanded ? null : topic.id)}
-                            className={`w-full px-4 py-3 transition-colors flex items-center justify-between ${
-                              isExpanded 
-                                ? 'bg-gradient-to-r from-blue-100 to-blue-200' 
-                                : 'bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200'
+                            onClick={isPreviewMode ? undefined : () => setSelectedTopicId(isExpanded ? null : topic.id)}
+                            disabled={isPreviewMode}
+                            className={`w-full ${level === 0 ? 'px-5 py-4' : 'px-4 py-3'} transition-all duration-200 flex items-center justify-between ${
+                              isPreviewMode ? 'cursor-not-allowed' : ''
                             }`}
+                            style={{
+                              background: isExpanded 
+                                ? topicColors.backgroundExpanded
+                                : topicColors.backgroundCollapsed
+                            }}
+                            onMouseEnter={isPreviewMode ? undefined : (e) => {
+                              if (!isExpanded) {
+                                e.currentTarget.style.background = topicColors.backgroundCollapsedHover;
+                              }
+                            }}
+                            onMouseLeave={isPreviewMode ? undefined : (e) => {
+                              if (!isExpanded) {
+                                e.currentTarget.style.background = topicColors.backgroundCollapsed;
+                              }
+                            }}
                           >
                             <div className="flex items-center space-x-2">
-                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                              <svg 
+                                className={`${level === 0 ? 'w-6 h-6' : 'w-5 h-5'}`} 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={2}
+                                style={{ color: topicColors.iconColor }}
+                              >
+                                <path d="M21 9V7C21 6.44772 20.5523 6 20 6H10L9 4H4L3.21115 5.57771C3.07229 5.85542 3 6.16165 3 6.47214V9" />
+                                <path d="M3.91321 20H20.0868C20.604 20 21.0359 19.6056 21.0827 19.0905L21.9009 10.0905C21.9541 9.50492 21.493 9 20.905 9H3.09503C2.507 9 2.0459 9.50492 2.09914 10.0905L2.91732 19.0905C2.96415 19.6056 3.39601 20 3.91321 20Z" />
                               </svg>
-                              <span className="font-medium text-gray-800">{topic.name}</span>
+                              <span className={`font-medium text-gray-800 ${level === 0 ? 'text-lg' : 'text-base'}`}>{topic.name}</span>
                               {hasChildren && (
-                                <span className="text-xs text-gray-500">({topics.filter(t => t.parentId === topic.id).length} 子分類)</span>
+                                <span className="text-base text-gray-500">({topics.filter(t => t.parentId === topic.id).length} 子分類)</span>
                               )}
-                              <span className="text-xs text-gray-500">({topicFaqs.length} 問題)</span>
+                              <span className="text-base text-gray-500">({topicFaqs.length})</span>
                             </div>
                             <svg 
                               className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -1058,17 +1158,17 @@ export default function ChatbotWidget({
                           </button>
 
                           {isExpanded && topicFaqs.length > 0 && (
-                            <div className="bg-white divide-y divide-gray-100 border-t border-gray-200">
+                            <div className="bg-white border-t border-gray-200 p-2 space-y-2">
                               {topicFaqs.map(faq => (
                                 <button
                                   key={faq.id}
                                   onClick={() => handleFaqClick(faq)}
-                                  className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-start space-x-2 group"
+                                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-white border border-gray-200 hover:border-blue-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group"
                                 >
-                                  <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <span className="text-base text-gray-700 group-hover:text-blue-700 font-medium transition-colors flex-1">{faq.question}</span>
+                                  <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                   </svg>
-                                  <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">{faq.question}</span>
                                 </button>
                               ))}
                             </div>
@@ -1086,23 +1186,24 @@ export default function ChatbotWidget({
 
               {/* 未分類的 FAQs */}
               {getUncategorizedFaqs().length > 0 && (
-                <div className={`border rounded-lg overflow-hidden transition-all ${
-                  selectedTopicId === 'uncategorized' ? 'border-blue-300 shadow-md' : 'border-gray-200'
+                <div className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+                  selectedTopicId === 'uncategorized' ? 'border-blue-400 shadow-lg' : 'border-gray-200 shadow-sm hover:shadow-md'
                 }`}>
                   <button
-                    onClick={() => setSelectedTopicId(selectedTopicId === 'uncategorized' ? null : 'uncategorized')}
-                    className={`w-full px-4 py-3 transition-colors flex items-center justify-between ${
+                    onClick={isPreviewMode ? undefined : () => setSelectedTopicId(selectedTopicId === 'uncategorized' ? null : 'uncategorized')}
+                    disabled={isPreviewMode}
+                    className={`w-full px-5 py-4 transition-all duration-200 flex items-center justify-between ${
                       selectedTopicId === 'uncategorized' 
                         ? 'bg-gray-100' 
                         : 'bg-gray-50 hover:bg-gray-100'
-                    }`}
+                    } ${isPreviewMode ? 'cursor-not-allowed' : ''}`}
                   >
                     <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <span className="font-medium text-gray-700">其他問題</span>
-                      <span className="text-xs text-gray-500">({getUncategorizedFaqs().length})</span>
+                      <span className="text-lg font-medium text-gray-700">其他問題</span>
+                      <span className="text-base text-gray-500">({getUncategorizedFaqs().length})</span>
                     </div>
                     <svg 
                       className={`w-5 h-5 text-gray-500 transition-transform ${selectedTopicId === 'uncategorized' ? 'rotate-180' : ''}`}
@@ -1115,17 +1216,17 @@ export default function ChatbotWidget({
                   </button>
 
                   {selectedTopicId === 'uncategorized' && (
-                    <div className="bg-white divide-y divide-gray-100">
+                    <div className="bg-white border-t border-gray-200 p-2 space-y-2">
                       {getUncategorizedFaqs().map(faq => (
                         <button
                           key={faq.id}
                           onClick={() => handleFaqClick(faq)}
-                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-start space-x-2 group"
+                          className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-white border border-gray-200 hover:border-blue-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group"
                         >
-                          <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <span className="text-base text-gray-700 group-hover:text-blue-700 font-medium transition-colors flex-1">{faq.question}</span>
+                          <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                          <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">{faq.question}</span>
                         </button>
                       ))}
                     </div>
@@ -1141,7 +1242,7 @@ export default function ChatbotWidget({
                     </svg>
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
-                  <p className="text-gray-600">切換到智能問答輸入問題</p>
+                  <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
                 </div>
               )}
             </div>
@@ -1162,7 +1263,8 @@ export default function ChatbotWidget({
             <div className={`grid gap-2 ${
               // 计算实际显示的按钮数量
               (() => {
-                let count = 1; // Home 按钮固定
+                let count = 0;
+                if (theme.homePageConfig?.enabled) count++; // Home 按钮（只有启用首页时才显示）
                 if (showTabArea) count++; // 切换模式按钮（只有两个模式都启用才显示）
                 if (theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email)) count++; // Contact 按钮
                 if (activeTab === 'chat') count++; // 清除对话按钮（只在 Chat mode）
@@ -1172,14 +1274,16 @@ export default function ChatbotWidget({
               {/* 切換模式卡片 - 只有兩個模式都啟用時才顯示 */}
               {showTabArea && (
                 <div
-                  onClick={() => {
+                  onClick={isPreviewMode ? undefined : () => {
                     if (activeTab === 'chat') {
                       setActiveTab('browse');
                     } else {
                       setActiveTab('chat');
                     }
                   }}
-                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                  className={`p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 flex items-center justify-center ${
+                    isPreviewMode ? 'cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer'
+                  }`}
                 >
                   {activeTab === 'chat' ? (
                     // 當前在 Chat mode，顯示 Browse 圖標
@@ -1195,21 +1299,27 @@ export default function ChatbotWidget({
                 </div>
               )}
               
-              {/* Home 卡片 */}
-              <div
-                onClick={() => setActiveTab('home')}
-                className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
-              >
-                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-              </div>
+              {/* Home 卡片 - 只有啟用首頁時才顯示 */}
+              {theme.homePageConfig?.enabled && (
+                <div
+                  onClick={isPreviewMode ? undefined : () => setActiveTab('home')}
+                  className={`p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 flex items-center justify-center ${
+                    isPreviewMode ? 'cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer'
+                  }`}
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
+              )}
 
               {/* 聯絡資訊卡片 - 只在有聯絡資訊時顯示 */}
               {theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
                 <div
-                  onClick={() => setShowContactModal(true)}
-                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                  onClick={isPreviewMode ? undefined : () => setShowContactModal(true)}
+                  className={`p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 flex items-center justify-center ${
+                    isPreviewMode ? 'cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer'
+                  }`}
                 >
                   <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -1220,11 +1330,13 @@ export default function ChatbotWidget({
               {/* 清除對話卡片 - 只在 Chat mode 顯示 */}
               {activeTab === 'chat' && (
                 <div
-                  onClick={() => {
+                  onClick={isPreviewMode ? undefined : () => {
                     setMessages([]);
                     setInputValue('');
                   }}
-                  className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                  className={`p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 flex items-center justify-center ${
+                    isPreviewMode ? 'cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer'
+                  }`}
                 >
                   <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1345,45 +1457,48 @@ export default function ChatbotWidget({
       {/* 聯絡資訊彈窗 */}
       {showContactModal && theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
         <div className="absolute inset-0 z-50 overflow-y-auto" onClick={() => setShowContactModal(false)}>
-          <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity" />
+          <div className="absolute inset-0 bg-black bg-opacity-30 transition-opacity" />
           <div className="absolute inset-0 flex items-center justify-center p-4">
             <div
-              className="relative bg-white rounded-lg shadow-xl w-full max-w-md"
+              className="relative rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/30"
               onClick={(e) => e.stopPropagation()}
+              style={{ 
+                background: 'linear-gradient(to top, rgba(20, 20, 20, 1) 0%, rgba(80, 80, 80, 1) 100%)',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)'
+              }}
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-800 to-green-900">
-                <h3 className="text-lg font-semibold text-white">聯絡資訊</h3>
-                <button
-                  onClick={() => setShowContactModal(false)}
-                  className="text-white hover:text-gray-200 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
+              {/* 關閉按鈕 - 浮動在右上角 */}
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              <div className="p-8 pt-12 space-y-6">
                 {theme.contactInfo?.name && (
                   <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
-                    <p className="text-lg font-semibold text-green-800">{theme.contactInfo.name}</p>
+                    <p className="text-xl font-semibold text-white">{theme.contactInfo.name}</p>
                   </div>
                 )}
                 
                 {theme.contactInfo?.phone && (
                   <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
                     </div>
                     <a
                       href={`tel:${theme.contactInfo.phone}`}
-                      className="text-lg font-semibold text-green-800 hover:text-green-900 transition-colors break-all"
+                      className="text-lg font-medium text-white/90 hover:text-white transition-colors break-all"
                     >
                       {theme.contactInfo.phone}
                     </a>
@@ -1392,14 +1507,14 @@ export default function ChatbotWidget({
                 
                 {theme.contactInfo?.email && (
                   <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-orange-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <a
                       href={`mailto:${theme.contactInfo.email}`}
-                      className="text-lg font-semibold text-green-800 hover:text-green-900 transition-colors break-all"
+                      className="text-lg font-medium text-white/90 hover:text-white transition-colors break-all"
                     >
                       {theme.contactInfo.email}
                     </a>

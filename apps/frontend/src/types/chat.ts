@@ -113,6 +113,9 @@ export interface ChatbotTheme {
   enableAIChat?: boolean      // 是否啟用智能問答 Tab（預設 true）
   enableBrowseQA?: boolean    // 是否啟用問答瀏覽 Tab（預設 true）
   
+  // Topic 卡片顏色設定
+  topicCardColor?: string     // Topic 卡片主色（CSS 顏色值，如 #9333EA）
+  
   // Chatbot Home Page 設定
   homePageConfig?: {
     enabled?: boolean           // 是否啟用首頁
@@ -126,6 +129,8 @@ export interface ChatbotTheme {
     }
     faqButton?: {
       text?: string            // 按鈕文字
+      backgroundColor?: string // 按鈕背景顏色
+      textColor?: string       // 按鈕文字顏色
     }
     buttonAreaUseGradient?: boolean  // 按鈕區域是否使用漸層
     buttonAreaBackgroundColor?: string  // 按鈕區域背景顏色
@@ -212,6 +217,7 @@ export const defaultTheme: ChatbotTheme = {
   },
   enableAIChat: true,
   enableBrowseQA: true,
+  topicCardColor: '#9333EA', // 預設紫色
   homePageConfig: {
     enabled: false,
     backgroundImage: null,
@@ -223,7 +229,9 @@ export const defaultTheme: ChatbotTheme = {
       textColor: '#3a6ba7'
     },
     faqButton: {
-      text: 'FAQ'
+      text: 'FAQ',
+      backgroundColor: '#3a6ba7',
+      textColor: '#ffffff'
     },
     buttonAreaUseGradient: false,
     buttonAreaBackgroundColor: '#ffffff',

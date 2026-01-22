@@ -96,6 +96,8 @@ export const topicApi = {
       description: string | null;
     }>
   ): Promise<Topic> {
+    console.log('[topicApi.update] 更新 Topic:', { id, data });
+    
     const response = await fetch(`${API_URL}/topics/${id}`, {
       method: 'PATCH',
       headers: {
@@ -105,11 +107,14 @@ export const topicApi = {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[topicApi.update] 更新失敗:', errorText);
       throw new Error('Failed to update topic');
     }
 
     const result = await response.json();
-    return result;
+    console.log('[topicApi.update] 更新成功:', result);
+    return result.data || result;
   },
 
   /**

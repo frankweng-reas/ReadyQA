@@ -14,7 +14,8 @@ export class LlmService {
   private readonly DEFAULT_SYSTEM_PROMPT = `根據使用者問題的語意判斷，從知識庫內容挑出可能符合的Q&A項目。
 
 **篩選原則：**
-- 從 question & answer 的內容來判斷是否可能為使用者要找的
+- 從 question、answer 和 synonym（同義詞）的內容來判斷是否可能為使用者要找的
+- **synonym 欄位非常重要**：如果使用者問題與 synonym 欄位中的詞彙相關，即使 question 不完全匹配，也應該視為相關
 - 使用者問題可能有多種表達方式，需要根據問題的語意來判斷
 - 不相干的 Q&A 需要排除
 - 可能多個Q&A符合，最多返回5個
@@ -52,7 +53,8 @@ export class LlmService {
 2. **不要**添加任何 JSON 之外的文字或說明
 
 **注意：**
-- 你將收到 JSON 格式的知識庫內容，格式為：\`{"context": [{"faq_id": "...", "question": "...", "answer": "...", "score": 0.xx}]}\`
+- 你將收到 JSON 格式的知識庫內容，格式為：\`{"context": [{"faq_id": "...", "question": "...", "answer": "...", "synonym": "...", "score": 0.xx}]}\`
+- **synonym 欄位包含同義詞**：如果使用者問題與 synonym 中的詞彙相關，即使 question 不完全匹配，也應該視為相關並返回
 - 如果 \`context\` 為空陣列 \`[]\`，表示沒有找到相關資料，**必須**返回 \`has_results: false\`
 - 如果 \`context\` 有資料，請從中選擇最相關的 FAQ，並返回對應的 \`faq_id\` 和 \`question\`
 `;
@@ -196,6 +198,7 @@ export class LlmService {
       faq_id: string;
       question: string;
       answer: string;
+      synonym?: string;
       score: number;
     }>,
   ): Promise<{
@@ -249,6 +252,7 @@ export class LlmService {
         faq_id: result.faq_id,
         question: result.question,
         answer: result.answer,
+        synonym: result.synonym || '', // 加入 synonym 欄位
         score: Math.round(result.score * 10000) / 10000, // 保留 4 位小數
       })),
     };

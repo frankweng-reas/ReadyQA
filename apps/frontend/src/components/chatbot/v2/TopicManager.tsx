@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { topicApi } from '@/lib/api/topic';
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -33,29 +50,36 @@ interface TopicItemProps {
   level: number;
   isExpanded: boolean;
   hasChildren: boolean;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
   onToggleExpand: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
 }
 
-// Topic 項目組件
+// Topic 項目組件（支援拖曳）
 function TopicItem({
   topic,
   level,
   isExpanded,
   hasChildren,
-  canMoveUp,
-  canMoveDown,
   onToggleExpand,
   onEdit,
   onDelete,
-  onMoveUp,
-  onMoveDown,
 }: TopicItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: topic.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   // 根據層級決定樣式
   const getLevelStyles = () => {
     if (level === 0) {
@@ -82,7 +106,7 @@ function TopicItem({
   const levelStyles = getLevelStyles()
 
   return (
-    <div className="relative">
+    <div className="relative" ref={setNodeRef} style={style}>
       {/* 連接線（層級視覺化） */}
       {level > 0 && (
         <>
@@ -103,9 +127,33 @@ function TopicItem({
       )}
 
       <div
-        className={`flex items-center justify-between px-2 py-0 rounded-lg border ${levelStyles.container} hover:shadow-md mb-3 transition-all`}
+        className={`flex items-center justify-between px-2 py-0 rounded-lg border ${levelStyles.container} hover:shadow-md mb-3 transition-all ${
+          isDragging ? 'shadow-lg' : ''
+        }`}
         style={{ marginLeft: `${level * 32}px` }}
       >
+        {/* 拖曳把手 */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 mr-1 flex-shrink-0 hover:bg-white/50 rounded-md transition-colors"
+          title="拖曳調整順序"
+        >
+          <svg
+            className="w-5 h-5 text-label"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8h16M4 16h16"
+            />
+          </svg>
+        </div>
+
         {/* 層級指示器 */}
         <div className={`flex items-center justify-center w-5 h-5 rounded-full ${levelStyles.indicator} mr-1 flex-shrink-0`}>
           <span className={`text-xs font-bold ${levelStyles.text}`}>{level + 1}</span>
@@ -157,38 +205,6 @@ function TopicItem({
 
         {/* 操作按鈕 */}
         <div className="flex items-center space-x-1 ml-1">
-          {/* 順序調整按鈕 */}
-          <div className="flex flex-col gap-0.5 border-r border-border pr-2 mr-1">
-            <button
-              onClick={onMoveUp}
-              disabled={!canMoveUp}
-              className={`px-2 py-1 rounded-md transition-all ${
-                canMoveUp 
-                  ? 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40' 
-                  : 'bg-grey text-label/30 border border-border cursor-not-allowed'
-              }`}
-              title="上移"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-            <button
-              onClick={onMoveDown}
-              disabled={!canMoveDown}
-              className={`px-2 py-1 rounded-md transition-all ${
-                canMoveDown 
-                  ? 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40' 
-                  : 'bg-grey text-label/30 border border-border cursor-not-allowed'
-              }`}
-              title="下移"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-          
           <button
             onClick={onEdit}
             className="p-1.5 text-primary hover:bg-primary/10 rounded-full transition-colors"
@@ -237,6 +253,18 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [topicToDelete, setTopicToDelete] = useState<{ id: string; faqCount: number } | null>(null);
 
+  // 拖曳感應器設定
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 移動 8px 後才開始拖曳，避免誤觸
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // 表單狀態
   const [formData, setFormData] = useState({
     name: '',
@@ -245,14 +273,16 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
   });
 
   // 載入 topics
-  const loadTopics = async () => {
+  const loadTopics = async (preserveExpanded = false) => {
     setIsLoading(true);
     try {
       const data = await topicApi.getAll(chatbotId);
       setTopics(data);
-      // 預設展開所有分類
-      const allTopicIds = new Set<string>(data.map((t) => t.id));
-      setExpandedTopics(allTopicIds);
+      // 只有在不保留展開狀態時，才預設展開所有分類（初始化時）
+      if (!preserveExpanded) {
+        const allTopicIds = new Set<string>(data.map((t) => t.id));
+        setExpandedTopics(allTopicIds);
+      }
     } catch (error) {
       console.error('載入 Topics 失敗:', error);
       setTopics([]);
@@ -328,7 +358,8 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
         });
       }
 
-      loadTopics();
+      // 等待資料載入完成後再關閉 modal，並保留展開狀態
+      await loadTopics(true);
       setShowFormModal(false);
       setIsCreating(false);
       setEditingTopic(null);
@@ -350,7 +381,8 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
 
     try {
       await topicApi.delete(topicToDelete.id);
-      loadTopics();
+      // 等待資料載入完成，並保留展開狀態
+      await loadTopics(true);
       if (onRefresh) onRefresh();
       setShowDeleteConfirm(false);
       setTopicToDelete(null);
@@ -410,25 +442,46 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
     return getTopicLevel(topic.parentId) + 1;
   };
 
-  // 調整順序：上移
-  const handleMoveUp = async (topicId: string) => {
-    const topic = topics.find(t => t.id === topicId);
-    if (!topic) return;
+  // 處理拖曳結束
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-    const siblings = getChildren(topic.parentId);
-    const currentIndex = siblings.findIndex(t => t.id === topicId);
-    
-    if (currentIndex <= 0) return; // 已經是最上面了
+    if (!over || active.id === over.id) {
+      return;
+    }
 
-    const prevTopic = siblings[currentIndex - 1];
+    const draggedTopic = topics.find((t) => t.id === active.id);
+    const targetTopic = topics.find((t) => t.id === over.id);
     
-    // 交換 sortOrder
+    if (!draggedTopic || !targetTopic) return;
+
+    // 確保兩個項目屬於同一個父節點（同一個層級）
+    if (draggedTopic.parentId !== targetTopic.parentId) {
+      console.log('[TopicManager] 無法跨層級拖曳');
+      return;
+    }
+
+    const siblings = getChildren(draggedTopic.parentId);
+    const oldIndex = siblings.findIndex((t) => t.id === active.id);
+    const newIndex = siblings.findIndex((t) => t.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
     try {
-      await Promise.all([
-        topicApi.update(topicId, { sortOrder: prevTopic.sortOrder }),
-        topicApi.update(prevTopic.id, { sortOrder: topic.sortOrder }),
-      ]);
-      loadTopics();
+      // 重新計算所有受影響的 sortOrder
+      const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
+      
+      // 批次更新所有受影響的 topics
+      const updatePromises = reorderedSiblings.map((topic, index) =>
+        topicApi.update(topic.id, { sortOrder: index })
+      );
+
+      await Promise.all(updatePromises);
+
+      console.log('[TopicManager] 拖曳完成: 從位置', oldIndex, '移到', newIndex);
+
+      // 等待資料載入完成，並保留展開狀態
+      await loadTopics(true);
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error('[TopicManager] 調整順序失敗:', error);
@@ -436,33 +489,7 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
     }
   };
 
-  // 調整順序：下移
-  const handleMoveDown = async (topicId: string) => {
-    const topic = topics.find(t => t.id === topicId);
-    if (!topic) return;
-
-    const siblings = getChildren(topic.parentId);
-    const currentIndex = siblings.findIndex(t => t.id === topicId);
-    
-    if (currentIndex >= siblings.length - 1) return; // 已經是最下面了
-
-    const nextTopic = siblings[currentIndex + 1];
-    
-    // 交換 sortOrder
-    try {
-      await Promise.all([
-        topicApi.update(topicId, { sortOrder: nextTopic.sortOrder }),
-        topicApi.update(nextTopic.id, { sortOrder: topic.sortOrder }),
-      ]);
-      loadTopics();
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error('[TopicManager] 調整順序失敗:', error);
-      notify.error(t('moveFailed') || '調整順序失敗');
-    }
-  };
-
-  // 遞歸渲染 Topic 樹
+  // 遞歸渲染 Topic 樹（支援拖曳）
   const renderTopicTree = (
     parentId: string | null = null,
     level: number = 0
@@ -470,44 +497,44 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
     const children = getChildren(parentId);
     if (children.length === 0) return null;
 
-    return children.map((topic, index) => {
-      const isExpanded = expandedTopics.has(topic.id);
-      const topicHasChildren = hasChildren(topic.id);
-      const canMoveUp = index > 0;
-      const canMoveDown = index < children.length - 1;
+    const itemIds = children.map((t) => t.id);
 
-      return (
-        <div key={topic.id}>
-          <TopicItem
-            topic={topic}
-            level={level}
-            isExpanded={isExpanded}
-            hasChildren={topicHasChildren}
-            canMoveUp={canMoveUp}
-            canMoveDown={canMoveDown}
-            onToggleExpand={() => toggleExpand(topic.id)}
-            onEdit={() => handleEdit(topic)}
-            onDelete={() => handleDelete(topic.id, topic._count?.faqs || 0)}
-            onMoveUp={() => handleMoveUp(topic.id)}
-            onMoveDown={() => handleMoveDown(topic.id)}
-          />
+    return (
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        {children.map((topic) => {
+          const isExpanded = expandedTopics.has(topic.id);
+          const topicHasChildren = hasChildren(topic.id);
 
-          {/* 遞歸渲染子分類 */}
-          {topicHasChildren && isExpanded && (
-            <AnimatePresence>
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {renderTopicTree(topic.id, level + 1)}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
-      );
-    });
+          return (
+            <div key={topic.id}>
+              <TopicItem
+                topic={topic}
+                level={level}
+                isExpanded={isExpanded}
+                hasChildren={topicHasChildren}
+                onToggleExpand={() => toggleExpand(topic.id)}
+                onEdit={() => handleEdit(topic)}
+                onDelete={() => handleDelete(topic.id, topic._count?.faqs || 0)}
+              />
+
+              {/* 遞歸渲染子分類 */}
+              {topicHasChildren && isExpanded && (
+                <AnimatePresence>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {renderTopicTree(topic.id, level + 1)}
+                  </motion.div>
+                </AnimatePresence>
+              )}
+            </div>
+          );
+        })}
+      </SortableContext>
+    );
   };
 
   // 遞歸渲染階層選項（用於下拉選單）
@@ -578,7 +605,13 @@ export default function TopicManager({ chatbotId, onRefresh }: TopicManagerProps
           ) : topics.length === 0 ? (
             <div className="text-center py-12 text-label">{t('noTopics')}</div>
           ) : (
-            <div>{renderTopicTree(null, 0)}</div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <div>{renderTopicTree(null, 0)}</div>
+            </DndContext>
           )}
         </div>
       </div>
