@@ -89,7 +89,9 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
   src="${origin}/chatbot-widget.js" 
   data-chatbot-id="${chatbotId}"
   data-position="bottom-right"
-  data-bubble-color="#2563eb"${bubbleImageAttr}
+  data-bubble-color="#ffffff"
+  data-width="400px"
+  data-height="600px"${bubbleImageAttr}
   data-bubble-animation="bounce">
 </script>`;
     setWidgetCode(widget);

@@ -16,7 +16,14 @@ const intlMiddleware = createMiddleware({
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 0. 處理靜態 HTML 文件
+  // 0. 處理 chatbot-widget.js 重寫到 API route
+  if (pathname === '/chatbot-widget.js') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/api/chatbot-widget';
+    return NextResponse.rewrite(url);
+  }
+
+  // 1. 處理靜態 HTML 文件
   // 如果路徑包含 .html，移除語言前綴並重寫到實際的靜態文件路徑
   if (pathname.includes('.html')) {
     // 檢查是否是帶語言前綴的路徑，如 /zh-TW/faq-demo.html
@@ -32,10 +39,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. 先處理 i18n 路由
+  // 2. 先處理 i18n 路由
   const response = intlMiddleware(request);
 
-  // 2. 建立 Supabase 客戶端進行認證檢查
+  // 3. 建立 Supabase 客戶端進行認證檢查
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -56,28 +63,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 3. 檢查用戶認證狀態
+  // 4. 檢查用戶認證狀態
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // 4. 提取當前語言（從 pathname 中）
+  // 5. 提取當前語言（從 pathname 中）
   const locale = pathname.split('/')[1] || defaultLocale;
 
-  // 5. 需要認證的路由
+  // 6. 需要認證的路由
   const protectedRoutes = ['/dashboard', '/settings', '/profile'];
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.includes(route)
   );
 
-  // 6. 未登入訪問受保護路由 -> 導向登入頁
+  // 7. 未登入訪問受保護路由 -> 導向登入頁
   if (isProtectedRoute && !session) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 7. 已登入訪問登入頁 -> 導向 dashboard
+  // 8. 已登入訪問登入頁 -> 導向 dashboard
   if (pathname.includes('/login') && session) {
     const redirectUrl = request.nextUrl.searchParams.get('redirect');
     return NextResponse.redirect(
