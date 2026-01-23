@@ -274,6 +274,91 @@ ${content}
   }
 
   /**
+   * 優化答案格式，使其更符合 QA 呈現
+   */
+  async optimizeAnswer(
+    chatbotId: string,
+    question: string,
+    answer: string,
+  ): Promise<{
+    success: boolean;
+    optimizedAnswer?: string;
+    usage?: any;
+    cost?: any;
+    message?: string;
+  }> {
+    try {
+      // 獲取 LLM 配置
+      const llmModel = this.modelConfigService.getCurrentLLMModel();
+      if (!llmModel) {
+        return {
+          success: false,
+          message: '請設置環境變數 OPENAI_API_KEY',
+        };
+      }
+
+      // 構建 System Prompt
+      const systemPrompt = `你是一個專業的知識庫內容優化助手。你的任務是優化答案內容，使其更符合問答（Q&A）呈現格式。
+
+**優化原則：**
+1. 保持答案的準確性和完整性，不要改變原意
+2. 優化格式，使其更易讀、更結構化
+3. 適當使用 Markdown 格式（標題、列表、粗體等）
+4. 確保內容清晰、簡潔、專業
+5. 如果內容已經很好了，可以只做微調
+
+**格式要求：**
+- 使用適當的 Markdown 格式
+- 長段落可以拆分為多個段落
+- 列表項目使用 Markdown 列表格式
+- 重要資訊可以使用粗體強調
+- 保持專業且易讀的風格
+
+**回應格式：**
+直接返回優化後的答案內容（支援 Markdown），不需要 JSON 格式。`;
+
+      // 構建用戶消息（只優化答案，不參考問題）
+      const userMessage = `原始答案：
+${answer}
+
+請優化以上答案，使其更符合 QA 呈現格式：`;
+
+      // 調用 LLM
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ];
+
+      const result = await this.llmService.callLlmOpenai(
+        messages,
+        llmModel.apiUrl,
+        llmModel.apiKey,
+        llmModel.modelName,
+        0.7,
+        2000,
+        llmModel.provider,
+        llmModel.apiVersion,
+      );
+
+      // 計算費用
+      const cost = this.calculateCost(result.usage, llmModel.modelName);
+
+      return {
+        success: true,
+        optimizedAnswer: result.content.trim(),
+        usage: result.usage,
+        cost,
+      };
+    } catch (error: any) {
+      this.logger.error(`[optimizeAnswer] 錯誤: ${error.message}`);
+      return {
+        success: false,
+        message: error.message || '優化失敗',
+      };
+    }
+  }
+
+  /**
    * 計算 API 使用費用
    */
   private calculateCost(

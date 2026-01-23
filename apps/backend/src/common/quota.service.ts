@@ -270,7 +270,7 @@ export class QuotaService {
   }
 
   /**
-   * 檢查是否可以創建 FAQ（檢查 chatbot 的 FAQ 數量配額）
+   * 檢查是否可以創建 FAQ（檢查租戶的 FAQ 總數配額）
    * 
    * @param chatbotId - Chatbot ID
    * @returns 檢查結果
@@ -309,10 +309,11 @@ export class QuotaService {
         };
       }
 
-      const maxFaqsPerBot = chatbot.tenant.plan.maxFaqsPerBot;
+      const tenantId = chatbot.tenantId;
+      const maxFaqs = chatbot.tenant.plan.maxFaqsPerBot; // 此欄位現在代表整個 tenant 的 FAQ 總數限制
 
       // 2. NULL = 無限制
-      if (maxFaqsPerBot === null) {
+      if (maxFaqs === null) {
         const duration = Date.now() - startTime;
         this.logger.log(
           `[QuotaService] ⏱️  checkCanCreateFaq (無限制): ${duration}ms`,
@@ -324,33 +325,35 @@ export class QuotaService {
         };
       }
 
-      // 3. 統計當前 FAQ 數量（只計算 active 狀態）
+      // 3. 統計整個 tenant 的 FAQ 總數（只計算 active 狀態）
       const currentCount = await this.prisma.faq.count({
         where: {
-          chatbotId,
+          chatbot: {
+            tenantId,
+          },
           status: 'active',
         },
       });
 
       const duration = Date.now() - startTime;
       this.logger.log(
-        `[QuotaService] ⏱️  checkCanCreateFaq: ${duration}ms, current: ${currentCount}, max: ${maxFaqsPerBot}`,
+        `[QuotaService] ⏱️  checkCanCreateFaq: ${duration}ms, current: ${currentCount}, max: ${maxFaqs}`,
       );
 
       // 4. 檢查是否超過限制
-      if (currentCount >= maxFaqsPerBot) {
+      if (currentCount >= maxFaqs) {
         return {
           allowed: false,
-          reason: `此 chatbot 已達到 FAQ 數量限制（${maxFaqsPerBot} 個），請升級方案`,
+          reason: `已達到 FAQ 總數限制（${maxFaqs} 個），請升級方案`,
           current_count: currentCount,
-          max_count: maxFaqsPerBot,
+          max_count: maxFaqs,
         };
       }
 
       return {
         allowed: true,
         current_count: currentCount,
-        max_count: maxFaqsPerBot,
+        max_count: maxFaqs,
       };
     } catch (error) {
       this.logger.error(

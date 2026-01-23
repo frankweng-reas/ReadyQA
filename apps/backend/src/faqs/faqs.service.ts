@@ -137,9 +137,10 @@ export class FaqsService {
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: [
+          { sortOrder: 'asc' },
+          { createdAt: 'desc' },
+        ],
         skip: query.offset,
         take: query.limit,
       }),
@@ -235,6 +236,49 @@ export class FaqsService {
         lastHitAt: new Date(),
       },
     });
+  }
+
+  /**
+   * 批量更新 FAQ 的 sortOrder
+   * 用於排序管理頁面統一更新排序
+   */
+  async batchUpdateSortOrder(chatbotId: string, updates: Array<{ id: string; sortOrder: number }>) {
+    if (!updates || updates.length === 0) {
+      this.logger.log('⚠️ 批量更新 sortOrder: 沒有需要更新的項目');
+      return { success: true, updated: 0 };
+    }
+
+    this.logger.log(`[FaqsService] 批量更新 ${updates.length} 個 FAQ 的 sortOrder`);
+
+    // 驗證所有 FAQ 都屬於該 chatbot
+    const faqIds = updates.map(u => u.id);
+    const existingFaqs = await this.prisma.faq.findMany({
+      where: {
+        id: { in: faqIds },
+        chatbotId,
+      },
+      select: { id: true },
+    });
+
+    if (existingFaqs.length !== faqIds.length) {
+      const missingIds = faqIds.filter(id => !existingFaqs.find(f => f.id === id));
+      this.logger.error(`[FaqsService] 部分 FAQ 不屬於此 chatbot: ${missingIds.join(', ')}`);
+      throw new BadRequestException(`Some FAQs do not belong to this chatbot: ${missingIds.join(', ')}`);
+    }
+
+    // 批量更新
+    const updatePromises = updates.map(update =>
+      this.prisma.faq.update({
+        where: { id: update.id },
+        data: { sortOrder: update.sortOrder },
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    this.logger.log(`✅ 批量更新 ${updates.length} 個 FAQ 的 sortOrder 完成`);
+
+    return { success: true, updated: updates.length };
   }
 
   /**

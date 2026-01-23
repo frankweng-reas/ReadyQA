@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>常見問題 FAQ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .faq-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .faq-item {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .faq-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .faq-question {
+            background-color: #f8f9fa;
+            padding: 18px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .faq-question:hover {
+            background-color: #e9ecef;
+        }
+
+        .faq-question::after {
+            content: '+';
+            font-size: 24px;
+            color: #3498db;
+            font-weight: 300;
+            transition: transform 0.3s ease;
+        }
+
+        .faq-item.active .faq-question::after {
+            transform: rotate(45deg);
+        }
+
+        .faq-answer {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 500px;
+            padding: 20px;
+        }
+
+        .faq-answer p {
+            margin-bottom: 10px;
+        }
+
+        .faq-answer p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="faq-container">
+        <h1>常見問題</h1>
+
+        <div class="faq-item">
+            <div class="faq-question">什麼是 ReadyQA？</div>
+            <div class="faq-answer">
+                <p>ReadyQA 是一個 AI 驅動的知識庫管理系統，幫助您輕鬆建立和管理常見問題（FAQ），並透過智能聊天機器人為用戶提供即時協助。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">如何開始使用 ReadyQA？</div>
+            <div class="faq-answer">
+                <p>您只需要註冊一個帳號，登入後即可開始建立您的第一個知識庫。系統提供直觀的操作介面，讓您快速上手。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">ReadyQA 支援哪些語言？</div>
+            <div class="faq-answer">
+                <p>目前 ReadyQA 支援繁體中文和英文，未來會持續增加更多語言支援。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">如何將聊天機器人嵌入到我的網站？</div>
+            <div class="faq-answer">
+                <p>您可以在設定頁面取得嵌入代碼，將代碼複製到您的網站 HTML 中即可。支援 iframe 和 JavaScript widget 兩種嵌入方式。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">ReadyQA 的定價方案為何？</div>
+            <div class="faq-answer">
+                <p>我們提供免費方案和付費方案。免費方案適合個人用戶和小型專案，付費方案則提供更多功能和更高的使用額度。詳細資訊請參考定價頁面。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">我的資料安全嗎？</div>
+            <div class="faq-answer">
+                <p>是的，我們非常重視資料安全。所有資料都經過加密處理，並遵循業界標準的安全規範。我們不會與第三方分享您的資料。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">如何聯絡客服？</div>
+            <div class="faq-answer">
+                <p>您可以透過網站上的聯絡表單、電子郵件或即時客服功能與我們聯繫。我們的客服團隊會在 24 小時內回覆您的問題。</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">可以匯出我的資料嗎？</div>
+            <div class="faq-answer">
+                <p>可以，您隨時可以在設定頁面匯出您的所有資料，包括知識庫內容、對話記錄等。資料會以 JSON 格式提供。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.faq-question').forEach(question => {
+            question.addEventListener('click', () => {
+                const faqItem = question.parentElement;
+                const isActive = faqItem.classList.contains('active');
+                
+                // 關閉所有其他項目
+                document.querySelectorAll('.faq-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // 切換當前項目
+                if (!isActive) {
+                    faqItem.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -8,6 +8,8 @@ export interface QACardConfig {
   className?: string
   /** 是否始終展開（不顯示收起按鈕） */
   alwaysExpanded?: boolean
+  /** 初始展開狀態（允許用戶手動收起/展開） */
+  initialExpanded?: boolean
   /** 搜尋日誌 ID（用於記錄操作） */
   log_id?: string
   /** FAQ 在搜尋結果中的位置（從 0 開始） */

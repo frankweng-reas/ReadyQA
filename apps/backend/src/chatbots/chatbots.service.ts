@@ -175,6 +175,26 @@ export class ChatbotsService {
     return updated;
   }
 
+  /**
+   * Touch chatbot - 更新 updatedAt 時間戳
+   * 用於記錄用戶訪問/點擊 chatbot 的時間
+   */
+  async touch(id: string) {
+    // 確認 chatbot 存在
+    await this.findOne(id);
+
+    // 明確設置 updatedAt 以觸發更新
+    // 注意：Prisma 的空物件 data: {} 不會觸發 @updatedAt
+    const updated = await this.prisma.chatbot.update({
+      where: { id },
+      data: {
+        updatedAt: new Date(),
+      },
+    });
+
+    return updated;
+  }
+
   async remove(id: string) {
     // 確認 chatbot 存在
     await this.findOne(id);

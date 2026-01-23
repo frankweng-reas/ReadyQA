@@ -197,6 +197,20 @@ export const chatbotApi = {
   },
 
   /**
+   * Touch Chatbot - 更新 updatedAt 時間戳
+   * 用於記錄用戶訪問/點擊 chatbot 的時間
+   */
+  async touch(id: string): Promise<void> {
+    // Fire-and-forget: 不等待回應，不拋出錯誤
+    fetch(`${API_URL}/chatbots/${id}/touch`, {
+      method: 'PATCH',
+    }).catch((error) => {
+      // 靜默處理錯誤，不影響用戶體驗
+      console.log('[ChatbotAPI] Touch failed (non-blocking):', error)
+    })
+  },
+
+  /**
    * 取得 Chatbot 統計
    */
   async getStats(id: string) {

@@ -6,7 +6,9 @@ import { useTranslations } from 'next-intl'
 import { useAuth } from '@/lib/auth/auth-provider'
 import { Button } from '@/components/ui/button'
 import { chatbotApi } from '@/lib/api/chatbot'
+import { userApi, type UserProfile } from '@/lib/api/user'
 import { useNotification } from '@/hooks/useNotification'
+import PlanQuotaModal from '@/components/dashboard/PlanQuotaModal'
 
 /**
  * Dashboard/Home 頁面 - Chatbot 列表
@@ -43,6 +45,8 @@ export default function DashboardPage() {
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({})
   const [editingChatbot, setEditingChatbot] = useState<Chatbot | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [showPlanQuotaModal, setShowPlanQuotaModal] = useState(false)
   const newChatbotNameRef = useRef<HTMLInputElement>(null)
   const newChatbotDescRef = useRef<HTMLInputElement>(null)
   const editChatbotNameRef = useRef<HTMLInputElement>(null)
@@ -54,6 +58,13 @@ export default function DashboardPage() {
     }
   }, [user, loading, router])
 
+  // 載入用戶 profile（包含 plan 資訊）
+  useEffect(() => {
+    if (user) {
+      loadUserProfile()
+    }
+  }, [user])
+
   // 載入 chatbots
   useEffect(() => {
     if (user) {
@@ -62,19 +73,25 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  const loadUserProfile = async () => {
+    try {
+      const profile = await userApi.getProfile()
+      if (profile) {
+        setUserProfile(profile)
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to load user profile:', error)
+    }
+  }
+
   const loadChatbots = async () => {
     try {
       console.log('[Dashboard] Loading chatbots...')
       setIsLoading(true)
       const data = await chatbotApi.getAll()
       console.log('[Dashboard] Chatbots loaded:', data.length)
-      // 按照 updatedAt 降序排序（最近更新的在前）
-      const sortedData = [...data].sort((a, b) => {
-        const dateA = new Date(a.updatedAt).getTime()
-        const dateB = new Date(b.updatedAt).getTime()
-        return dateB - dateA
-      })
-      setChatbots(sortedData)
+      // 後端已經按照 updatedAt 降序排序，直接使用
+      setChatbots(data)
     } catch (error) {
       console.error('[Dashboard] Failed to load chatbots:', error)
     } finally {
@@ -262,14 +279,26 @@ export default function DashboardPage() {
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       {/* Header */}
-      <header className="flex-shrink-0 border-b border-gray-200 shadow-sm" style={{ backgroundColor: '#3a5858' }}>
+      <header className="flex-shrink-0 border-b border-gray-200 shadow-sm" style={{ backgroundColor: '#4b5563' }}>
         <div className="container mx-auto px-4">
           <div className="flex h-32 items-center justify-between">
             {/* 應用名稱 */}
-            <div className="flex items-center">
-              <h1 className="text-4xl font-bold text-white">
-                {tCommon('appName')}
+            <div className="flex flex-col items-center">
+              <h1 className="text-4xl font-bold text-white" style={{ 
+                letterSpacing: '-1px',
+                fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontStyle: 'italic'
+              }}>
+                <span style={{ fontWeight: 700 }}>Ready</span>
+                <span style={{ fontWeight: 700 }}>QA</span>
               </h1>
+              <p className="text-sm text-white mt-0.5" style={{ 
+                fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontStyle: 'italic',
+                textAlign: 'center'
+              }}>
+                Just ready. GO.
+              </p>
             </div>
 
             {/* 右側：用戶資訊 */}
@@ -312,29 +341,99 @@ export default function DashboardPage() {
                       className="fixed inset-0 z-10"
                       onClick={() => setShowUserMenu(false)}
                     />
-                    <div className="absolute right-0 z-20 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          signOut()
-                        }}
-                        className="flex w-full items-center justify-center gap-2 px-5 py-3 font-medium text-red-600 transition-colors hover:bg-red-50"
-                      >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                    <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                      {/* 用戶資訊 */}
+                      <div className="border-b border-gray-100 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200">
+                            <span className="text-base font-semibold text-gray-700">
+                              {user.email?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-base font-medium text-gray-900">
+                              {user.email}
+                            </p>
+                            {userProfile?.tenant?.plan && (
+                              <p className="mt-0.5 text-base text-gray-500">
+                                {userProfile.tenant.plan.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Plan 資訊 */}
+                      {userProfile?.tenant?.plan && (
+                        <div className="border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-base text-gray-500">
+                              {t('plan.currentPlan')}
+                            </span>
+                            <span className="rounded bg-blue-100 px-2 py-0.5 text-base font-medium text-blue-700">
+                              {userProfile.tenant.plan.code}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 選單項目 */}
+                      <div className="py-1">
+                        {/* 方案與配額 */}
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false)
+                            setShowPlanQuotaModal(true)
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                          />
-                        </svg>
-                        <span className="text-sm">{tAuth('logout')}</span>
-                      </button>
+                          <svg
+                            className="h-5 w-5 shrink-0 text-gray-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                          </svg>
+                          <span className="text-base text-gray-700">
+                            {t('plan.viewPlanQuota')}
+                          </span>
+                        </button>
+
+                        {/* 分隔線 */}
+                        <div className="my-1 border-t border-gray-100"></div>
+
+                        {/* 登出 */}
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false)
+                            signOut()
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-red-50"
+                        >
+                          <svg
+                            className="h-5 w-5 shrink-0 text-red-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
+                          </svg>
+                          <span className="text-base text-red-600">
+                            {tAuth('logout')}
+                          </span>
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -546,7 +645,11 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={chatbot.id}
-                      onClick={() => router.push(`/chatbots/${chatbot.id}`)}
+                      onClick={() => {
+                        // 更新 updatedAt 時間戳（fire-and-forget）
+                        chatbotApi.touch(chatbot.id)
+                        router.push(`/chatbots/${chatbot.id}`)
+                      }}
                       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
                       style={{
                         boxShadow:
@@ -778,6 +881,13 @@ export default function DashboardPage() {
 
       {/* ConfirmDialog */}
       {notify.ConfirmDialog}
+
+      {/* Plan & Quota Modal */}
+      <PlanQuotaModal
+        userProfile={userProfile}
+        isOpen={showPlanQuotaModal}
+        onClose={() => setShowPlanQuotaModal(false)}
+      />
     </div>
   )
 }

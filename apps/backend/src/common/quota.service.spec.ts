@@ -468,7 +468,9 @@ describe('QuotaService', () => {
       });
       expect(prismaService.faq.count).toHaveBeenCalledWith({
         where: {
-          chatbotId,
+          chatbot: {
+            tenantId,
+          },
           status: 'active',
         },
       });
@@ -493,13 +495,13 @@ describe('QuotaService', () => {
 
       expect(result).toEqual({
         allowed: false,
-        reason: `此 chatbot 已達到 FAQ 數量限制（${maxFaqs} 個），請升級方案`,
+        reason: `已達到 FAQ 總數限制（${maxFaqs} 個），請升級方案`,
         current_count: currentCount,
         max_count: maxFaqs,
       });
     });
 
-    it('應該只計算 active 狀態的 FAQ', async () => {
+    it('應該只計算 active 狀態的 FAQ（整個 tenant）', async () => {
       const maxFaqs = 100;
       prismaService.chatbot.findUnique = jest.fn().mockResolvedValue({
         id: chatbotId,
@@ -516,7 +518,9 @@ describe('QuotaService', () => {
 
       expect(prismaService.faq.count).toHaveBeenCalledWith({
         where: {
-          chatbotId,
+          chatbot: {
+            tenantId,
+          },
           status: 'active',
         },
       });

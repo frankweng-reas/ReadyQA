@@ -3,7 +3,7 @@
  * 與 Backend API 通訊
  */
 
-interface FAQ {
+export interface FAQ {
   id: string;
   chatbotId: string;
   question: string;
@@ -11,6 +11,7 @@ interface FAQ {
   synonym: string;
   status: string;
   topicId: string | null;
+  sortOrder?: number;
   hitCount: number;
   activeFrom: Date | null;
   activeUntil: Date | null;
@@ -121,6 +122,50 @@ export const faqApi = {
     if (!response.ok) {
       throw new Error('Failed to delete FAQ');
     }
+  },
+
+  /**
+   * 批量更新 FAQ 排序
+   */
+  async batchUpdateSortOrder(
+    chatbotId: string,
+    updates: Array<{ id: string; sortOrder: number }>
+  ): Promise<{ success: boolean; data: { success: boolean; updated: number } }> {
+    console.log('[faqApi] batchUpdateSortOrder:', { chatbotId, updatesCount: updates.length });
+    
+    const response = await fetch(`${API_URL}/faqs/batch-sort`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chatbotId,
+        updates,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText || `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.error('[faqApi] batchUpdateSortOrder 失敗:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        requestBody: { chatbotId, updates },
+      });
+      // 提取詳細錯誤訊息
+      const errorMessage = errorData.message || errorData.error || errorText || 'Failed to update sort order';
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('[faqApi] batchUpdateSortOrder 成功:', result);
+    return result;
   },
 };
 

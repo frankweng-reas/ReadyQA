@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "QAPlus",
+    "appName": "EasyFAQ",
     "loading": "Loading...",
     "error": "Error occurred",
     "success": "Success",
@@ -59,7 +59,12 @@
     "optional": "Optional",
     "selectTopic": "Select Category",
     "noTopic": "Uncategorized",
+    "otherQuestions": "Other Questions",
     "markdownSupported": "Markdown supported",
+    "optimizeWithAI": "AI Optimize",
+    "optimizingWithAI": "Optimizing...",
+    "optimizeSuccess": "Answer optimized successfully",
+    "optimizeFailed": "Optimization failed, please try again later",
     "fullScreen": "Full Screen",
     "exitFullScreen": "Exit Full Screen",
     "saving": "Saving...",
@@ -138,6 +143,17 @@
     "loading": "Loading...",
     "currentChatbot": "Current Assistant"
   },
+  "design": {
+    "queryTypeSetting": "Query Mode Setting",
+    "enableAIChat": "AI Chat Only",
+    "enableBrowseQA": "Browse QA Only",
+    "bothModes": "Both Modes",
+    "defaultModeSetting": "Default Mode Setting",
+    "defaultModeSettingDesc": "Set the default page displayed when Chatbot opens",
+    "defaultModeChat": "AI Chat",
+    "defaultModeBrowse": "Browse QA",
+    "defaultModeHome": "Home"
+  },
   "insight": {
     "title": "Analytics & Insights",
     "overview": "Overview",
@@ -148,6 +164,30 @@
     "queriesPlaceholder": "Query analytics content to be implemented",
     "faqsPlaceholder": "FAQ analytics content to be implemented",
     "sessionsPlaceholder": "Session analytics content to be implemented"
+  },
+  "dashboard": {
+    "plan": {
+      "currentPlan": "Current Plan",
+      "viewPlanQuota": "Plan & Quota",
+      "viewPlanQuotaDesc": "View plan details and usage",
+      "title": "Plan & Quota",
+      "subtitle": "View your plan details and usage",
+      "perMonth": "per month",
+      "quotaUsage": "Quota Usage",
+      "chatbots": "Chatbots",
+      "faqsTotal": "Total FAQs",
+      "queriesMonthly": "Monthly Queries",
+      "unlimited": "Unlimited",
+      "features": "Plan Features",
+      "analytics": "Analytics",
+      "api": "API Access",
+      "export": "Export",
+      "upgrade": "Upgrade Plan"
+    }
+  },
+  "auth": {
+    "logout": "Logout",
+    "logoutDesc": "Sign out of your account"
   },
   "errors": {
     "quotaExceeded": "Monthly query limit reached, please upgrade your plan",

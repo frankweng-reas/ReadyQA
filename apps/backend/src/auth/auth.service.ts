@@ -1,10 +1,194 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { QuotaService } from '../common/quota.service';
 import { GetOrCreateUserDto } from './dto/get-or-create-user.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly quotaService: QuotaService,
+  ) {}
+
+  /**
+   * 根據 Supabase UUID 獲取用戶完整資訊（包含 tenant、plan 和配額使用情況）
+   */
+  async getUserProfile(supabaseUserId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { supabaseUserId },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          tenantId: true,
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              planCode: true,
+              plan: {
+                select: {
+                  code: true,
+                  name: true,
+                  maxChatbots: true,
+                  maxFaqsPerBot: true,
+                  maxQueriesPerMo: true,
+                  priceTwdMonthly: true,
+                  priceUsdMonthly: true,
+                  enableAnalytics: true,
+                  enableApi: true,
+                  enableExport: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user || !user.tenantId) {
+        return null;
+      }
+
+      // 取得配額使用情況
+      const tenantId = user.tenantId;
+      
+      if (!tenantId) {
+        console.warn(`[Auth Service] ⚠️ tenantId 為 null，無法統計配額`);
+        return {
+          ...user,
+          quota: {
+            chatbots: { current: 0, max: null },
+            faqsTotal: { current: 0, max: null },
+            queriesMonthly: { current: 0, max: null },
+          },
+        };
+      }
+      
+      console.log(`[Auth Service] 📊 開始統計配額使用情況，tenantId: ${tenantId} (type: ${typeof tenantId})`);
+      
+      // 1. 統計 chatbots 數量
+      const chatbotCount = await this.prisma.chatbot.count({
+        where: { tenantId },
+      });
+      console.log(`[Auth Service] 📊 Chatbots 數量: ${chatbotCount}`);
+
+      // 2. 統計整個 tenant 的 FAQ 總數（不分 bot，包含所有狀態）
+      // 先檢查是否有 chatbots
+      if (chatbotCount === 0) {
+        console.log(`[Auth Service] 📊 沒有 chatbots，FAQ 總數為 0`);
+        const totalFaqsCount = 0;
+        const monthlyQueryCount = await this.quotaService.getMonthlyQueryCount(tenantId);
+        
+        return {
+          ...user,
+          quota: {
+            chatbots: {
+              current: 0,
+              max: user.tenant?.plan.maxChatbots ?? null,
+            },
+            faqsTotal: {
+              current: 0,
+              max: user.tenant?.plan.maxFaqsPerBot ?? null,
+            },
+            queriesMonthly: {
+              current: monthlyQueryCount,
+              max: user.tenant?.plan.maxQueriesPerMo ?? null,
+            },
+          },
+        };
+      }
+
+      // 先找出該 tenant 的所有 chatbots（用於 debug）
+      const chatbots = await this.prisma.chatbot.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, tenantId: true },
+      });
+      console.log(`[Auth Service] 📊 找到 ${chatbots.length} 個 chatbots:`, chatbots.map(c => ({ id: c.id, name: c.name, tenantId: c.tenantId })));
+
+      // 使用關聯查詢統計 FAQ
+      const totalFaqsCount = await this.prisma.faq.count({
+        where: {
+          chatbot: {
+            tenantId,
+          },
+        },
+      });
+      console.log(`[Auth Service] 📊 FAQ 總數（關聯查詢）: ${totalFaqsCount}`);
+      
+      // 驗證：直接使用 chatbotIds 查詢（備用方法）
+      if (chatbots.length > 0) {
+        const chatbotIds = chatbots.map(c => c.id);
+        const totalFaqsCountDirect = await this.prisma.faq.count({
+          where: {
+            chatbotId: {
+              in: chatbotIds,
+            },
+          },
+        });
+        console.log(`[Auth Service] 📊 FAQ 總數（直接查詢）: ${totalFaqsCountDirect}`);
+        
+        // 如果兩種方法結果不同，使用直接查詢的結果
+        if (totalFaqsCount !== totalFaqsCountDirect) {
+          console.warn(`[Auth Service] ⚠️ 兩種查詢方法結果不一致！關聯查詢: ${totalFaqsCount}, 直接查詢: ${totalFaqsCountDirect}`);
+        }
+      }
+      
+      // 驗證：檢查特定 chatbot 的 FAQ 數量（用於 debug）
+      const testChatbotId = '1768886285765_k2ej9vnku';
+      const testFaqCount = await this.prisma.faq.count({
+        where: { chatbotId: testChatbotId },
+      });
+      const testChatbot = await this.prisma.chatbot.findUnique({
+        where: { id: testChatbotId },
+        select: { id: true, tenantId: true, name: true },
+      });
+      console.log(`[Auth Service] 🔍 Debug - Chatbot ${testChatbotId}:`, {
+        exists: !!testChatbot,
+        tenantId: testChatbot?.tenantId,
+        expectedTenantId: tenantId,
+        tenantIdMatch: testChatbot?.tenantId === tenantId,
+        name: testChatbot?.name,
+        faqCount: testFaqCount,
+      });
+      
+      // 使用直接查詢的結果（更可靠）
+      const finalFaqsCount = chatbots.length > 0
+        ? await this.prisma.faq.count({
+            where: {
+              chatbotId: {
+                in: chatbots.map(c => c.id),
+              },
+            },
+          })
+        : 0;
+
+      // 3. 取得本月查詢次數
+      const monthlyQueryCount = await this.quotaService.getMonthlyQueryCount(tenantId);
+      console.log(`[Auth Service] 📊 本月查詢次數: ${monthlyQueryCount}`);
+
+      return {
+        ...user,
+        quota: {
+          chatbots: {
+            current: chatbotCount,
+            max: user.tenant?.plan.maxChatbots ?? null,
+          },
+          faqsTotal: {
+            current: finalFaqsCount,
+            max: user.tenant?.plan.maxFaqsPerBot ?? null, // 此欄位現在代表整個 tenant 的 FAQ 總數限制
+          },
+          queriesMonthly: {
+            current: monthlyQueryCount,
+            max: user.tenant?.plan.maxQueriesPerMo ?? null,
+          },
+        },
+      };
+    } catch (error) {
+      console.error('[Auth Service] ❌ 獲取用戶資訊失敗:', error);
+      throw new BadRequestException(`獲取用戶資訊失敗: ${error.message}`);
+    }
+  }
 
   /**
    * 根據 Supabase UUID 獲取或建立對應的 PostgreSQL user_id

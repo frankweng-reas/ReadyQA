@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChatbotTheme, defaultTheme } from '@/types/chat';
-import { faqApi } from '@/lib/api/faq';
+import { faqApi, type FAQ } from '@/lib/api/faq';
 import { topicApi } from '@/lib/api/topic';
 import { chatbotApi } from '@/lib/api/chatbot';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
@@ -20,13 +20,6 @@ interface ChatbotWidgetProps {
   refreshKey?: number
   initialTab?: 'chat' | 'browse' | 'home'  // 初始 Tab（用於預覽等場景）
   isPreviewMode?: boolean  // 是否為預覽模式（禁用所有互動）
-}
-
-interface FAQ {
-  id: string;
-  question: string;
-  answer: string;
-  topicId: string | null;
 }
 
 interface Topic {
@@ -69,6 +62,7 @@ export default function ChatbotWidget({
 }: ChatbotWidgetProps) {
   // 翻譯
   const tCommon = useTranslations('common');
+  const tKnowledge = useTranslations('knowledge');
   const notify = useNotification();
   
   // 直接使用傳入的 theme（資料庫中已有完整資料）
@@ -143,9 +137,20 @@ export default function ChatbotWidget({
     return 'chat'; // 預設值（理論上不會到這裡）
   };
   
-  const [activeTab, setActiveTab] = useState<'chat' | 'browse' | 'home'>(
-    initialTab || (theme.homePageConfig?.enabled ? 'home' : getDefaultTab())
-  );
+  // 決定初始 Tab：優先順序為 initialTab > theme.defaultMode > homePageConfig > getDefaultTab
+  const getInitialTab = (): 'chat' | 'browse' | 'home' => {
+    if (initialTab) return initialTab;
+    if (theme.defaultMode) {
+      // 驗證 defaultMode 是否有效
+      if (theme.defaultMode === 'home' && theme.homePageConfig?.enabled) return 'home';
+      if (theme.defaultMode === 'chat' && safeEnableAIChat) return 'chat';
+      if (theme.defaultMode === 'browse' && safeEnableBrowseQA) return 'browse';
+    }
+    if (theme.homePageConfig?.enabled) return 'home';
+    return getDefaultTab();
+  };
+  
+  const [activeTab, setActiveTab] = useState<'chat' | 'browse' | 'home'>(getInitialTab());
   
   // 當 Tab 設定改變時，確保 activeTab 是有效的
   useEffect(() => {
@@ -153,8 +158,10 @@ export default function ChatbotWidget({
       setActiveTab('browse');
     } else if (activeTab === 'browse' && !safeEnableBrowseQA && safeEnableAIChat) {
       setActiveTab('chat');
+    } else if (activeTab === 'home' && !theme.homePageConfig?.enabled) {
+      setActiveTab(getDefaultTab());
     }
-  }, [safeEnableAIChat, safeEnableBrowseQA, activeTab]);
+  }, [safeEnableAIChat, safeEnableBrowseQA, activeTab, theme.homePageConfig?.enabled]);
   
   // Chatbot 狀態檢查（僅 embedded mode）
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -550,8 +557,14 @@ export default function ChatbotWidget({
     // 獲取所有子分類的 ID
     const allTopicIds = [topicId, ...getAllChildrenIds(topicId)];
     
-    // 返回該分類及其所有子分類的 FAQs
-    return faqs.filter(faq => faq.topicId && allTopicIds.includes(faq.topicId));
+    // 返回該分類及其所有子分類的 FAQs，按 sortOrder 排序
+    return faqs
+      .filter(faq => faq.topicId && allTopicIds.includes(faq.topicId))
+      .sort((a, b) => {
+        const sortDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+        if (sortDiff !== 0) return sortDiff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
   };
 
   // 獲取 Topic 的完整路徑（用於顯示）
@@ -569,7 +582,13 @@ export default function ChatbotWidget({
 
   // 獲取未分類的 FAQs
   const getUncategorizedFaqs = () => {
-    return faqs.filter(faq => !faq.topicId);
+    return faqs
+      .filter(faq => !faq.topicId)
+      .sort((a, b) => {
+        const sortDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+        if (sortDiff !== 0) return sortDiff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
   };
 
   // 容器樣式設定
@@ -710,6 +729,9 @@ export default function ChatbotWidget({
                 ...backgroundStyle,
                 color: theme.headerTextColor,
                 padding: config.padding,
+                // 確保左右 padding 與內容區域和 input 區域一致（16px）
+                paddingLeft: '16px',
+                paddingRight: '16px',
                 minHeight: config.minHeight
               }}
             >
@@ -805,8 +827,12 @@ export default function ChatbotWidget({
 
         {/* 內容區域 */}
         <div 
-          className={`flex-1 overflow-y-auto min-h-0 relative ${activeTab === 'home' ? 'p-0' : 'p-4'}`}
-          style={{ order: theme.inputPosition === 'top' ? 2 : 1 }}
+          className={`flex-1 overflow-y-auto min-h-0 relative ${activeTab === 'home' ? 'p-0' : ''}`}
+          style={{ 
+            order: theme.inputPosition === 'top' ? 2 : 1,
+            // 統一 padding：與 header medium 尺寸一致（16px）
+            padding: activeTab === 'home' ? '0' : '16px'
+          }}
         >
           {/* === Home Page 模式 === */}
           {activeTab === 'home' && theme.homePageConfig?.enabled && (
@@ -826,9 +852,29 @@ export default function ChatbotWidget({
                 </div>
               ) : (
                 <div
-                  className="flex-1"
+                  className="flex-1 flex flex-col items-center justify-center"
                   style={{ backgroundColor: theme.chatBackgroundColor || '#ffffff' }}
-                />
+                >
+                  {/* ReadyQA Logo 和 Tagline */}
+                  <div className="flex flex-col items-center">
+                    <h1 className="text-5xl font-bold" style={{ 
+                      letterSpacing: '-1px',
+                      fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+                      fontStyle: 'italic'
+                    }}>
+                      <span style={{ color: '#3b82f6' }}>Ready</span>
+                      <span style={{ color: '#1f2937' }}>QA</span>
+                    </h1>
+                    <p className="text-base mt-2" style={{ 
+                      fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+                      fontStyle: 'italic',
+                      color: '#1f2937',
+                      textAlign: 'center'
+                    }}>
+                      Just ready. <span style={{ fontWeight: 700 }}>GO.</span>
+                    </p>
+                  </div>
+                </div>
               )}
               
               {/* 按钮区域 */}
@@ -991,7 +1037,8 @@ export default function ChatbotWidget({
                               theme={theme}
                               config={{
                                 log_id: message.log_id,
-                                alwaysExpanded: false, // Chat mode: 預設收起
+                                alwaysExpanded: false, // Chat mode: 允許收起/展開
+                                initialExpanded: qaIndex === 0, // 第一張卡片自動展開
                               }}
                             />
                           ))}
@@ -1078,146 +1125,17 @@ export default function ChatbotWidget({
               </div>
             ) : (
             <div className="space-y-4">
-              {/* Topics 和 FAQs 列表 */}
-              {(() => {
-                // 遞歸渲染 Topic 樹
-                const renderTopicTree = (parentId: string | null = null, level: number = 0): React.ReactNode => {
-                  const children = topics
-                    .filter(topic => topic.parentId === parentId)
-                    .sort((a, b) => a.sortOrder - b.sortOrder);
-                  
-                  if (children.length === 0) return null;
-                  
-                  return children.map(topic => {
-                    const topicFaqs = getFaqsByTopic(topic.id);
-                    const isExpanded = selectedTopicId === topic.id;
-                    const hasChildren = topics.some(t => t.parentId === topic.id);
-                    const marginLeft = level * 16;
-
-                    return (
-                      <div key={topic.id}>
-                        <div 
-                          className={`rounded-lg overflow-hidden transition-shadow duration-200 shadow-lg ${
-                            isPreviewMode ? '' : 'hover:shadow-xl'
-                          }`}
-                          style={{ 
-                            marginLeft: `${marginLeft}px`,
-                            border: `1px solid ${isExpanded ? topicColors.borderColorExpanded : topicColors.borderColor}`
-                          }}
-                        >
-                          <button
-                            onClick={isPreviewMode ? undefined : () => setSelectedTopicId(isExpanded ? null : topic.id)}
-                            disabled={isPreviewMode}
-                            className={`w-full ${level === 0 ? 'px-5 py-4' : 'px-4 py-3'} transition-all duration-200 flex items-center justify-between ${
-                              isPreviewMode ? 'cursor-not-allowed' : ''
-                            }`}
-                            style={{
-                              background: isExpanded 
-                                ? topicColors.backgroundExpanded
-                                : topicColors.backgroundCollapsed
-                            }}
-                            onMouseEnter={isPreviewMode ? undefined : (e) => {
-                              if (!isExpanded) {
-                                e.currentTarget.style.background = topicColors.backgroundCollapsedHover;
-                              }
-                            }}
-                            onMouseLeave={isPreviewMode ? undefined : (e) => {
-                              if (!isExpanded) {
-                                e.currentTarget.style.background = topicColors.backgroundCollapsed;
-                              }
-                            }}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <svg 
-                                className={`${level === 0 ? 'w-6 h-6' : 'w-5 h-5'}`} 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round" 
-                                strokeWidth={2}
-                                style={{ color: topicColors.iconColor }}
-                              >
-                                <path d="M21 9V7C21 6.44772 20.5523 6 20 6H10L9 4H4L3.21115 5.57771C3.07229 5.85542 3 6.16165 3 6.47214V9" />
-                                <path d="M3.91321 20H20.0868C20.604 20 21.0359 19.6056 21.0827 19.0905L21.9009 10.0905C21.9541 9.50492 21.493 9 20.905 9H3.09503C2.507 9 2.0459 9.50492 2.09914 10.0905L2.91732 19.0905C2.96415 19.6056 3.39601 20 3.91321 20Z" />
-                              </svg>
-                              <span className={`font-medium text-gray-800 ${level === 0 ? 'text-lg' : 'text-base'}`}>{topic.name}</span>
-                              {hasChildren && (
-                                <span className="text-base text-gray-500">({topics.filter(t => t.parentId === topic.id).length} 子分類)</span>
-                              )}
-                              <span className="text-base text-gray-500">({topicFaqs.length})</span>
-                            </div>
-                            <svg 
-                              className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-
-                          {isExpanded && topicFaqs.length > 0 && (
-                            <div className="bg-white border-t border-gray-200 p-2 space-y-2">
-                              {topicFaqs.map(faq => (
-                                <button
-                                  key={faq.id}
-                                  onClick={() => handleFaqClick(faq)}
-                                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-white border border-gray-200 hover:border-blue-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group"
-                                >
-                                  <span className="text-base text-gray-700 group-hover:text-blue-700 font-medium transition-colors flex-1">{faq.question}</span>
-                                  <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                  </svg>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {/* 遞歸渲染子分類 */}
-                        {renderTopicTree(topic.id, level + 1)}
-                      </div>
-                    );
-                  });
-                };
-                
-                return renderTopicTree(null, 0);
-              })()}
-
-              {/* 未分類的 FAQs */}
-              {getUncategorizedFaqs().length > 0 && (
-                <div className={`border rounded-lg overflow-hidden transition-all duration-200 ${
-                  selectedTopicId === 'uncategorized' ? 'border-blue-400 shadow-lg' : 'border-gray-200 shadow-sm hover:shadow-md'
-                }`}>
-                  <button
-                    onClick={isPreviewMode ? undefined : () => setSelectedTopicId(selectedTopicId === 'uncategorized' ? null : 'uncategorized')}
-                    disabled={isPreviewMode}
-                    className={`w-full px-5 py-4 transition-all duration-200 flex items-center justify-between ${
-                      selectedTopicId === 'uncategorized' 
-                        ? 'bg-gray-100' 
-                        : 'bg-gray-50 hover:bg-gray-100'
-                    } ${isPreviewMode ? 'cursor-not-allowed' : ''}`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      <span className="text-lg font-medium text-gray-700">其他問題</span>
-                      <span className="text-base text-gray-500">({getUncategorizedFaqs().length})</span>
-                    </div>
-                    <svg 
-                      className={`w-5 h-5 text-gray-500 transition-transform ${selectedTopicId === 'uncategorized' ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {selectedTopicId === 'uncategorized' && (
-                    <div className="bg-white border-t border-gray-200 p-2 space-y-2">
-                      {getUncategorizedFaqs().map(faq => (
+              {/* 當沒有 topics 時，直接顯示所有 FAQs */}
+              {topics.length === 0 ? (
+                faqs.length > 0 ? (
+                  <div className="space-y-2">
+                    {[...faqs]
+                      .sort((a, b) => {
+                        const sortDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+                        if (sortDiff !== 0) return sortDiff;
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                      })
+                      .map(faq => (
                         <button
                           key={faq.id}
                           onClick={() => handleFaqClick(faq)}
@@ -1229,21 +1147,188 @@ export default function ChatbotWidget({
                           </svg>
                         </button>
                       ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
+                    <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
+                  </div>
+                )
+              ) : (
+                <>
+                  {/* Topics 和 FAQs 列表 */}
+                  {(() => {
+                    // 遞歸渲染 Topic 樹
+                    const renderTopicTree = (parentId: string | null = null, level: number = 0): React.ReactNode => {
+                      const children = topics
+                        .filter(topic => topic.parentId === parentId)
+                        .sort((a, b) => a.sortOrder - b.sortOrder);
+                      
+                      if (children.length === 0) return null;
+                      
+                      return children.map(topic => {
+                        const topicFaqs = getFaqsByTopic(topic.id);
+                        const isExpanded = selectedTopicId === topic.id;
+                        const hasChildren = topics.some(t => t.parentId === topic.id);
+                        const marginLeft = level * 16;
+
+                        return (
+                          <div key={topic.id}>
+                            <div 
+                              className={`rounded-lg overflow-hidden transition-shadow duration-200 shadow-lg ${
+                                isPreviewMode ? '' : 'hover:shadow-xl'
+                              }`}
+                              style={{ 
+                                marginLeft: `${marginLeft}px`,
+                                border: `1px solid ${isExpanded ? topicColors.borderColorExpanded : topicColors.borderColor}`
+                              }}
+                            >
+                              <button
+                                onClick={isPreviewMode ? undefined : () => setSelectedTopicId(isExpanded ? null : topic.id)}
+                                disabled={isPreviewMode}
+                                className={`w-full ${level === 0 ? 'px-5 py-4' : 'px-4 py-3'} transition-all duration-200 flex items-center justify-between ${
+                                  isPreviewMode ? 'cursor-not-allowed' : ''
+                                }`}
+                                style={{
+                                  background: isExpanded 
+                                    ? topicColors.backgroundExpanded
+                                    : topicColors.backgroundCollapsed
+                                }}
+                                onMouseEnter={isPreviewMode ? undefined : (e) => {
+                                  if (!isExpanded) {
+                                    e.currentTarget.style.background = topicColors.backgroundCollapsedHover;
+                                  }
+                                }}
+                                onMouseLeave={isPreviewMode ? undefined : (e) => {
+                                  if (!isExpanded) {
+                                    e.currentTarget.style.background = topicColors.backgroundCollapsed;
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <svg 
+                                    className={`${level === 0 ? 'w-6 h-6' : 'w-5 h-5'}`} 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    strokeWidth={2}
+                                    style={{ color: topicColors.iconColor }}
+                                  >
+                                    <path d="M21 9V7C21 6.44772 20.5523 6 20 6H10L9 4H4L3.21115 5.57771C3.07229 5.85542 3 6.16165 3 6.47214V9" />
+                                    <path d="M3.91321 20H20.0868C20.604 20 21.0359 19.6056 21.0827 19.0905L21.9009 10.0905C21.9541 9.50492 21.493 9 20.905 9H3.09503C2.507 9 2.0459 9.50492 2.09914 10.0905L2.91732 19.0905C2.96415 19.6056 3.39601 20 3.91321 20Z" />
+                                  </svg>
+                                  <span className={`font-medium text-gray-800 ${level === 0 ? 'text-lg' : 'text-base'}`}>{topic.name}</span>
+                                  {hasChildren && (
+                                    <span className="text-base text-gray-500">({topics.filter(t => t.parentId === topic.id).length} 子分類)</span>
+                                  )}
+                                  <span className="text-base text-gray-500">({topicFaqs.length})</span>
+                                </div>
+                                <svg 
+                                  className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+
+                              {isExpanded && topicFaqs.length > 0 && (
+                                <div className="bg-white border-t border-gray-200 p-2 space-y-2">
+                                  {topicFaqs.map(faq => (
+                                    <button
+                                      key={faq.id}
+                                      onClick={() => handleFaqClick(faq)}
+                                      className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-white border border-gray-200 hover:border-blue-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group"
+                                    >
+                                      <span className="text-base text-gray-700 group-hover:text-blue-700 font-medium transition-colors flex-1">{faq.question}</span>
+                                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {/* 遞歸渲染子分類 */}
+                            {renderTopicTree(topic.id, level + 1)}
+                          </div>
+                        );
+                      });
+                    };
+                    
+                    return renderTopicTree(null, 0);
+                  })()}
+
+                  {/* 未分類的 FAQs */}
+                  {topics.length > 0 && getUncategorizedFaqs().length > 0 && (
+                    <div className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+                      selectedTopicId === 'uncategorized' ? 'border-blue-400 shadow-lg' : 'border-gray-200 shadow-sm hover:shadow-md'
+                    }`}>
+                      <button
+                        onClick={isPreviewMode ? undefined : () => setSelectedTopicId(selectedTopicId === 'uncategorized' ? null : 'uncategorized')}
+                        disabled={isPreviewMode}
+                        className={`w-full px-5 py-4 transition-all duration-200 flex items-center justify-between ${
+                          selectedTopicId === 'uncategorized' 
+                            ? 'bg-gray-100' 
+                            : 'bg-gray-50 hover:bg-gray-100'
+                        } ${isPreviewMode ? 'cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          <span className="text-lg font-medium text-gray-700">{tKnowledge('otherQuestions')}</span>
+                          <span className="text-base text-gray-500">({getUncategorizedFaqs().length})</span>
+                        </div>
+                        <svg 
+                          className={`w-5 h-5 text-gray-500 transition-transform ${selectedTopicId === 'uncategorized' ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {selectedTopicId === 'uncategorized' && (
+                        <div className="bg-white border-t border-gray-200 p-2 space-y-2">
+                          {getUncategorizedFaqs().map(faq => (
+                            <button
+                              key={faq.id}
+                              onClick={() => handleFaqClick(faq)}
+                              className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-white border border-gray-200 hover:border-blue-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group"
+                            >
+                              <span className="text-base text-gray-700 group-hover:text-blue-700 font-medium transition-colors flex-1">{faq.question}</span>
+                              <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {topics.length === 0 && faqs.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
-                  <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
-                </div>
+                  {topics.length > 0 && faqs.length === 0 && (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
+                      <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             )

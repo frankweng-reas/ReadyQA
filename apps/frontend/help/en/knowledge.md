@@ -163,6 +163,63 @@ After upload completion, the following will be displayed:
 
 ---
 
+### 4. Sort Management
+
+The Sort Management feature allows you to adjust the display order of Q&A items by dragging, so that important Q&A items are displayed first in the Chatbot.
+
+#### Basic Features
+
+- **Visual Sorting**: Display all categories and Q&A items in a list format, clearly showing hierarchical relationships
+- **Drag to Sort**: Directly drag Q&A items to adjust order, system automatically saves
+- **Real-time Updates**: Changes take effect immediately after sorting, no manual save required
+
+#### How to Use
+
+1. **Access Sort Management**
+   - In the Q&A management page, click the "Sort Management" tab
+   - The system will display a mixed list of all categories and Q&A items
+
+2. **View Structure**
+   - **Categorized Q&A Block**: Displays all categories and their Q&A items
+     - **Categories**: Displayed with blue background, larger font, for reference only, cannot be dragged
+     - **Q&A Items**: Displayed with white background, indented to the right, showing they belong to the category above
+   - **Uncategorized Q&A Block**: Displayed separately below with clear block title and count
+     - **Uncategorized Q&A**: Displayed with white background, marked as "Uncategorized", can be reordered among themselves
+
+3. **Adjust Order**
+   - Drag the icon (three horizontal lines) on the left side of Q&A items
+   - Drag Q&A items to the target position
+   - The system will automatically calculate new sort values and save
+   - Only affected Q&A items will be updated, not all Q&A items
+
+4. **Sorting Rules**
+   - Q&A items are grouped and sorted by their category
+   - Q&A items within the same category can be reordered
+   - Smaller sort values are displayed first
+
+#### Feature Limitations
+
+- **Category Sorting**: Categories cannot be sorted here, please use the "Category Management" feature to adjust category order
+- **Cross-Category Dragging**: Q&A items cannot be dragged across categories, only within the same category
+- **Cross-Block Dragging**: Categorized and uncategorized Q&A items cannot be dragged between blocks, must set category first to move
+- **Uncategorized Q&A**: Uncategorized Q&A items can be reordered among themselves, suitable for scenarios where categories are not used
+
+#### Sorting Logic
+
+- The system automatically calculates the `sortOrder` value for each Q&A item
+- Sort values start from 0 and increment sequentially
+- Q&A items within the same category are sorted by `sortOrder` in ascending order
+- If `sortOrder` is the same, items are sorted by creation time in descending order
+
+#### Usage Tips
+
+1. **Prioritize Important Q&A**: Place the most frequently asked Q&A items first
+2. **Organize by Category**: First assign categories to Q&A items, then sort
+3. **Regular Adjustments**: Regularly adjust Q&A order based on usage
+4. **Test Results**: Test display effects in the Chatbot after sorting
+
+---
+
 ## Usage Tips
 
 ### Q&A Management
@@ -177,6 +234,14 @@ After upload completion, the following will be displayed:
 1. **Create Hierarchical Structure**: Use parent-child categories to create a clear knowledge structure
 2. **Name Appropriately**: Use clear and concise category names
 3. **Regular Organization**: Delete unnecessary categories to keep the category structure clean
+4. **Sort Management**: Use the sorting feature in Category Management to place important categories first
+
+### Sort Management
+
+1. **Categorize Before Sorting**: It's recommended to assign categories to Q&A items first, then manage sorting
+2. **Prioritize Important Q&A**: Place the most frequently asked Q&A items first to improve user experience
+3. **Regular Adjustments**: Regularly adjust Q&A order based on Chatbot usage data
+4. **Test Results**: Test in the Chatbot after sorting to confirm the display order meets expectations
 
 ### Bulk Upload
 
@@ -209,6 +274,15 @@ A: Check the error messages in the upload results, fix the data, and re-upload. 
 - Missing required fields
 - Incorrect data format
 - Unsupported file format
+
+### Q: Can categories be sorted in Sort Management?
+A: No. Please use the "Category Management" feature to sort categories. Sort Management only allows adjusting the order of Q&A items, categories are for reference only.
+
+### Q: Will sorting affect all Q&A items?
+A: No. The system uses an optimized algorithm that only updates Q&A items within the affected range, not all Q&A items, improving performance.
+
+### Q: How does the sort order in Sort Management affect the Chatbot?
+A: Q&A items with smaller sort values are displayed first in the Chatbot. When users query, the system returns relevant Q&A items in sort order.
 
 ---
 

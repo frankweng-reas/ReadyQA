@@ -34,3 +34,17 @@ export class FetchWebContentDto {
   @IsNotEmpty()
   url: string;
 }
+
+export class OptimizeAnswerDto {
+  @IsString()
+  @IsNotEmpty()
+  chatbot_id: string;
+
+  @IsString()
+  @IsNotEmpty()
+  question: string;
+
+  @IsString()
+  @IsNotEmpty()
+  answer: string;
+}

@@ -126,6 +126,7 @@ model Faq {
   activeUntil   DateTime?
   hitCount      Int       @default(0)
   lastHitAt     DateTime?
+  sortOrder     Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -138,6 +139,7 @@ model Faq {
   @@index([status])
   @@index([topicId])
   @@index([descStatus, createdAt])
+  @@index([chatbotId, topicId, sortOrder])
   @@map("faqs")
 }
 

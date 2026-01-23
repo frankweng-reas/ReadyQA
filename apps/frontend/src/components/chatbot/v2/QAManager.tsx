@@ -7,6 +7,7 @@ import TopicManager from '@/components/chatbot/v2/TopicManager';
 import BulkUploadView from '@/components/chatbot/v2/BulkUploadView';
 import AIMultiCard from '@/components/chatbot/v2/AIMultiCard';
 import QACardEditor from '@/components/chatbot/v2/QACardEditor';
+import SortManager from '@/components/chatbot/v2/SortManager';
 import HelpModal from '@/components/ui/HelpModal';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ interface QAManagerProps {
 export default function QAManager({ chatbotId }: QAManagerProps) {
   const t = useTranslations('knowledge');
   const tCommon = useTranslations('common');
-  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload' | 'ai-cards'>('faq-list');
+  const [activeTab, setActiveTab] = useState<'faq-list' | 'topics' | 'bulk-upload' | 'ai-cards' | 'sort'>('faq-list');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const [showQACardEditor, setShowQACardEditor] = useState(false);
@@ -180,6 +181,20 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
               </svg>
               <span>{t('aiCardsTab')}</span>
             </button>
+            <button
+              onClick={() => setActiveTab('sort')}
+              className={cn(
+                'px-4 py-3 text-lg font-medium border-b-2 transition-colors rounded-t-lg flex items-center gap-2',
+                activeTab === 'sort'
+                  ? 'text-primary border-primary bg-grey'
+                  : 'text-label border-transparent hover:text-text hover:bg-grey/50'
+              )}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+              </svg>
+              <span>排序管理</span>
+            </button>
           </div>
         </div>
 
@@ -217,6 +232,12 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
               onQnACardOpen={handleQnACardOpen}
               onRefresh={handleRefresh}
               inModal={false}
+            />
+          </div>
+          <div style={{ display: activeTab === 'sort' ? 'block' : 'none' }}>
+            <SortManager
+              chatbotId={chatbotId}
+              onRefresh={handleRefresh}
             />
           </div>
         </div>

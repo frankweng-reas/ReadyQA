@@ -127,8 +127,11 @@ The home page is the welcome page of the Chatbot, displayed when users first ope
   - **Show CTA Button**: Toggle to show or hide the button
   - **Button Text**: Set the text displayed on the button (e.g., "Visit Website")
   - **Button URL**: Set the URL to open when the button is clicked (e.g., https://example.com)
+  - **Button Text Color**: Set the text color of the CTA button
 - **FAQ Button**: Configure the button to enter FAQ
   - **Button Text**: Set the text displayed on the button (default: "FAQ")
+  - **Button Color**: Set the background color of the FAQ button
+  - **Text Color**: Set the text color of the FAQ button
 
 #### FAQ Navigation Mode
 Configure which page mode to navigate to when users click the FAQ button:

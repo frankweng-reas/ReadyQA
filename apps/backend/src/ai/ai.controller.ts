@@ -4,6 +4,7 @@ import {
   GenerateCardsDto,
   GenerateCardFromTitleDto,
   FetchWebContentDto,
+  OptimizeAnswerDto,
 } from './dto/generate-cards.dto';
 
 @Controller('ai')
@@ -46,5 +47,19 @@ export class AiController {
   @HttpCode(HttpStatus.OK)
   async fetchWebContent(@Body() dto: FetchWebContentDto) {
     return await this.aiService.fetchWebContent(dto.url);
+  }
+
+  /**
+   * POST /api/ai/optimize-answer
+   * 優化答案格式
+   */
+  @Post('optimize-answer')
+  @HttpCode(HttpStatus.OK)
+  async optimizeAnswer(@Body() dto: OptimizeAnswerDto) {
+    return await this.aiService.optimizeAnswer(
+      dto.chatbot_id,
+      dto.question,
+      dto.answer,
+    );
   }
 }

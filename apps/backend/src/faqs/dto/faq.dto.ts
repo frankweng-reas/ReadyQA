@@ -151,4 +151,27 @@ export class BulkUploadFaqDto {
   faqs: BulkUploadFaqItemDto[];
 }
 
+export class FaqSortOrderItemDto {
+  @ApiProperty()
+  @IsString()
+  id: string;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder: number;
+}
+
+export class BatchUpdateSortOrderDto {
+  @ApiProperty()
+  @IsString()
+  chatbotId: string;
+
+  @ApiProperty({ type: [FaqSortOrderItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaqSortOrderItemDto)
+  updates: FaqSortOrderItemDto[];
+}
+
 

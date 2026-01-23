@@ -14,14 +14,31 @@ export class AuthController {
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile (requires Supabase token)' })
-  getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() supabaseUser: any) {
+    const userProfile = await this.authService.getUserProfile(supabaseUser.id);
+    
+    if (!userProfile) {
+      return {
+        success: false,
+        message: 'User profile not found',
+      };
+    }
+
     return {
+      success: true,
       message: 'User profile retrieved successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        createdAt: user.created_at,
+      data: {
+        id: userProfile.id,
+        email: userProfile.email,
+        username: userProfile.username,
+        tenantId: userProfile.tenantId,
+        tenant: userProfile.tenant ? {
+          id: userProfile.tenant.id,
+          name: userProfile.tenant.name,
+          planCode: userProfile.tenant.planCode,
+          plan: userProfile.tenant.plan,
+        } : null,
+        quota: userProfile.quota,
       },
     };
   }

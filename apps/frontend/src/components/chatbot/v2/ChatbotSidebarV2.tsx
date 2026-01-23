@@ -151,73 +151,29 @@ export default function ChatbotSidebarV2({
         {isCollapsed ? (
           <button
             onClick={() => setIsCollapsed(false)}
-            className="p-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition-colors"
+            className="p-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition-colors flex items-center justify-center w-full overflow-hidden"
           >
-            <svg
-              viewBox="0 0 140 100"
-              style={{
-                width: layout.sidebar.headerLogoSizeCollapsed,
-                height: layout.sidebar.headerLogoSizeCollapsed,
-              }}
-            >
-              {/* QA 主體文字 */}
-              <text
-                x="50"
-                y="70"
-                fontFamily="Arial, sans-serif"
-                fontSize="60"
-                fontWeight="bold"
-                fill="#5AAFB0"
-                textAnchor="middle"
-              >
-                QA
-              </text>
-              {/* 右上角 + 符號 */}
-              <text
-                x="100"
-                y="35"
-                fontFamily="Arial, sans-serif"
-                fontSize="40"
-                fontWeight="bold"
-                fill="#5AAFB0"
-              >
-                +
-              </text>
-            </svg>
+            <div className="text-sidebar-text-active whitespace-nowrap font-bold" style={{
+              fontSize: '0.875rem',
+              letterSpacing: '-0.5px',
+              fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+              fontStyle: 'italic',
+              lineHeight: '1'
+            }}>
+              <span>Ready</span>
+              <span>QA</span>
+            </div>
           </button>
         ) : (
-          <svg
-            viewBox="0 0 140 100"
-            style={{
-              width: layout.sidebar.headerLogoSize,
-              height: layout.sidebar.headerLogoSize,
-              flexShrink: 0,
-            }}
-          >
-            {/* QA 主體文字 */}
-            <text
-              x="50"
-              y="70"
-              fontFamily="Arial, sans-serif"
-              fontSize="60"
-              fontWeight="bold"
-              fill="#5AAFB0"
-              textAnchor="middle"
-            >
-              QA
-            </text>
-            {/* 右上角 + 符號 */}
-            <text
-              x="100"
-              y="35"
-              fontFamily="Arial, sans-serif"
-              fontSize="40"
-              fontWeight="bold"
-              fill="#5AAFB0"
-            >
-              +
-            </text>
-          </svg>
+          <div className="text-sidebar-text-active flex items-center justify-center w-full font-bold" style={{
+            fontSize: '1.75rem',
+            letterSpacing: '-1px',
+            fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontStyle: 'italic'
+          }}>
+            <span>Ready</span>
+            <span>QA</span>
+          </div>
         )}
         {/* 折疊按鈕 - 只在展開時顯示 */}
         {!isCollapsed && (

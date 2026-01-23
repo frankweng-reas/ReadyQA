@@ -50,8 +50,10 @@ export default function QACard({
 }: QACardProps) {
   // ========== 狀態管理 ==========
   const alwaysExpanded = config?.alwaysExpanded || false
-  // 默認收合：除非 alwaysExpanded 為 true，否則默認不展開
-  const [isExpanded, setIsExpanded] = useState(alwaysExpanded)
+  // 初始展開狀態：優先使用 initialExpanded，否則使用 alwaysExpanded
+  const initialExpanded = config?.initialExpanded ?? alwaysExpanded
+  // 默認收合：除非 alwaysExpanded 或 initialExpanded 為 true，否則默認不展開
+  const [isExpanded, setIsExpanded] = useState(initialExpanded)
   const [hasRecordedViewed, setHasRecordedViewed] = useState(false)
   const [userAction, setUserAction] = useState<'like' | 'dislike' | null>(null) // 記錄用戶點擊的操作
   

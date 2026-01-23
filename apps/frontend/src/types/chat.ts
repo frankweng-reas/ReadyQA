@@ -112,6 +112,7 @@ export interface ChatbotTheme {
   // Tab 功能設定
   enableAIChat?: boolean      // 是否啟用智能問答 Tab（預設 true）
   enableBrowseQA?: boolean    // 是否啟用問答瀏覽 Tab（預設 true）
+  defaultMode?: 'chat' | 'browse' | 'home'  // 預設模式（chat: 智能問答, browse: 問答瀏覽, home: 首頁）
   
   // Topic 卡片顏色設定
   topicCardColor?: string     // Topic 卡片主色（CSS 顏色值，如 #9333EA）

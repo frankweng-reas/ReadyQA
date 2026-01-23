@@ -6,7 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'QAPlus',
+  title: 'ReadyQA',
   description: 'AI 驅動的問答庫管理系統',
 }
 

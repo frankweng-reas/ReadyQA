@@ -17,6 +17,7 @@ import { ElasticsearchService } from '../src/elasticsearch/elasticsearch.service
  * 6. POST /faqs/:id/hit - 記錄點擊
  * 
  * TODO: 尚未實作的測試
+ * - PATCH /faqs/batch-sort - 批量更新排序
  * - POST /faqs/upload-image - 圖片上傳
  * - POST /faqs/bulk-upload - 批量上傳
  * - Elasticsearch 同步測試
@@ -426,6 +427,176 @@ describe('FAQs (e2e)', () => {
       expect(updated?.hitCount).toBe(6); // 5 + 1
 
       console.log('✅ 點擊次數正確累加');
+    });
+  });
+
+  describe('PATCH /faqs/batch-sort', () => {
+    it('✅ 應該成功批量更新 FAQ 排序', async () => {
+      // 建立多個測試 FAQ
+      const faq1 = await prisma.faq.create({
+        data: {
+          id: `test-faq-1-${Date.now()}`,
+          chatbotId: testChatbotId,
+          question: '排序測試問題 1',
+          answer: '答案 1',
+          synonym: '',
+          status: 'active',
+          sortOrder: 0,
+        },
+      });
+
+      const faq2 = await prisma.faq.create({
+        data: {
+          id: `test-faq-2-${Date.now()}`,
+          chatbotId: testChatbotId,
+          question: '排序測試問題 2',
+          answer: '答案 2',
+          synonym: '',
+          status: 'active',
+          sortOrder: 1,
+        },
+      });
+
+      const faq3 = await prisma.faq.create({
+        data: {
+          id: `test-faq-3-${Date.now()}`,
+          chatbotId: testChatbotId,
+          question: '排序測試問題 3',
+          answer: '答案 3',
+          synonym: '',
+          status: 'active',
+          sortOrder: 2,
+        },
+      });
+
+      // 批量更新排序：交換 faq1 和 faq2 的順序
+      const batchSortDto = {
+        chatbotId: testChatbotId,
+        updates: [
+          { id: faq1.id, sortOrder: 1 },
+          { id: faq2.id, sortOrder: 0 },
+          { id: faq3.id, sortOrder: 2 },
+        ],
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send(batchSortDto)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('updated', 3); // 更新所有提供的 FAQ
+
+      // 驗證資料庫中的排序值
+      const updated1 = await prisma.faq.findUnique({ where: { id: faq1.id } });
+      const updated2 = await prisma.faq.findUnique({ where: { id: faq2.id } });
+      const updated3 = await prisma.faq.findUnique({ where: { id: faq3.id } });
+
+      expect(updated1?.sortOrder).toBe(1);
+      expect(updated2?.sortOrder).toBe(0);
+      expect(updated3?.sortOrder).toBe(2); // 也會更新，即使值相同
+
+      // 清理
+      await prisma.faq.deleteMany({
+        where: { id: { in: [faq1.id, faq2.id, faq3.id] } },
+      });
+
+      console.log('✅ 成功批量更新排序');
+    });
+
+    it('✅ 應該處理空更新列表', async () => {
+      const batchSortDto = {
+        chatbotId: testChatbotId,
+        updates: [],
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send(batchSortDto)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('success', true);
+      expect(response.body.data).toHaveProperty('updated', 0);
+
+      console.log('✅ 空更新列表處理正常');
+    });
+
+    it('❌ 應該拒絕不屬於該 chatbot 的 FAQ', async () => {
+      // 建立另一個 chatbot
+      const otherChatbot = await prisma.chatbot.create({
+        data: {
+          id: `test-chatbot-other-${Date.now()}`,
+          name: 'Other Test Chatbot',
+          userId: testUserId,
+          tenantId: testTenantId,
+          status: 'published',
+          isActive: 'active',
+          theme: {},
+          domainWhitelist: {},
+        },
+      });
+
+      const otherFaq = await prisma.faq.create({
+        data: {
+          id: `test-faq-other-${Date.now()}`,
+          chatbotId: otherChatbot.id,
+          question: '其他 Chatbot 的 FAQ',
+          answer: '答案',
+          synonym: '',
+          status: 'active',
+          sortOrder: 0,
+        },
+      });
+
+      // 嘗試更新不屬於該 chatbot 的 FAQ
+      const batchSortDto = {
+        chatbotId: testChatbotId,
+        updates: [
+          { id: otherFaq.id, sortOrder: 1 },
+        ],
+      };
+
+      await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send(batchSortDto)
+        .expect(400);
+
+      // 清理
+      await prisma.faq.delete({ where: { id: otherFaq.id } });
+      await prisma.chatbot.delete({ where: { id: otherChatbot.id } });
+
+      console.log('✅ 正確拒絕不屬於該 chatbot 的 FAQ');
+    });
+
+    it('❌ 應該拒絕無效的 DTO', async () => {
+      // 缺少 chatbotId
+      await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send({
+          updates: [{ id: 'test-id', sortOrder: 0 }],
+        })
+        .expect(400);
+
+      // 缺少 updates
+      await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send({
+          chatbotId: testChatbotId,
+        })
+        .expect(400);
+
+      // 無效的 updates 格式
+      await request(app.getHttpServer())
+        .patch('/faqs/batch-sort')
+        .send({
+          chatbotId: testChatbotId,
+          updates: [{ id: 'test-id' }], // 缺少 sortOrder
+        })
+        .expect(400);
+
+      console.log('✅ DTO 驗證正常');
     });
   });
 });

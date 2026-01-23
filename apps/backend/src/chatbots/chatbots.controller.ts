@@ -252,6 +252,19 @@ export class ChatbotsController {
     };
   }
 
+  @Patch(':id/touch')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Touch Chatbot - 更新 updatedAt 時間戳' })
+  @ApiResponse({ status: 200, description: '成功更新時間戳' })
+  @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
+  async touch(@Param('id') id: string) {
+    const chatbot = await this.chatbotsService.touch(id);
+    return {
+      success: true,
+      data: chatbot,
+    };
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '刪除 Chatbot' })

@@ -16,6 +16,22 @@ const intlMiddleware = createMiddleware({
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 0. 處理靜態 HTML 文件
+  // 如果路徑包含 .html，移除語言前綴並重寫到實際的靜態文件路徑
+  if (pathname.includes('.html')) {
+    // 檢查是否是帶語言前綴的路徑，如 /zh-TW/faq-demo.html
+    const pathParts = pathname.split('/').filter(Boolean);
+    if (pathParts.length === 2 && locales.includes(pathParts[0])) {
+      // 移除語言前綴，重寫到 /faq-demo.html
+      const htmlFile = pathParts[1];
+      const url = request.nextUrl.clone();
+      url.pathname = `/${htmlFile}`;
+      return NextResponse.rewrite(url);
+    }
+    // 如果已經是 /faq-demo.html 格式，直接通過
+    return NextResponse.next();
+  }
+
   // 1. 先處理 i18n 路由
   const response = intlMiddleware(request);
 

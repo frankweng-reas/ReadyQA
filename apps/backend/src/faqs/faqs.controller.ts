@@ -18,7 +18,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FaqsService } from './faqs.service';
-import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto } from './dto/faq.dto';
+import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto, BatchUpdateSortOrderDto } from './dto/faq.dto';
 import { QuotaService } from '../common/quota.service';
 
 /**
@@ -34,7 +34,8 @@ import { QuotaService } from '../common/quota.service';
  * - DELETE /faqs/:id - 刪除 FAQ
  * - POST /faqs/:id/hit - 記錄點擊
  * 
- * ❌ 未測試的功能（Line 116-127, 135-142, 158-159）:
+ * ❌ 未測試的功能（Line 89-103, 116-127, 135-142, 158-159）:
+ * - PATCH /faqs/batch-sort - 批量更新排序
  * - POST /faqs/upload-image - 圖片上傳
  * - POST /faqs/bulk-upload - 批量上傳
  */
@@ -83,6 +84,22 @@ export class FaqsController {
       total,
       limit: query.limit,
       offset: query.offset,
+    };
+  }
+
+  @Patch('batch-sort')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '批量更新 FAQ 排序' })
+  @ApiResponse({ status: 200, description: '批量更新排序成功' })
+  @ApiResponse({ status: 400, description: '請求參數錯誤' })
+  async batchUpdateSortOrder(@Body() dto: BatchUpdateSortOrderDto) {
+    console.log('[FaqsController] batchUpdateSortOrder 收到請求:', JSON.stringify(dto, null, 2));
+    console.log('[FaqsController] dto.chatbotId:', dto.chatbotId);
+    console.log('[FaqsController] dto.updates:', dto.updates);
+    const result = await this.faqsService.batchUpdateSortOrder(dto.chatbotId, dto.updates);
+    return {
+      success: true,
+      data: result,
     };
   }
 

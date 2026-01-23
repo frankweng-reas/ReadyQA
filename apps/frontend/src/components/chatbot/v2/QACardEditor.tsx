@@ -57,6 +57,7 @@ export default function QACardEditor({
   const [topicId, setTopicId] = useState<string>('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
   
   // Toast UI Editor 引用
   const editorRef = useRef<Editor | null>(null)
@@ -275,6 +276,58 @@ export default function QACardEditor({
     }
   }, [isOpen, mode, faqData])
 
+  const handleOptimizeWithAI = async () => {
+    if (!answer.trim()) {
+      notify.error(t('answerRequired'))
+      return
+    }
+
+    setIsOptimizing(true)
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`
+      const url = `${apiBase}/ai/optimize-answer`
+
+      console.log('[QACardEditor] 發送 AI 優化請求:', { chatbotId, question, answerLength: answer.length })
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatbot_id: chatbotId,
+          question: question.trim() || '問題',
+          answer: answer.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || t('optimizeFailed') || '優化失敗')
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.message || t('optimizeFailed') || '優化失敗')
+      }
+
+      if (result.optimizedAnswer && editorRef.current) {
+        // 只更新答案內容，不更新問題
+        editorRef.current.setMarkdown(result.optimizedAnswer)
+        setAnswer(result.optimizedAnswer)
+        console.log('[QACardEditor] ✅ AI 優化成功，已更新答案')
+        notify.success(t('optimizeSuccess') || '答案已優化')
+      } else {
+        throw new Error(t('optimizeFailed') || '優化失敗：未返回優化後的答案')
+      }
+    } catch (error: any) {
+      console.error('[QACardEditor] ❌ AI 優化失敗:', error)
+      notify.error(error.message || t('optimizeFailed') || '優化失敗，請稍後再試')
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
   const validateForm = (): boolean => {
     if (!question.trim()) {
       notify.error(t('questionRequired'))
@@ -438,17 +491,28 @@ export default function QACardEditor({
 
             {/* 答案 - Toast UI Editor */}
             <div className="flex-1 flex flex-col min-h-0">
-              <label className="block text-base font-semibold text-gray-700 mb-2.5 flex-shrink-0">
-                {t('answer')} <span className="text-red-500">*</span>
-                <span className="ml-2 text-base font-normal text-gray-500">
-                  {t('markdownSupported')}
-                </span>
-                {isUploadingImage && (
-                  <span className="ml-2 text-base text-blue-600 font-normal">
-                    (上傳圖片中...)
+              <div className="flex items-center justify-between mb-2.5 flex-shrink-0">
+                <label className="block text-base font-semibold text-gray-700">
+                  {t('answer')} <span className="text-red-500">*</span>
+                  <span className="ml-2 text-base font-normal text-gray-500">
+                    {t('markdownSupported')}
                   </span>
-                )}
-              </label>
+                  {isUploadingImage && (
+                    <span className="ml-2 text-base text-blue-600 font-normal">
+                      (上傳圖片中...)
+                    </span>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={handleOptimizeWithAI}
+                  disabled={isOptimizing || !answer.trim()}
+                  className="px-4 py-1.5 text-base font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed transition-colors"
+                  title={t('optimizeWithAI')}
+                >
+                  AI
+                </button>
+              </div>
               <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden bg-white min-h-0">
                 <div 
                   ref={editorDivRef} 
@@ -469,14 +533,22 @@ export default function QACardEditor({
                   ({t('optional')})
                 </span>
               </label>
-              <select
-                value={topicId}
-                onChange={(e) => setTopicId(e.target.value)}
-                className="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              >
-                <option value="">{t('noTopic')}</option>
-                {renderTopicOptions()}
-              </select>
+              <div className="relative">
+                <select
+                  value={topicId}
+                  onChange={(e) => setTopicId(e.target.value)}
+                  className="w-full px-4 py-2.5 pr-10 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.75rem center',
+                    backgroundSize: '1.25rem 1.25rem',
+                  }}
+                >
+                  <option value="">{t('noTopic')}</option>
+                  {renderTopicOptions()}
+                </select>
+              </div>
             </div>
 
             {/* 同義詞 */}

@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "QAPlus",
+    "appName": "EasyFAQ",
     "loading": "載入中...",
     "error": "發生錯誤",
     "success": "成功",
@@ -39,6 +39,7 @@
       "testAccountPassword": "密碼：123456"
     },
     "logout": "登出",
+    "logoutDesc": "登出您的帳號",
     "signOut": "登出"
   },
   "dashboard": {
@@ -86,6 +87,24 @@
       "justNow": "剛剛",
       "hoursAgo": "{hours}小時前",
       "daysAgo": "{days}天前"
+    },
+    "plan": {
+      "currentPlan": "目前方案",
+      "viewPlanQuota": "方案與配額",
+      "viewPlanQuotaDesc": "查看方案詳情和使用情況",
+      "title": "方案與配額",
+      "subtitle": "查看您的方案詳情和使用情況",
+      "perMonth": "每月",
+      "quotaUsage": "配額使用情況",
+      "chatbots": "Chatbots",
+      "faqsTotal": "總 FAQs",
+      "queriesMonthly": "每月查詢次數",
+      "unlimited": "無限制",
+      "features": "方案功能",
+      "analytics": "分析功能",
+      "api": "API 存取",
+      "export": "匯出功能",
+      "upgrade": "升級方案"
     }
   },
   "nav": {
@@ -150,7 +169,12 @@
     "optional": "選填",
     "selectTopic": "選擇分類",
     "noTopic": "未分類",
+    "otherQuestions": "其他問題",
     "markdownSupported": "支援 Markdown 格式",
+    "optimizeWithAI": "AI 優化",
+    "optimizingWithAI": "優化中...",
+    "optimizeSuccess": "答案已優化",
+    "optimizeFailed": "優化失敗，請稍後再試",
     "fullScreen": "全螢幕",
     "exitFullScreen": "退出全螢幕",
     "saving": "儲存中...",
@@ -361,6 +385,11 @@
     "enableAIChat": "僅智能問答",
     "enableBrowseQA": "僅問答瀏覽",
     "bothModes": "兩者都提供",
+    "defaultModeSetting": "預設模式設定",
+    "defaultModeSettingDesc": "設定 Chatbot 開啟時預設顯示的頁面",
+    "defaultModeChat": "智能問答",
+    "defaultModeBrowse": "問答瀏覽",
+    "defaultModeHome": "首頁",
     "browseQASettings": "瀏覽問答",
     "aiChatPreview": "智能問答",
     "browseQAPreview": "瀏覽問答",

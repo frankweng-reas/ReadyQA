@@ -91,10 +91,15 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   };
 
   // 更新主題（會自動保存，debounce 1秒）
-  const updateTheme = (updates: Partial<ChatbotTheme>) => {
+  const updateTheme = (updates: Partial<ChatbotTheme>, shouldRefresh = true) => {
     const newTheme = { ...theme, ...updates };
     setTheme(newTheme);
-    setRefreshKey(prev => prev + 1);
+    
+    // 只有當需要重新渲染組件時才增加 refreshKey（例如改變了會影響資料顯示的設定）
+    // 顏色變化不需要重新載入資料，所以不增加 refreshKey
+    if (shouldRefresh) {
+      setRefreshKey(prev => prev + 1);
+    }
     
     // 清除之前的 timer
     if (saveTimeoutRef.current) {
@@ -377,16 +382,33 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
     }
   }, [safeEnableAIChat, safeEnableBrowseQA, previewTab]);
 
-  // 當預覽 Tab 改變時，自動切換右側設定面板
-  useEffect(() => {
-    if (previewTab === 'chat') {
+  // 當右側設定 Tab 改變時，自動切換對應的預覽
+  const handleSectionChange = (section: 'header' | 'chat' | 'input' | 'home' | 'settings') => {
+    setSelectedSection(section);
+    
+    // 直接切換對應的 preview tab
+    if (section === 'header' || section === 'chat' || section === 'input') {
+      setPreviewTab('chat');
+    } else if (section === 'home') {
+      setPreviewTab('home');
+    } else if (section === 'settings') {
+      setPreviewTab('browse');
+    }
+  };
+
+  // 當點擊左側預覽 Tab 時，自動切換右側設定面板
+  const handlePreviewTabChange = (tab: 'chat' | 'browse' | 'home') => {
+    setPreviewTab(tab);
+    
+    // 根據 preview tab 切換對應的設定面板
+    if (tab === 'chat') {
       setSelectedSection('header');
-    } else if (previewTab === 'browse') {
+    } else if (tab === 'browse') {
       setSelectedSection('settings');
-    } else if (previewTab === 'home') {
+    } else if (tab === 'home') {
       setSelectedSection('home');
     }
-  }, [previewTab]);
+  };
 
   if (isLoading) {
     return (
@@ -520,7 +542,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             {/* 預覽 Tab 切換 - 智能問答 */}
             {safeEnableAIChat && (
               <button
-                onClick={() => setPreviewTab('chat')}
+                onClick={() => handlePreviewTabChange('chat')}
                 className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
                   previewTab === 'chat' ? 'bg-blue-50 border-blue-400' : ''
                 }`}
@@ -536,7 +558,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             {/* 預覽 Tab 切換 - 瀏覽問答 */}
             {safeEnableBrowseQA && (
               <button
-                onClick={() => setPreviewTab('browse')}
+                onClick={() => handlePreviewTabChange('browse')}
                 className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
                   previewTab === 'browse' ? 'bg-blue-50 border-blue-400' : ''
                 }`}
@@ -552,7 +574,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             {/* 預覽 Tab 切換 - 首頁 */}
             {theme.homePageConfig?.enabled && (
               <button
-                onClick={() => setPreviewTab('home')}
+                onClick={() => handlePreviewTabChange('home')}
                 className={`p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all ${
                   previewTab === 'home' ? 'bg-blue-50 border-blue-400' : ''
                 }`}
@@ -821,7 +843,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       }}
                       onMouseEnter={() => setHoveredSection('header')}
                       onMouseLeave={() => setHoveredSection(null)}
-                      onClick={() => setSelectedSection('header')}
+                      onClick={() => handleSectionChange('header')}
                     >
                     <div className={`flex items-center flex-1 ${
                       theme.headerAlign === 'center' ? 'justify-center' : 
@@ -919,7 +941,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   }}
                   onMouseEnter={() => setHoveredSection('chat')}
                   onMouseLeave={() => setHoveredSection(null)}
-                  onClick={() => setSelectedSection('chat')}
+                  onClick={() => handleSectionChange('chat')}
                 >
                   <div className="space-y-6 pt-4">
                     {sampleMessages.map((message, index) => (
@@ -972,7 +994,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                   }}
                   onMouseEnter={() => setHoveredSection('chat')}
                   onMouseLeave={() => setHoveredSection(null)}
-                  onClick={() => setSelectedSection('chat')}
+                  onClick={() => handleSectionChange('chat')}
                 >
                   {/* 問答瀏覽預覽內容 */}
                   <div className="space-y-3">
@@ -1039,8 +1061,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     {/* 切換模式卡片 */}
                     {safeEnableBrowseQA && (
                       <div 
-                        onClick={() => setPreviewTab('browse')}
-                        className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                        className="p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 cursor-not-allowed flex items-center justify-center opacity-50"
                       >
                         <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -1051,8 +1072,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     {/* Home 卡片 */}
                     {theme.homePageConfig?.enabled && (
                       <div 
-                        onClick={() => setPreviewTab('home')}
-                        className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
+                        className="p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 cursor-not-allowed flex items-center justify-center opacity-50"
                       >
                         <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -1062,7 +1082,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                     {/* 聯絡資訊卡片 - 只在有聯絡資訊時顯示 */}
                     {theme.contactInfo?.enabled && (theme.contactInfo?.name || theme.contactInfo?.phone || theme.contactInfo?.email) && (
-                      <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                      <div className="p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 cursor-not-allowed flex items-center justify-center opacity-50">
                         <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
@@ -1070,7 +1090,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     )}
 
                     {/* 清除對話卡片 */}
-                    <div className="p-2 rounded-xl border border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center">
+                    <div className="p-2 rounded-xl border border-gray-200 bg-white transition-all duration-200 cursor-not-allowed flex items-center justify-center opacity-50">
                       <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
@@ -1092,7 +1112,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 }}
                 onMouseEnter={() => setHoveredSection('input')}
                 onMouseLeave={() => setHoveredSection(null)}
-                onClick={() => setSelectedSection('input')}
+                onClick={() => handleSectionChange('input')}
               >
                 <div className="pt-4 px-4 pb-3">
                   <div className="flex items-center space-x-2">
@@ -1186,7 +1206,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             <button
               onMouseEnter={() => setHoveredSection('header')}
               onMouseLeave={() => setHoveredSection(null)}
-              onClick={() => setSelectedSection('header')}
+              onClick={() => handleSectionChange('header')}
               className={`relative group transition-all duration-300 z-10 ${
                 selectedSection === 'header' ? 'scale-110' : 'scale-100 hover:scale-105'
               }`}
@@ -1215,7 +1235,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             <button
               onMouseEnter={() => setHoveredSection('chat')}
               onMouseLeave={() => setHoveredSection(null)}
-              onClick={() => setSelectedSection('chat')}
+              onClick={() => handleSectionChange('chat')}
               className={`relative group transition-all duration-300 ${
                 selectedSection === 'chat' ? 'scale-110' : 'scale-100 hover:scale-105'
               }`}
@@ -1240,7 +1260,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             <button
               onMouseEnter={() => setHoveredSection('input')}
               onMouseLeave={() => setHoveredSection(null)}
-              onClick={() => setSelectedSection('input')}
+              onClick={() => handleSectionChange('input')}
               className={`relative group transition-all duration-300 ${
                 selectedSection === 'input' ? 'scale-110' : 'scale-100 hover:scale-105'
               }`}
@@ -1268,7 +1288,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             <button
               onMouseEnter={() => setHoveredSection('home')}
               onMouseLeave={() => setHoveredSection(null)}
-              onClick={() => setSelectedSection('home')}
+              onClick={() => handleSectionChange('home')}
               className={`relative group transition-all duration-300 ${
                 selectedSection === 'home' ? 'scale-110' : 'scale-100 hover:scale-105'
               }`}
@@ -1293,7 +1313,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
             <button
               onMouseEnter={() => setHoveredSection('settings')}
               onMouseLeave={() => setHoveredSection(null)}
-              onClick={() => setSelectedSection('settings')}
+              onClick={() => handleSectionChange('settings')}
               className={`relative group transition-all duration-300 ${
                 selectedSection === 'settings' ? 'scale-110' : 'scale-100 hover:scale-105'
               }`}
@@ -1522,14 +1542,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     <ColorInput
                                       label={t('gradientStartColor')}
                                       value={theme.headerGradientStartColor}
-                                      onChange={(value) => updateTheme({ headerGradientStartColor: value })}
+                                      onChange={(value) => updateTheme({ headerGradientStartColor: value }, false)}
                                     />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <ColorInput
                                       label={t('gradientEndColor')}
                                       value={theme.headerGradientEndColor}
-                                      onChange={(value) => updateTheme({ headerGradientEndColor: value })}
+                                      onChange={(value) => updateTheme({ headerGradientEndColor: value }, false)}
                                     />
                                   </div>
                                 </div>
@@ -1555,7 +1575,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                             ) : (
                               <ColorInput
                                 value={theme.headerBackgroundColor}
-                                onChange={(value) => updateTheme({ headerBackgroundColor: value })}
+                                onChange={(value) => updateTheme({ headerBackgroundColor: value }, false)}
                               />
                             )}
                           </div>
@@ -1564,7 +1584,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         <ColorInput
                           label={t('headerTextColor')}
                           value={theme.headerTextColor}
-                          onChange={(value) => updateTheme({ headerTextColor: value })}
+                          onChange={(value) => updateTheme({ headerTextColor: value }, false)}
                         />
                       </>
                     )}
@@ -1580,7 +1600,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           <ColorInput
                             label={t('chatBackgroundColor')}
                             value={theme.chatBackgroundColor || '#FFFFFF'}
-                            onChange={(value) => updateTheme({ chatBackgroundColor: value })}
+                            onChange={(value) => updateTheme({ chatBackgroundColor: value }, false)}
                           />
                         </div>
                         <div className="flex-1 min-w-0"></div>
@@ -1598,14 +1618,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           <ColorInput
                             label={t('userMessageBubbleColor')}
                             value={theme.userBubbleColor || '#2563EB'}
-                            onChange={(value) => updateTheme({ userBubbleColor: value })}
+                            onChange={(value) => updateTheme({ userBubbleColor: value }, false)}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <ColorInput
                             label={t('userMessageTextColor')}
                             value={theme.userTextColor || '#FFFFFF'}
-                            onChange={(value) => updateTheme({ userTextColor: value })}
+                            onChange={(value) => updateTheme({ userTextColor: value }, false)}
                           />
                         </div>
                       </div>
@@ -1627,7 +1647,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 ...theme.qaCardStyle, 
                                 backgroundColor: value 
                               } 
-                            })}
+                            }, false)}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1639,7 +1659,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 ...theme.qaCardStyle, 
                                 borderColor: value 
                               } 
-                            })}
+                            }, false)}
                           />
                         </div>
                       </div>
@@ -1812,7 +1832,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     ...theme.qaCardStyle,
                                     questionGradientStartColor: value
                                   }
-                                })}
+                                }, false)}
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1824,7 +1844,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     ...theme.qaCardStyle,
                                     questionGradientEndColor: value
                                   }
-                                })}
+                                }, false)}
                               />
                             </div>
                           </div>
@@ -1866,7 +1886,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     ...theme.qaCardStyle, 
                                     questionColor: value 
                                   } 
-                                })}
+                                }, false)}
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1905,7 +1925,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                   ...theme.qaCardStyle,
                                   questionBackgroundColor: value
                                 }
-                              })}
+                              }, false)}
                             />
                           </div>
 
@@ -1920,7 +1940,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     ...theme.qaCardStyle, 
                                     questionColor: value 
                                   } 
-                                })}
+                                }, false)}
                               />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1964,7 +1984,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 ...theme.qaCardStyle, 
                                 answerColor: value 
                               } 
-                            })}
+                            }, false)}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2044,7 +2064,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         <ColorInput
                           label={t('inputAreaBackgroundColor')}
                           value={theme.inputAreaBackgroundColor}
-                          onChange={(value) => updateTheme({ inputAreaBackgroundColor: value })}
+                          onChange={(value) => updateTheme({ inputAreaBackgroundColor: value }, false)}
                         />
                       </div>
                       <div className="flex-1 min-w-0"></div>
@@ -2055,14 +2075,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         <ColorInput
                           label={t('inputBackgroundColor')}
                           value={theme.inputBackgroundColor}
-                          onChange={(value) => updateTheme({ inputBackgroundColor: value })}
+                          onChange={(value) => updateTheme({ inputBackgroundColor: value }, false)}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <ColorInput
                           label={t('inputBorderColor')}
                           value={theme.inputBorderColor}
-                          onChange={(value) => updateTheme({ inputBorderColor: value })}
+                          onChange={(value) => updateTheme({ inputBorderColor: value }, false)}
                         />
                       </div>
                     </div>
@@ -2072,14 +2092,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         <ColorInput
                           label={t('inputTextColor')}
                           value={theme.inputTextColor}
-                          onChange={(value) => updateTheme({ inputTextColor: value })}
+                          onChange={(value) => updateTheme({ inputTextColor: value }, false)}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <ColorInput
                           label={t('inputPlaceholderColor')}
                           value={theme.inputPlaceholderColor}
-                          onChange={(value) => updateTheme({ inputPlaceholderColor: value })}
+                          onChange={(value) => updateTheme({ inputPlaceholderColor: value }, false)}
                         />
                       </div>
                     </div>
@@ -2102,14 +2122,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         <ColorInput
                           label={t('sendButtonBackgroundColor')}
                           value={theme.sendButtonBackgroundColor}
-                          onChange={(value) => updateTheme({ sendButtonBackgroundColor: value })}
+                          onChange={(value) => updateTheme({ sendButtonBackgroundColor: value }, false)}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <ColorInput
                           label={t('sendButtonTextColor')}
                           value={theme.sendButtonTextColor}
-                          onChange={(value) => updateTheme({ sendButtonTextColor: value })}
+                          onChange={(value) => updateTheme({ sendButtonTextColor: value }, false)}
                         />
                       </div>
                     </div>
@@ -2266,7 +2286,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 ...theme.containerStyle, 
                                 borderColor: value 
                               } 
-                            })}
+                            }, false)}
                           />
                         </div>
                       )}
@@ -2341,13 +2361,93 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                       </label>
                     </div>
 
+                    {/* 預設模式設定 */}
+                    <div className="pt-6 border-t border-gray-200">
+                      <h4 className="text-base font-semibold text-gray-800 mb-3">{t('defaultModeSetting')}</h4>
+                      <p className="text-sm text-gray-600 mb-3">{t('defaultModeSettingDesc')}</p>
+                      <div className="space-y-2">
+                        <label 
+                          className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                          style={{
+                            borderColor: theme.defaultMode === 'chat' || (!theme.defaultMode && (theme.enableAIChat !== false))
+                              ? '#3B82F6' 
+                              : '#E5E7EB',
+                            backgroundColor: theme.defaultMode === 'chat' || (!theme.defaultMode && (theme.enableAIChat !== false))
+                              ? '#EFF6FF' 
+                              : 'transparent'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="defaultMode"
+                            checked={theme.defaultMode === 'chat' || (!theme.defaultMode && (theme.enableAIChat !== false))}
+                            onChange={() => updateTheme({ defaultMode: 'chat' })}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            disabled={theme.enableAIChat === false}
+                          />
+                          <span className={`text-base font-medium ${theme.enableAIChat === false ? 'text-gray-400' : 'text-gray-700'}`}>
+                            {t('defaultModeChat')}
+                          </span>
+                        </label>
+
+                        <label 
+                          className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                          style={{
+                            borderColor: theme.defaultMode === 'browse'
+                              ? '#3B82F6' 
+                              : '#E5E7EB',
+                            backgroundColor: theme.defaultMode === 'browse'
+                              ? '#EFF6FF' 
+                              : 'transparent'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="defaultMode"
+                            checked={theme.defaultMode === 'browse'}
+                            onChange={() => updateTheme({ defaultMode: 'browse' })}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            disabled={theme.enableBrowseQA === false}
+                          />
+                          <span className={`text-base font-medium ${theme.enableBrowseQA === false ? 'text-gray-400' : 'text-gray-700'}`}>
+                            {t('defaultModeBrowse')}
+                          </span>
+                        </label>
+
+                        {theme.homePageConfig?.enabled && (
+                          <label 
+                            className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50"
+                            style={{
+                              borderColor: theme.defaultMode === 'home'
+                                ? '#3B82F6' 
+                                : '#E5E7EB',
+                              backgroundColor: theme.defaultMode === 'home'
+                                ? '#EFF6FF' 
+                                : 'transparent'
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="defaultMode"
+                              checked={theme.defaultMode === 'home'}
+                              onChange={() => updateTheme({ defaultMode: 'home' })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="text-base font-medium text-gray-700">
+                              {t('defaultModeHome')}
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Topic 卡片顏色設定 */}
                     <div className="pt-4 border-t border-gray-200">
                       <h4 className="text-base font-semibold text-gray-800 mb-3">{t('browseQASettings')}</h4>
                       <ColorInput
                         label={t('topicCardColor')}
                         value={theme.topicCardColor || '#9333EA'}
-                        onChange={(value) => updateTheme({ topicCardColor: value })}
+                        onChange={(value) => updateTheme({ topicCardColor: value }, false)}
                       />
                     </div>
 
@@ -2599,7 +2699,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                       textColor: value
                                     }
                                   }
-                                })}
+                                }, false)}
                               />
                             </div>
                           </>
@@ -2644,7 +2744,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     backgroundColor: value
                                   }
                                 }
-                              })}
+                              }, false)}
                             />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -2659,7 +2759,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     textColor: value
                                   }
                                 }
-                              })}
+                              }, false)}
                             />
                           </div>
                         </div>
@@ -2760,7 +2860,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                           ...(theme.homePageConfig || {}),
                                           buttonAreaGradientStartColor: value
                                         }
-                                      })}
+                                      }, false)}
                                     />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -2772,7 +2872,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                           ...(theme.homePageConfig || {}),
                                           buttonAreaGradientEndColor: value
                                         }
-                                      })}
+                                      }, false)}
                                     />
                                   </div>
                                 </div>
@@ -2808,7 +2908,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     ...(theme.homePageConfig || {}),
                                     buttonAreaBackgroundColor: value
                                   }
-                                })}
+                                }, false)}
                               />
                             )}
                           </div>
