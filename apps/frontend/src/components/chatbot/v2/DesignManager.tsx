@@ -360,7 +360,10 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   ].filter(Boolean).join(' ');
   
   const containerBorderStyle = containerStyle?.border && containerStyle?.borderColor
-    ? { borderColor: containerStyle.borderColor }
+    ? { 
+        borderColor: containerStyle.borderColor,
+        borderStyle: 'solid'
+      }
     : {};
 
   // 查詢模式設定檢查（與 ChatbotWidget 相同邏輯）

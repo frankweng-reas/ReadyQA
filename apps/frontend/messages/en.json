@@ -65,6 +65,7 @@
     "optimizingWithAI": "Optimizing...",
     "optimizeSuccess": "Answer optimized successfully",
     "optimizeFailed": "Optimization failed, please try again later",
+    "undo": "Undo",
     "fullScreen": "Full Screen",
     "exitFullScreen": "Exit Full Screen",
     "saving": "Saving...",

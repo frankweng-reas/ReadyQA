@@ -610,7 +610,10 @@ export default function ChatbotWidget({
   ].filter(Boolean).join(' ');
   
   const containerBorderStyle = containerStyle?.border && containerStyle?.borderColor
-    ? { borderColor: containerStyle.borderColor }
+    ? { 
+        borderColor: containerStyle.borderColor,
+        borderStyle: 'solid'
+      }
     : {};
 
   // 如果是 embedded mode，需要檢查 chatbot 狀態

@@ -190,6 +190,54 @@ export default function QACardEditor({
           ['hr', 'quote'],
           ['ul', 'ol'],
           ['table', 'link', 'image'],
+          [
+            {
+              el: (() => {
+                const btn = document.createElement('button')
+                btn.className = 'toastui-editor-toolbar-icons'
+                btn.style.backgroundImage = 'none'
+                btn.style.margin = '0'
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h10a5 5 0 0 1 5 5v2"/><path d="M3 10l5 5"/><path d="M3 10l5-5"/></svg>`
+                btn.addEventListener('click', () => {
+                  if (editorRef.current) {
+                    editorRef.current.exec('undo')
+                  }
+                })
+                return btn
+              })(),
+              tooltip: t('undo') || '撤銷',
+              name: 'undo'
+            },
+            {
+              el: (() => {
+                const btn = document.createElement('button')
+                btn.className = 'toastui-editor-toolbar-icons'
+                btn.style.backgroundImage = 'none'
+                btn.style.margin = '0'
+                // AI 按鈕自定義背景色（紫色代表 AI）
+                btn.style.backgroundColor = '#8b5cf6'
+                btn.style.borderRadius = '4px'
+                btn.style.padding = '4px'
+                // 使用魔法棒/星星 icon 代表 AI，改為白色以配合深色背景
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 19l1 3 1-3 3-1-3-1-1-3-1 3-3 1 3 1z"/><path d="M19 12l1 2 1-2 2-1-2-1-1-2-1 2-2 1 2 1z"/></svg>`
+                btn.addEventListener('click', () => {
+                  // 觸發 AI 優化
+                  const event = new CustomEvent('triggerAIOptimize')
+                  document.dispatchEvent(event)
+                })
+                // hover 效果
+                btn.addEventListener('mouseenter', () => {
+                  btn.style.backgroundColor = '#7c3aed'
+                })
+                btn.addEventListener('mouseleave', () => {
+                  btn.style.backgroundColor = '#8b5cf6'
+                })
+                return btn
+              })(),
+              tooltip: t('optimizeWithAI') || 'AI 優化',
+              name: 'ai-optimize'
+            }
+          ],
         ],
         hooks: {
           addImageBlobHook: async (blob: File | Blob, callback: (url: string, altText: string) => void) => {
@@ -241,6 +289,18 @@ export default function QACardEditor({
     }
   }, [isOpen, mode, faqData?.id]) // 依賴 mode 和 faqData.id，確保切換編輯對象時重新初始化
 
+  // 監聽 AI 優化事件（從 toolbar 按鈕觸發）
+  useEffect(() => {
+    const handleAIOptimizeEvent = () => {
+      handleOptimizeWithAI()
+    }
+    
+    document.addEventListener('triggerAIOptimize', handleAIOptimizeEvent)
+    return () => {
+      document.removeEventListener('triggerAIOptimize', handleAIOptimizeEvent)
+    }
+  }, [answer, question, chatbotId])
+
   // 初始化表單數據
   useEffect(() => {
     if (!isOpen) {
@@ -283,6 +343,7 @@ export default function QACardEditor({
     }
 
     setIsOptimizing(true)
+    notify.info(t('optimizingWithAI') || 'AI 優化中...')
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`
@@ -503,15 +564,6 @@ export default function QACardEditor({
                     </span>
                   )}
                 </label>
-                <button
-                  type="button"
-                  onClick={handleOptimizeWithAI}
-                  disabled={isOptimizing || !answer.trim()}
-                  className="px-4 py-1.5 text-base font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed transition-colors"
-                  title={t('optimizeWithAI')}
-                >
-                  AI
-                </button>
               </div>
               <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden bg-white min-h-0">
                 <div 

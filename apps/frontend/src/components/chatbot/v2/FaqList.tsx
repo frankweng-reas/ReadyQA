@@ -283,14 +283,12 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
 
   // 確認下載 CSV
   const confirmDownloadCsv = () => {
-    // CSV 標題行
+    // CSV 標題行（只包含四個欄位）
     const headers = [
       t('question'),
       t('answer'),
       t('topic'),
-      t('status'),
       t('synonyms'),
-      t('hitCount'),
     ]
 
     // 轉換資料為 CSV 格式
@@ -298,7 +296,6 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       headers.join(','),
       ...filteredFaqs.map(faq => {
         const topic = faq.topicId ? getTopicPath(faq.topicId) : t('uncategorized')
-        const status = faq.status === 'active' ? t('active') : t('inactive')
         const synonyms = faq.synonym || ''
         
         // 處理包含逗號、換行或引號的欄位
@@ -313,9 +310,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
           escapeCsvField(faq.question),
           escapeCsvField(faq.answer),
           escapeCsvField(topic),
-          escapeCsvField(status),
           escapeCsvField(synonyms),
-          faq.hitCount || 0,
         ].join(',')
       }),
     ]
