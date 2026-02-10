@@ -25,6 +25,14 @@ export interface UserProfile {
       enableExport: boolean
     }
   } | null
+  subscription?: {
+    id: string
+    status: string
+    cancelAtPeriodEnd: boolean
+    currentPeriodStart: Date
+    currentPeriodEnd: Date
+    planCode: string
+  } | null
   quota?: {
     chatbots: {
       current: number

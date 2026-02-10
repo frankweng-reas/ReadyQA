@@ -8,7 +8,9 @@ import * as fs from 'fs';
 import { ThrottlerExceptionFilter } from './common/throttler-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // 啟用 raw body 以支援 Stripe Webhook
+  });
 
   // 確保上傳目錄存在
   const chatbotLogosDir = join(process.cwd(), 'uploads', 'chatbot-logos');

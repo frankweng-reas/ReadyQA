@@ -38,6 +38,7 @@ export class AuthController {
           planCode: userProfile.tenant.planCode,
           plan: userProfile.tenant.plan,
         } : null,
+        subscription: (userProfile as any).subscription ?? null,
         quota: userProfile.quota,
       },
     };

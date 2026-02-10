@@ -6,6 +6,8 @@ async function main() {
   console.log('🌱 開始種子資料...');
 
   // 1. 建立方案 (Plans)
+  // 注意：stripePriceId 需要從 Stripe Dashboard 手動建立 Price 後填入
+  // 可以在 Stripe Dashboard > Products > 選擇 Product > 複製 Price ID
   const plans = [
     {
       code: 'free',
@@ -19,6 +21,7 @@ async function main() {
       priceUsdMonthly: 0,
       priceTwdMonthly: 0,
       currencyDefault: 'TWD',
+      stripePriceId: null, // 免費方案不需要 Stripe Price ID
     },
     {
       code: 'starter',
@@ -32,6 +35,7 @@ async function main() {
       priceUsdMonthly: 29.99,
       priceTwdMonthly: 900,
       currencyDefault: 'TWD',
+      stripePriceId: process.env.STRIPE_PRICE_ID_STARTER || null, // 從環境變數讀取，或手動填入
     },
     {
       code: 'pro',
@@ -45,6 +49,7 @@ async function main() {
       priceUsdMonthly: 99.99,
       priceTwdMonthly: 2990,
       currencyDefault: 'TWD',
+      stripePriceId: process.env.STRIPE_PRICE_ID_PRO || null, // 從環境變數讀取，或手動填入
     },
     {
       code: 'enterprise',
@@ -58,6 +63,7 @@ async function main() {
       priceUsdMonthly: 299.99,
       priceTwdMonthly: 8990,
       currencyDefault: 'TWD',
+      stripePriceId: process.env.STRIPE_PRICE_ID_ENTERPRISE || null, // 從環境變數讀取，或手動填入
     },
   ];
 

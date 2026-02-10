@@ -73,6 +73,20 @@ export class AuthService {
       });
       console.log(`[Auth Service] 📊 Chatbots 數量: ${chatbotCount}`);
 
+      // 取得訂閱資訊
+      const subscription = await this.prisma.subscription.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          cancelAtPeriodEnd: true,
+          currentPeriodStart: true,
+          currentPeriodEnd: true,
+          planCode: true,
+        },
+      });
+
       // 2. 統計整個 tenant 的 FAQ 總數（不分 bot，包含所有狀態）
       // 先檢查是否有 chatbots
       if (chatbotCount === 0) {
@@ -82,6 +96,7 @@ export class AuthService {
         
         return {
           ...user,
+          subscription,
           quota: {
             chatbots: {
               current: 0,
@@ -169,6 +184,7 @@ export class AuthService {
 
       return {
         ...user,
+        subscription,
         quota: {
           chatbots: {
             current: chatbotCount,

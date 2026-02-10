@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuth } from '@/lib/auth/auth-provider'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { chatbotApi } from '@/lib/api/chatbot'
 import { userApi, type UserProfile } from '@/lib/api/user'
 import { useNotification } from '@/hooks/useNotification'
 import PlanQuotaModal from '@/components/dashboard/PlanQuotaModal'
+import PaymentFailedBanner from '@/components/dashboard/PaymentFailedBanner'
 
 /**
  * Dashboard/Home 頁面 - Chatbot 列表
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const notify = useNotification()
   const { user, loading, signOut, postgresUserId } = useAuth()
   const router = useRouter()
+  const params = useParams()
   const [chatbots, setChatbots] = useState<Chatbot[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -65,6 +67,17 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  // 檢查付款成功參數（從 plans 頁面返回時）
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('success') === 'true') {
+      // 重新載入用戶資料以更新方案資訊
+      loadUserProfile()
+      // 清除 URL 參數
+      window.history.replaceState({}, '', `/${params.locale}/dashboard`)
+    }
+  }, [params.locale])
+
   // 載入 chatbots
   useEffect(() => {
     if (user) {
@@ -76,6 +89,8 @@ export default function DashboardPage() {
   const loadUserProfile = async () => {
     try {
       const profile = await userApi.getProfile()
+      console.log('[Dashboard] User profile loaded:', profile)
+      console.log('[Dashboard] Subscription data:', profile?.subscription)
       if (profile) {
         setUserProfile(profile)
       }
@@ -377,11 +392,45 @@ export default function DashboardPage() {
                         </div>
                       )}
 
+                      {/* 訂閱取消警告 */}
+                      {userProfile?.subscription?.cancelAtPeriodEnd && 
+                       (userProfile.subscription.status === 'active' || userProfile.subscription.status === 'trialing') && 
+                       userProfile.subscription.currentPeriodEnd && (
+                        <div className="border-b border-gray-100 bg-orange-50 px-4 py-2.5">
+                          <div className="flex items-start gap-2">
+                            <svg
+                              className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold text-orange-900">
+                                {t('plan.subscriptionStatus')}
+                              </div>
+                              <div className="mt-0.5 text-xs text-orange-800">
+                                {t('plan.subscriptionCancelScheduled', {
+                                  date: new Date(userProfile.subscription.currentPeriodEnd).toLocaleDateString('zh-TW'),
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* 選單項目 */}
                       <div className="py-1">
                         {/* 方案與配額 */}
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             setShowUserMenu(false)
                             setShowPlanQuotaModal(true)
                           }}
@@ -447,6 +496,11 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-y-auto bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="mx-auto max-w-7xl">
+            {/* 付款失敗警告 Banner */}
+            <div className="mb-6">
+              <PaymentFailedBanner />
+            </div>
+
             {/* 標題和按鈕區域 */}
             <div className="mb-8 rounded-2xl bg-gray-50 px-8 py-6 shadow-lg border-2 border-gray-300">
               <div className="flex items-center justify-between">
@@ -888,6 +942,20 @@ export default function DashboardPage() {
         isOpen={showPlanQuotaModal}
         onClose={() => setShowPlanQuotaModal(false)}
       />
+
+      {/* 左下角按鈕組 */}
+      <div className="fixed bottom-6 left-6 z-50 flex gap-3">
+        {/* Test Button */}
+        <a
+          href={`/${params.locale}/test`}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors"
+          title={t('testButton')}
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </a>
+      </div>
     </div>
   )
 }

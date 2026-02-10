@@ -1,0 +1,1357 @@
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Injectable()
+export class StripeService {
+  private readonly logger = new Logger(StripeService.name);
+  private readonly stripe: Stripe;
+  private readonly webhookSecret: string;
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
+    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    if (!secretKey) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    this.stripe = new Stripe(secretKey, {
+      apiVersion: '2025-02-24.acacia',
+      typescript: true,
+    });
+    this.webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
+  }
+
+  /**
+   * 建立 Checkout Session
+   */
+  async createCheckoutSession(
+    tenantId: string,
+    planCode: string,
+    customerEmail: string,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<{ sessionId: string; url: string }> {
+    try {
+      // 取得方案資訊
+      const plan = await this.prisma.plan.findUnique({
+        where: { code: planCode },
+      });
+
+      if (!plan) {
+        throw new NotFoundException(`Plan with code ${planCode} not found`);
+      }
+
+      if (!plan.stripePriceId) {
+        throw new BadRequestException(`Plan ${planCode} does not have a Stripe Price ID configured`);
+      }
+
+      // 驗證 Price 是否為 recurring 類型
+      try {
+        const price = await this.stripe.prices.retrieve(plan.stripePriceId);
+        if (!price.recurring) {
+          throw new BadRequestException(
+            `Price ${plan.stripePriceId} is not a recurring price. Please use a recurring price for subscriptions.`
+          );
+        }
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        this.logger.warn(`Failed to verify price ${plan.stripePriceId}: ${error.message}`);
+        // 繼續執行，讓 Stripe API 自己驗證
+      }
+
+      // 取得租戶資訊
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException(`Tenant with id ${tenantId} not found`);
+      }
+
+      // 直接從資料庫查詢 active/trialing 訂閱（不依賴 include）
+      const existingSubscriptions = await this.prisma.subscription.findMany({
+        where: {
+          tenantId,
+          status: {
+            in: ['active', 'trialing'],
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      this.logger.log(
+        `[Checkout Session] Tenant ${tenantId} has ${existingSubscriptions.length} active/trialing subscriptions`
+      );
+
+      // 如果有多個 active 訂閱，這是異常情況，只保留最新的
+      const existingSubscription = existingSubscriptions.length > 0 ? existingSubscriptions[0] : null;
+
+      if (existingSubscriptions.length > 1) {
+        this.logger.warn(
+          `[Checkout Session] Found ${existingSubscriptions.length} active subscriptions for tenant ${tenantId}. ` +
+          `This should not happen. Will use the most recent one.`
+        );
+      }
+
+      if (existingSubscription) {
+        this.logger.log(
+          `[Checkout Session] Found active subscription: ${existingSubscription.id}, ` +
+          `planCode: ${existingSubscription.planCode}, ` +
+          `stripeSubscriptionId: ${existingSubscription.stripeSubscriptionId}`
+        );
+      } else {
+        this.logger.log(`[Checkout Session] No active subscription found`);
+      }
+
+      if (existingSubscription) {
+        // 如果已有訂閱，應該升級/降級現有訂閱，而不是建立新的
+        // 但為了簡化流程，我們仍然使用 Checkout Session，但需要處理重複訂閱的情況
+        // 或者，我們可以在這裡直接更新訂閱（更推薦的方式）
+        
+        // 檢查是否要升級到不同方案
+        if (existingSubscription.planCode !== planCode) {
+          // 驗證新 Price 是否為 recurring 類型
+          try {
+            const newPrice = await this.stripe.prices.retrieve(plan.stripePriceId);
+            if (!newPrice.recurring) {
+              throw new BadRequestException(
+                `Price ${plan.stripePriceId} is not a recurring price. Cannot upgrade to non-recurring price.`
+              );
+            }
+          } catch (error) {
+            if (error instanceof BadRequestException) {
+              throw error;
+            }
+            this.logger.warn(`Failed to verify price ${plan.stripePriceId}: ${error.message}`);
+          }
+
+          // 升級/降級現有訂閱
+          const stripeSubscription = await this.stripe.subscriptions.retrieve(
+            existingSubscription.stripeSubscriptionId,
+            {
+              expand: ['items.data.price'], // 展開 price 資訊以便日誌記錄
+            }
+          );
+
+          // 取得當前的 subscription item
+          const currentItem = stripeSubscription.items.data[0];
+          const currentPriceId = currentItem.price.id;
+
+          // 檢查是否為降級或升級
+          const currentPlan = await this.prisma.plan.findUnique({
+            where: { code: existingSubscription.planCode },
+          });
+
+          if (!currentPlan) {
+            throw new BadRequestException('Current plan not found');
+          }
+
+          const isUpgrade = plan.priceTwdMonthly > currentPlan.priceTwdMonthly;
+          const isDowngrade = plan.priceTwdMonthly < currentPlan.priceTwdMonthly;
+
+          if (isDowngrade) {
+            // 降級：直接更新 subscription，使用 proration_behavior: 'none'
+            this.logger.log(
+              `[Downgrade] Downgrading from ${existingSubscription.planCode} to ${planCode} (no proration)`
+            );
+
+            // 檢查是否已經綁定到 schedule，如果有需要先釋放
+            const scheduleId = stripeSubscription.schedule as string | null;
+            if (scheduleId) {
+              this.logger.log(`[Downgrade] Found existing schedule ${scheduleId}, releasing subscription...`);
+              
+              // 釋放訂閱（從 schedule 中移除）
+              await this.stripe.subscriptionSchedules.release(scheduleId);
+              
+              this.logger.log(`[Downgrade] Subscription released from schedule`);
+            }
+
+            // 現在可以直接更新訂閱
+            await this.stripe.subscriptions.update(
+              existingSubscription.stripeSubscriptionId,
+              {
+                items: [
+                  {
+                    id: currentItem.id,
+                    price: plan.stripePriceId,
+                  },
+                ],
+                proration_behavior: 'none', // 不收費也不退款
+                metadata: {
+                  tenantId,
+                  planCode,
+                  previousPlanCode: existingSubscription.planCode,
+                },
+              }
+            );
+
+            this.logger.log(`[Downgrade] Subscription ${existingSubscription.stripeSubscriptionId} updated to ${plan.stripePriceId}`);
+
+            // 不立即更新資料庫 planCode（等下個週期才收費時，webhook 會更新）
+            this.logger.log(`[Downgrade] Downgrade complete, new price will apply at next billing cycle`);
+
+            return {
+              sessionId: existingSubscription.stripeSubscriptionId,
+              url: successUrl,
+            };
+          }
+
+          if (isUpgrade) {
+            // 升級：立即生效並收取差價
+            const currentPriceAmount = (await this.stripe.prices.retrieve(currentPriceId)).unit_amount || 0;
+            const newPriceAmount = (await this.stripe.prices.retrieve(plan.stripePriceId)).unit_amount || 0;
+
+            this.logger.log(
+              `[Upgrade] Updating subscription ${existingSubscription.stripeSubscriptionId}: ` +
+              `from ${existingSubscription.planCode} (${currentPriceId}, $${currentPriceAmount / 100}) ` +
+              `to ${planCode} (${plan.stripePriceId}, $${newPriceAmount / 100})`
+            );
+
+            // 更新訂閱的價格
+            const updatedSubscription = await this.stripe.subscriptions.update(
+              existingSubscription.stripeSubscriptionId,
+              {
+                items: [
+                  {
+                    id: currentItem.id,
+                    price: plan.stripePriceId,
+                  },
+                ],
+                metadata: {
+                  tenantId,
+                  planCode,
+                  previousPlanCode: existingSubscription.planCode,
+                },
+                proration_behavior: 'always_invoice', // 立即按比例計費
+                billing_cycle_anchor: 'unchanged',
+              }
+            );
+
+            this.logger.log(
+              `[Upgrade] Subscription updated successfully. ` +
+              `Latest invoice: ${updatedSubscription.latest_invoice || 'none'}`
+            );
+
+            // 如果有產生 invoice，記錄詳細資訊
+            if (updatedSubscription.latest_invoice) {
+              const invoice = await this.stripe.invoices.retrieve(
+                updatedSubscription.latest_invoice as string,
+                { expand: ['lines.data'] }
+              );
+              
+              const prorationItems = invoice.lines?.data?.filter(
+                (line: any) => line.proration === true
+              ) || [];
+
+              this.logger.log(
+                `[Upgrade Invoice] Invoice ${invoice.id}: ` +
+                `billing_reason=${invoice.billing_reason}, ` +
+                `amount_paid=${invoice.amount_paid / 100}, ` +
+                `proration_items=${prorationItems.length}`
+              );
+            }
+
+            // 更新資料庫
+            await this.prisma.subscription.update({
+              where: { id: existingSubscription.id },
+              data: {
+                planCode,
+                updatedAt: new Date(),
+              },
+            });
+
+            // 更新 Tenant planCode
+            await this.prisma.tenant.update({
+              where: { id: tenantId },
+              data: { planCode },
+            });
+
+            this.logger.log(
+              `Upgraded subscription ${existingSubscription.id} from ${existingSubscription.planCode} to ${planCode}`
+            );
+
+            // 升級不需要跳轉到 Stripe，直接返回成功頁面
+            return {
+              sessionId: existingSubscription.stripeSubscriptionId,
+              url: successUrl,
+            };
+          }
+
+          // 返回一個假的 session URL，因為我們已經直接更新了訂閱
+          // 前端應該導向成功頁面
+          return {
+            sessionId: existingSubscription.stripeSubscriptionId,
+            url: successUrl, // 直接導向成功頁面
+          };
+        } else {
+          // 已經是相同方案，不需要做任何事
+          throw new BadRequestException(`You are already subscribed to the ${planCode} plan`);
+        }
+      }
+
+      // 沒有現有訂閱，建立新的 Checkout Session
+      let stripeCustomerId: string;
+      
+      // 創建新的 Stripe Customer
+      const customer = await this.stripe.customers.create({
+        email: customerEmail,
+        metadata: {
+          tenantId,
+        },
+      });
+      stripeCustomerId = customer.id;
+      
+      this.logger.log(`[Checkout Session] Created new Stripe customer: ${stripeCustomerId}`);
+
+      // 建立 Checkout Session（僅用於新訂閱）
+      const session = await this.stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: plan.stripePriceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          tenantId,
+          planCode,
+        },
+        subscription_data: {
+          metadata: {
+            tenantId,
+            planCode,
+          },
+        },
+      });
+
+      this.logger.log(`Created checkout session ${session.id} for tenant ${tenantId}, plan ${planCode}`);
+
+      return {
+        sessionId: session.id,
+        url: session.url || '',
+      };
+    } catch (error) {
+      this.logger.error(`Error creating checkout session: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 取消訂閱
+   */
+  async cancelSubscription(
+    tenantId: string,
+    cancelAtPeriodEnd: boolean = true,
+  ): Promise<{ subscriptionId: string; canceledAt: Date | null; cancelAtPeriodEnd: boolean }> {
+    try {
+      // 取得租戶的訂閱記錄
+      const subscription = await this.prisma.subscription.findFirst({
+        where: {
+          tenantId,
+          status: {
+            in: ['active', 'trialing'],
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!subscription) {
+        throw new NotFoundException(`No active subscription found for tenant ${tenantId}`);
+      }
+
+      let updatedStripeSubscription: Stripe.Subscription;
+
+      // 呼叫 Stripe API 取消訂閱
+      if (cancelAtPeriodEnd) {
+        // 設定在期間結束時取消
+        updatedStripeSubscription = await this.stripe.subscriptions.update(
+          subscription.stripeSubscriptionId,
+          {
+            cancel_at_period_end: true,
+          }
+        );
+      } else {
+        // 立即取消訂閱
+        updatedStripeSubscription = await this.stripe.subscriptions.cancel(
+          subscription.stripeSubscriptionId
+        );
+      }
+
+      // 更新資料庫記錄
+      const updateData: any = {
+        cancelAtPeriodEnd: cancelAtPeriodEnd,
+        updatedAt: new Date(),
+      };
+
+      if (cancelAtPeriodEnd) {
+        // 期間結束時取消：status 保持不變，canceledAt 為 null
+        updateData.canceledAt = null;
+        // status 保持原來的狀態（active 或 trialing）
+      } else {
+        // 立即取消：status 變為 canceled，canceledAt 設為現在
+        updateData.status = 'canceled';
+        updateData.canceledAt = updatedStripeSubscription.canceled_at
+          ? new Date(updatedStripeSubscription.canceled_at * 1000)
+          : new Date();
+      }
+
+      const updatedSubscription = await this.prisma.subscription.update({
+        where: { id: subscription.id },
+        data: updateData,
+      });
+
+      this.logger.log(
+        `Updated subscription ${subscription.id}: cancelAtPeriodEnd=${cancelAtPeriodEnd}, status=${updatedSubscription.status}, canceledAt=${updatedSubscription.canceledAt}`
+      );
+
+      // 如果立即取消，同時更新 Tenant planCode 為 free
+      if (!cancelAtPeriodEnd) {
+        await this.prisma.tenant.update({
+          where: { id: tenantId },
+          data: { planCode: 'free' },
+        });
+      }
+
+      this.logger.log(
+        `Subscription ${subscription.id} canceled for tenant ${tenantId}, cancelAtPeriodEnd: ${cancelAtPeriodEnd}`
+      );
+
+      return {
+        subscriptionId: updatedSubscription.id,
+        canceledAt: updatedSubscription.canceledAt,
+        cancelAtPeriodEnd: updatedSubscription.cancelAtPeriodEnd,
+      };
+    } catch (error) {
+      this.logger.error(`Error canceling subscription: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 驗證 Webhook 簽名
+   */
+  verifyWebhookSignature(payload: string | Buffer, signature: string): Stripe.Event {
+    try {
+      return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+    } catch (error) {
+      this.logger.error(`Webhook signature verification failed: ${error.message}`);
+      throw new BadRequestException(`Webhook signature verification failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * 處理 checkout.session.completed 事件
+   */
+  async handleCheckoutSessionCompleted(event: Stripe.CheckoutSessionCompletedEvent) {
+    try {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const tenantId = session.metadata?.tenantId;
+      const planCode = session.metadata?.planCode;
+
+      if (!tenantId || !planCode) {
+        this.logger.warn(`Missing metadata in checkout session ${session.id}`);
+        return;
+      }
+
+      // 取得訂閱資訊
+      const subscriptionId = session.subscription as string;
+      if (!subscriptionId) {
+        this.logger.warn(`No subscription ID in checkout session ${session.id}`);
+        return;
+      }
+
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const customerId = subscription.customer as string;
+
+      // 取得最新的 invoice（訂閱的第一筆付款）
+      let invoice: Stripe.Invoice | null = null;
+      let paymentIntent: Stripe.PaymentIntent | null = null;
+      
+      if (session.invoice) {
+        invoice = await this.stripe.invoices.retrieve(session.invoice as string);
+        if (invoice.payment_intent) {
+          paymentIntent = await this.stripe.paymentIntents.retrieve(
+            invoice.payment_intent as string
+          );
+        }
+      } else if (session.payment_intent) {
+        // 如果沒有 invoice，直接取得 payment_intent
+        paymentIntent = await this.stripe.paymentIntents.retrieve(
+          session.payment_intent as string
+        );
+      }
+
+      // 使用事務處理
+      await this.prisma.$transaction(async (tx) => {
+        // 建立或更新 Subscription 記錄
+        const subscriptionRecord = await tx.subscription.upsert({
+          where: { stripeSubscriptionId: subscriptionId },
+          update: {
+            status: subscription.status,
+            planCode,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+            updatedAt: new Date(),
+          },
+          create: {
+            id: subscriptionId,
+            tenantId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            planCode,
+            status: subscription.status,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+          },
+        });
+
+        // 如果有付款資訊，建立 Payment 記錄
+        if (paymentIntent && paymentIntent.status === 'succeeded') {
+          const amount = paymentIntent.amount / 100; // Stripe 金額以分為單位
+          const currency = paymentIntent.currency.toUpperCase();
+
+          // 檢查是否已存在 Payment 記錄（避免重複建立）
+          const existingPayment = await tx.payment.findUnique({
+            where: { stripePaymentIntentId: paymentIntent.id },
+          });
+
+          if (!existingPayment) {
+            // 使用 Stripe Payment Intent ID 作為 Payment ID（格式: pi_xxxxx）
+            await tx.payment.create({
+              data: {
+                id: `pay_${paymentIntent.id}`, // 加上前綴避免與其他 ID 衝突
+                subscriptionId: subscriptionRecord.id,
+                tenantId,
+                amount,
+                currency,
+                status: 'succeeded', // Stripe 使用 'succeeded' 狀態
+                stripePaymentIntentId: paymentIntent.id,
+                stripeInvoiceId: invoice?.id || null,
+                paidAt: new Date(paymentIntent.created * 1000),
+              },
+            });
+
+            this.logger.log(
+              `Created payment record for tenant ${tenantId}, amount ${amount} ${currency}`
+            );
+          }
+        }
+
+        // 更新 Tenant 的 planCode
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: { planCode },
+        });
+
+        this.logger.log(`Updated tenant ${tenantId} to plan ${planCode} after successful checkout`);
+      });
+    } catch (error) {
+      this.logger.error(`Error handling checkout.session.completed: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 處理 customer.subscription.updated 事件
+   */
+  async handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
+    try {
+      const subscription = event.data.object as Stripe.Subscription;
+      const tenantId = subscription.metadata?.tenantId;
+      const planCode = subscription.metadata?.planCode;
+
+      if (!tenantId || !planCode) {
+        this.logger.warn(`Missing metadata in subscription ${subscription.id}`);
+        return;
+      }
+
+      const customerId = subscription.customer as string;
+
+      await this.prisma.$transaction(async (tx) => {
+        // 更新 Subscription 記錄
+        await tx.subscription.upsert({
+          where: { stripeSubscriptionId: subscription.id },
+          update: {
+            status: subscription.status,
+            planCode,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+            metadata: subscription.metadata as any,
+            updatedAt: new Date(),
+          },
+          create: {
+            id: subscription.id,
+            tenantId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscription.id,
+            planCode,
+            status: subscription.status,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
+            metadata: subscription.metadata as any,
+          },
+        });
+
+        // 如果訂閱狀態是 active 或 trialing，更新 Tenant planCode
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          await tx.tenant.update({
+            where: { id: tenantId },
+            data: { planCode },
+          });
+          this.logger.log(`Updated tenant ${tenantId} to plan ${planCode} after subscription update`);
+        }
+      });
+    } catch (error) {
+      this.logger.error(`Error handling customer.subscription.updated: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 處理 customer.subscription.deleted 事件
+   */
+  async handleSubscriptionDeleted(event: Stripe.CustomerSubscriptionDeletedEvent) {
+    try {
+      const subscription = event.data.object as Stripe.Subscription;
+      const tenantId = subscription.metadata?.tenantId;
+
+      if (!tenantId) {
+        this.logger.warn(`Missing tenantId in subscription ${subscription.id}`);
+        return;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        // 更新 Subscription 狀態為 canceled
+        await tx.subscription.updateMany({
+          where: { stripeSubscriptionId: subscription.id },
+          data: {
+            status: 'canceled',
+            canceledAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+        // 將 Tenant planCode 設為 'free'
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: { planCode: 'free' },
+        });
+
+        this.logger.log(`Canceled subscription for tenant ${tenantId}, set plan to free`);
+      });
+    } catch (error) {
+      this.logger.error(`Error handling customer.subscription.deleted: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 處理 invoice.payment_succeeded 事件（包括 proration）
+   * 
+   * 注意：Stripe CLI 和生產環境可能發送不同的事件類型：
+   * - 開發環境：invoice_payment.paid
+   * - 生產環境：invoice.payment_succeeded
+   */
+  async handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceededEvent) {
+    try {
+      let invoice = event.data.object as Stripe.Invoice;
+      
+      // 記錄原始事件類型以便監控環境差異
+      this.logger.log(`[Invoice Payment] Event type: ${event.type}, Invoice: ${invoice.id}`);
+      
+      // 如果 invoice 數據不完整（例如 invoice_payment.paid 事件），從 Stripe 獲取完整數據
+      if (!invoice.subscription || !invoice.billing_reason) {
+        this.logger.warn(`[Invoice Payment] Incomplete invoice data (${invoice.id}), fetching from Stripe...`);
+        try {
+          invoice = await this.stripe.invoices.retrieve(invoice.id, {
+            expand: ['lines.data', 'payment_intent'],
+          });
+        } catch (error) {
+          this.logger.error(`[Invoice Payment] Failed to fetch invoice from Stripe: ${error.message}`);
+          throw error;
+        }
+      }
+      
+      // 確保 subscriptionId 是字符串
+      const subscriptionId = typeof invoice.subscription === 'string' 
+        ? invoice.subscription 
+        : (invoice.subscription as any)?.id;
+
+      this.logger.log(`[Invoice Payment] Received invoice.payment_succeeded: ${invoice.id}, subscription: ${subscriptionId}, billing_reason: ${invoice.billing_reason}`);
+
+      if (!subscriptionId) {
+        this.logger.warn(`[Invoice Payment] Invoice ${invoice.id} has no subscription - SKIPPING`);
+        return;
+      }
+
+      // 取得訂閱資訊（先從資料庫查，查不到就從 Stripe 取得）
+      let subscription = await this.prisma.subscription.findUnique({
+        where: { stripeSubscriptionId: subscriptionId },
+      });
+
+      if (!subscription) {
+        this.logger.warn(
+          `[Invoice Payment] Subscription ${subscriptionId} not found in database, fetching from Stripe...`
+        );
+        
+        // 從 Stripe 取得訂閱資訊
+        try {
+          const stripeSubscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+          const tenantId = stripeSubscription.metadata?.tenantId;
+          
+          if (!tenantId) {
+            this.logger.warn(`No tenantId in Stripe subscription ${subscriptionId} metadata`);
+            return;
+          }
+          
+          // 從 price 取得 plan
+          const priceId = stripeSubscription.items.data[0]?.price?.id;
+          const plan = await this.prisma.plan.findFirst({
+            where: { stripePriceId: priceId },
+          });
+          
+          if (!plan) {
+            this.logger.warn(`Plan not found for price ${priceId}`);
+            return;
+          }
+          
+          // 創建訂閱記錄
+          subscription = await this.prisma.subscription.create({
+            data: {
+              id: subscriptionId,
+              tenantId,
+              stripeCustomerId: stripeSubscription.customer as string,
+              stripeSubscriptionId: subscriptionId,
+              planCode: plan.code,
+              status: stripeSubscription.status,
+              currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+              cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end || false,
+            },
+          });
+          
+          this.logger.log(`Created missing subscription record ${subscription.id} for invoice processing`);
+        } catch (error) {
+          this.logger.error(`[Invoice Payment] Failed to create subscription from Stripe data: ${error.message} - SKIPPING PAYMENT`);
+          return;
+        }
+      }
+
+      this.logger.log(`[Invoice Payment] Found subscription ${subscription.id}, continuing to process payment...`);
+
+      // 檢查是否為 proration invoice（升級/降級產生的差價）
+      const isProration = invoice.billing_reason === 'subscription_update';
+
+      // 跳過新訂閱的 invoice（已經在 checkout.session.completed 處理）
+      if (invoice.billing_reason === 'subscription_create') {
+        this.logger.log(`[Invoice Payment] Skipping subscription_create invoice ${invoice.id} - REASON: already handled by checkout.session.completed`);
+        return;
+      }
+
+      this.logger.log(`[Invoice Payment] Invoice ${invoice.id} passed subscription_create check, continuing...`);
+
+      // 取得 payment intent
+      const paymentIntentId = typeof invoice.payment_intent === 'string'
+        ? invoice.payment_intent
+        : (invoice.payment_intent as any)?.id;
+        
+      if (!paymentIntentId) {
+        this.logger.warn(`[Invoice Payment] Invoice ${invoice.id} has no payment intent - SKIPPING`);
+        return;
+      }
+
+      this.logger.log(`[Invoice Payment] Payment intent found: ${paymentIntentId}`);
+
+      // 檢查是否已存在 Payment 記錄（防止 webhook 重複發送）
+      const existingPayment = await this.prisma.payment.findUnique({
+        where: { stripePaymentIntentId: paymentIntentId },
+      });
+
+      if (existingPayment) {
+        this.logger.warn(`[Invoice Payment] Payment record already exists for invoice ${invoice.id} (paymentIntent: ${paymentIntentId}) - SKIPPING (webhook duplicate?)`);
+        return;
+      }
+
+      this.logger.log(`[Invoice Payment] No existing payment found, will create new record...`);
+
+      // 取得所有 line items 以便分析
+      const allLineItems = invoice.lines?.data || [];
+      const prorationItems = allLineItems.filter(
+        (line: any) => line.proration === true
+      );
+      const regularItems = allLineItems.filter(
+        (line: any) => line.proration !== true
+      );
+
+      // 記錄詳細資訊以便除錯
+      this.logger.log(
+        `[Invoice Analysis] Invoice ${invoice.id}: ` +
+        `billing_reason=${invoice.billing_reason}, ` +
+        `amount_paid=${invoice.amount_paid / 100}, ` +
+        `total=${invoice.total / 100}, ` +
+        `subtotal=${invoice.subtotal / 100}, ` +
+        `isProration=${isProration}, ` +
+        `prorationItems=${prorationItems.length}, ` +
+        `regularItems=${regularItems.length}`
+      );
+
+      // 計算要記錄的金額
+      let amount: number;
+      const currency = invoice.currency.toUpperCase();
+
+      // 如果是 proration invoice，優先計算 proration amount
+      if (isProration) {
+        const prorationItems = invoice.lines?.data?.filter(
+          (line: any) => line.proration === true
+        ) || [];
+
+        if (prorationItems.length > 0) {
+          // 有 proration line items，計算 proration 總額
+          const prorationTotal = prorationItems.reduce(
+            (sum: number, line: any) => sum + (line.amount || 0),
+            0
+          );
+          amount = Math.abs(prorationTotal) / 100;
+          
+          this.logger.log(
+            `[Proration Payment] Invoice ${invoice.id}: ` +
+            `proration_total=${prorationTotal / 100} ${currency}, ` +
+            `recorded_amount=${amount} ${currency}`
+          );
+        } else {
+          // 沒有 proration line items，使用 amount_paid（這是實際支付的差價）
+          amount = invoice.amount_paid / 100;
+          
+          this.logger.log(
+            `[Proration Payment] Invoice ${invoice.id}: ` +
+            `no proration line items, using amount_paid=${amount} ${currency}`
+          );
+        }
+
+        await this.prisma.payment.create({
+          data: {
+            id: `pay_${paymentIntentId}`,
+            subscriptionId: subscription.id,
+            tenantId: subscription.tenantId,
+            amount,
+            currency,
+            status: 'succeeded',
+            stripePaymentIntentId: paymentIntentId,
+            stripeInvoiceId: invoice.id,
+            paidAt: invoice.status_transitions?.paid_at 
+              ? new Date(invoice.status_transitions.paid_at * 1000)
+              : new Date(),
+          },
+        });
+
+        this.logger.log(
+          `Created proration payment record for invoice ${invoice.id}, amount ${amount} ${currency}`
+        );
+        return;
+      }
+
+      // 定期續約 invoice（subscription_cycle），不記錄
+      if (invoice.billing_reason === 'subscription_cycle') {
+        this.logger.log(
+          `Skipping subscription_cycle invoice ${invoice.id} ` +
+          `(regular recurring payment, not recording)`
+        );
+        return;
+      }
+
+      // 其他類型的 invoice，記錄 amount_paid
+      amount = invoice.amount_paid / 100;
+
+      this.logger.log(
+        `Processing other invoice type ${invoice.id}: ` +
+        `billing_reason=${invoice.billing_reason}, ` +
+        `amount=${amount} ${currency}`
+      );
+
+      await this.prisma.payment.create({
+        data: {
+          id: `pay_${paymentIntentId}`,
+          subscriptionId: subscription.id,
+          tenantId: subscription.tenantId,
+          amount,
+          currency,
+          status: 'succeeded',
+          stripePaymentIntentId: paymentIntentId,
+          stripeInvoiceId: invoice.id,
+          paidAt: invoice.status_transitions?.paid_at 
+            ? new Date(invoice.status_transitions.paid_at * 1000)
+            : new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Created payment record for invoice ${invoice.id}, amount ${amount} ${currency} ` +
+        `(billing_reason=${invoice.billing_reason})`
+      );
+    } catch (error) {
+      this.logger.error(
+        `[Invoice Payment] CRITICAL ERROR handling invoice.payment_succeeded: ${error.message}`,
+        error.stack
+      );
+      // 記錄詳細信息以便調試生產問題
+      this.logger.error(`[Invoice Payment] Event ID: ${event.id}, Type: ${event.type}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 處理 Webhook 事件
+   */
+  async handleWebhookEvent(event: Stripe.Event) {
+    this.logger.log(`Received webhook event: ${event.type}`);
+
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await this.handleCheckoutSessionCompleted(event as Stripe.CheckoutSessionCompletedEvent);
+        break;
+      case 'customer.subscription.updated':
+        await this.handleSubscriptionUpdated(event as Stripe.CustomerSubscriptionUpdatedEvent);
+        break;
+      case 'customer.subscription.deleted':
+        await this.handleSubscriptionDeleted(event as Stripe.CustomerSubscriptionDeletedEvent);
+        break;
+      case 'invoice.payment_succeeded':
+        await this.handleInvoicePaymentSucceeded(event as Stripe.InvoicePaymentSucceededEvent);
+        break;
+      default:
+        // 特殊處理：某些 Stripe CLI 版本會發送 invoice_payment.paid 或 invoice.paid
+        if ((event as any).type === 'invoice_payment.paid' || (event as any).type === 'invoice.paid') {
+          await this.handleInvoicePaymentSucceeded(event as any);
+        } else {
+          this.logger.log(`Unhandled webhook event type: ${event.type}`);
+        }
+    }
+  }
+
+  /**
+   * 取得用戶的調試資訊（簡化版）
+   */
+  async getUserDebugData(tenantId: string) {
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          id: true,
+          planCode: true,
+        },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException(`Tenant ${tenantId} not found`);
+      }
+
+      const subscriptions = await this.prisma.subscription.findMany({
+        where: { tenantId },
+        select: {
+          id: true,
+          planCode: true,
+          status: true,
+          stripeSubscriptionId: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const payments = await this.prisma.payment.findMany({
+        where: { tenantId },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return {
+        tenant,
+        subscriptions,
+        payments,
+      };
+    } catch (error) {
+      this.logger.error(`Error in getUserDebugData: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 從 Stripe 同步付款記錄
+   */
+  async syncPaymentsFromStripe(tenantId: string) {
+    try {
+      this.logger.log(`[Sync Payments] Starting sync for tenant ${tenantId}`);
+
+      // 取得該租戶的所有訂閱
+      const subscriptions = await this.prisma.subscription.findMany({
+        where: { tenantId },
+      });
+
+      if (subscriptions.length === 0) {
+        this.logger.log(`[Sync Payments] No subscriptions found for tenant ${tenantId}`);
+        return { syncedCount: 0, message: 'No subscriptions found' };
+      }
+
+      let syncedCount = 0;
+
+      // 對每個訂閱，從 Stripe 取得所有 invoices
+      for (const subscription of subscriptions) {
+        this.logger.log(`[Sync Payments] Checking subscription ${subscription.stripeSubscriptionId}`);
+
+        try {
+          // 從 Stripe 取得該訂閱的所有 invoices
+          const invoices = await this.stripe.invoices.list({
+            subscription: subscription.stripeSubscriptionId,
+            limit: 100,
+          });
+
+          this.logger.log(`[Sync Payments] Found ${invoices.data.length} invoices for subscription ${subscription.stripeSubscriptionId}`);
+
+          for (const invoice of invoices.data) {
+            // 只處理已付款的 invoice
+            if (invoice.status !== 'paid' || !invoice.payment_intent) {
+              continue;
+            }
+
+            const paymentIntentId = invoice.payment_intent as string;
+
+            // 檢查是否已存在
+            const existingPayment = await this.prisma.payment.findUnique({
+              where: { stripePaymentIntentId: paymentIntentId },
+            });
+
+            if (existingPayment) {
+              this.logger.log(`[Sync Payments] Payment ${paymentIntentId} already exists, skipping`);
+              continue;
+            }
+
+            // 取得詳細的 payment intent 資訊
+            const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+
+            // 計算金額
+            let amount: number;
+            const currency = invoice.currency.toUpperCase();
+
+            // 對於 proration invoice（升級差價），只記錄 proration amount
+            if (invoice.billing_reason === 'subscription_update') {
+              const prorationItems = invoice.lines?.data?.filter(
+                (line: any) => line.proration === true
+              ) || [];
+
+              if (prorationItems.length > 0) {
+                const prorationTotal = prorationItems.reduce(
+                  (sum: number, line: any) => sum + (line.amount || 0),
+                  0
+                );
+                amount = Math.abs(prorationTotal) / 100;
+              } else {
+                amount = invoice.amount_paid / 100;
+              }
+
+              this.logger.log(
+                `[Sync Payments] Proration invoice ${invoice.id}: amount=${amount} ${currency}`
+              );
+            } else {
+              // 一般付款，使用 amount_paid
+              amount = invoice.amount_paid / 100;
+              this.logger.log(
+                `[Sync Payments] Regular invoice ${invoice.id}: amount=${amount} ${currency}`
+              );
+            }
+
+            // 創建 Payment 記錄
+            await this.prisma.payment.create({
+              data: {
+                id: `pay_${paymentIntentId}`,
+                subscriptionId: subscription.id,
+                tenantId,
+                amount,
+                currency,
+                status: 'succeeded',
+                stripePaymentIntentId: paymentIntentId,
+                stripeInvoiceId: invoice.id,
+                paidAt: invoice.status_transitions?.paid_at
+                  ? new Date(invoice.status_transitions.paid_at * 1000)
+                  : new Date(),
+              },
+            });
+
+            syncedCount++;
+            this.logger.log(
+              `[Sync Payments] Created payment record for invoice ${invoice.id}, amount ${amount} ${currency}`
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            `[Sync Payments] Error processing subscription ${subscription.stripeSubscriptionId}: ${error.message}`
+          );
+          // 繼續處理下一個訂閱
+        }
+      }
+
+      this.logger.log(`[Sync Payments] Sync completed, created ${syncedCount} payment records`);
+
+      return {
+        syncedCount,
+        message: `Successfully synced ${syncedCount} payment record(s)`,
+      };
+    } catch (error) {
+      this.logger.error(`Error in syncPaymentsFromStripe: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 清除測試資料（僅開發環境）
+   */
+  async clearTestData(supabaseUserId: string) {
+    this.logger.log(`[Clear Test Data] Starting for user: ${supabaseUserId}`);
+
+    // 1. 找到用戶的 tenant
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseUserId },
+      select: { 
+        id: true,
+        tenant: {
+          select: {
+            id: true,
+            planCode: true,
+          }
+        }
+      },
+    });
+
+    if (!user?.tenant) {
+      this.logger.warn(`[Clear Test Data] No tenant found for user ${supabaseUserId}`);
+      return { message: 'No tenant found' };
+    }
+
+    const tenantId = user.tenant.id;
+
+    // 2. 找到所有訂閱
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        stripeSubscriptionId: true,
+      },
+    });
+
+    this.logger.log(`[Clear Test Data] Found ${subscriptions.length} subscriptions for tenant ${tenantId}`);
+
+    // 3. 取消所有 Stripe 訂閱
+    const canceledStripeSubscriptions = [];
+    for (const sub of subscriptions) {
+      try {
+        await this.stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+        canceledStripeSubscriptions.push(sub.stripeSubscriptionId);
+        this.logger.log(`[Clear Test Data] Canceled Stripe subscription: ${sub.stripeSubscriptionId}`);
+      } catch (error) {
+        // 如果訂閱已經不存在於 Stripe，忽略錯誤
+        if (error.code === 'resource_missing') {
+          this.logger.warn(`[Clear Test Data] Stripe subscription not found: ${sub.stripeSubscriptionId}`);
+        } else {
+          this.logger.error(`[Clear Test Data] Failed to cancel Stripe subscription ${sub.stripeSubscriptionId}: ${error.message}`);
+        }
+      }
+    }
+
+    // 4. 刪除資料庫中的 Payment 記錄
+    const deletedPayments = await this.prisma.payment.deleteMany({
+      where: { tenantId },
+    });
+
+    this.logger.log(`[Clear Test Data] Deleted ${deletedPayments.count} payment records`);
+
+    // 5. 刪除資料庫中的 Subscription 記錄
+    const deletedSubscriptions = await this.prisma.subscription.deleteMany({
+      where: { tenantId },
+    });
+
+    this.logger.log(`[Clear Test Data] Deleted ${deletedSubscriptions.count} subscription records`);
+
+    // 6. 重設 Tenant planCode 為 free
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { planCode: 'free' },
+    });
+
+    this.logger.log(`[Clear Test Data] Reset tenant ${tenantId} to free plan`);
+
+    return {
+      message: 'Test data cleared successfully',
+      tenantId,
+      deletedPayments: deletedPayments.count,
+      deletedSubscriptions: deletedSubscriptions.count,
+      canceledStripeSubscriptions: canceledStripeSubscriptions.length,
+    };
+  }
+
+  /**
+   * 創建 Test Clock 訂閱（測試用）
+   */
+  async createTestClockSubscription(
+    tenantId: string,
+    planCode: string,
+    customerEmail: string,
+  ): Promise<{ subscriptionId: string; customerId: string }> {
+    const testClockId = this.configService.get<string>('STRIPE_TEST_CLOCK_ID');
+    if (!testClockId) {
+      throw new BadRequestException('STRIPE_TEST_CLOCK_ID is not configured');
+    }
+
+    this.logger.log(`[Test Clock] Creating subscription with test clock: ${testClockId}`);
+
+    // 取得方案資訊
+    const plan = await this.prisma.plan.findUnique({
+      where: { code: planCode },
+    });
+
+    if (!plan || !plan.stripePriceId) {
+      throw new NotFoundException(`Plan ${planCode} not found or missing Stripe Price ID`);
+    }
+
+    // 創建或取得 Stripe Customer（綁定 Test Clock）
+    let stripeCustomerId: string;
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: parseInt(tenantId) },
+      select: { stripeCustomerId: true },
+    });
+
+    if (tenant?.stripeCustomerId) {
+      // 檢查現有 customer 是否綁定到 test clock
+      const customer = await this.stripe.customers.retrieve(tenant.stripeCustomerId);
+      if (customer.test_clock !== testClockId) {
+        this.logger.warn(`[Test Clock] Customer ${tenant.stripeCustomerId} is not bound to test clock, creating new customer`);
+        stripeCustomerId = null;
+      } else {
+        stripeCustomerId = tenant.stripeCustomerId;
+        this.logger.log(`[Test Clock] Using existing customer: ${stripeCustomerId}`);
+      }
+    }
+
+    if (!stripeCustomerId) {
+      // 創建新 customer（綁定 Test Clock）
+      const customer = await this.stripe.customers.create({
+        email: customerEmail,
+        test_clock: testClockId,
+        metadata: {
+          tenantId,
+        },
+      });
+      stripeCustomerId = customer.id;
+      this.logger.log(`[Test Clock] Created new customer: ${stripeCustomerId}`);
+
+      // 更新 tenant 的 stripeCustomerId
+      await this.prisma.tenant.update({
+        where: { id: parseInt(tenantId) },
+        data: { stripeCustomerId },
+      });
+    }
+
+    // 創建測試付款方式
+    const paymentMethod = await this.stripe.paymentMethods.create({
+      type: 'card',
+      card: {
+        token: 'tok_visa',
+      },
+    });
+
+    // 綁定付款方式到 customer
+    await this.stripe.paymentMethods.attach(paymentMethod.id, {
+      customer: stripeCustomerId,
+    });
+
+    // 設為預設付款方式
+    await this.stripe.customers.update(stripeCustomerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethod.id,
+      },
+    });
+
+    this.logger.log(`[Test Clock] Created payment method: ${paymentMethod.id}`);
+
+    // 創建訂閱（綁定 Test Clock）
+    const subscription = await this.stripe.subscriptions.create({
+      customer: stripeCustomerId,
+      items: [
+        {
+          price: plan.stripePriceId,
+        },
+      ],
+      metadata: {
+        tenantId,
+        planCode,
+      },
+    });
+
+    this.logger.log(`[Test Clock] Created subscription: ${subscription.id}, status: ${subscription.status}`);
+
+    return {
+      subscriptionId: subscription.id,
+      customerId: stripeCustomerId,
+    };
+  }
+
+  /**
+   * 快轉 Test Clock（測試用）
+   */
+  async advanceTestClock(months: number = 1): Promise<{ frozenTime: number; message: string }> {
+    const testClockId = this.configService.get<string>('STRIPE_TEST_CLOCK_ID');
+    if (!testClockId) {
+      throw new BadRequestException('STRIPE_TEST_CLOCK_ID is not configured');
+    }
+
+    // 取得當前 Test Clock 狀態
+    const testClock = await this.stripe.testHelpers.testClocks.retrieve(testClockId);
+    const currentTime = testClock.frozen_time;
+
+    // 計算新時間（快轉 N 個月）
+    const newTime = currentTime + months * 30 * 24 * 60 * 60; // 簡單計算：每個月 30 天
+
+    this.logger.log(
+      `[Test Clock] Advancing test clock ${testClockId} from ${currentTime} to ${newTime} (+${months} months)`
+    );
+
+    // 快轉 Test Clock
+    const updatedClock = await this.stripe.testHelpers.testClocks.advance(testClockId, {
+      frozen_time: newTime,
+    });
+
+    this.logger.log(`[Test Clock] Test clock advanced successfully. New time: ${updatedClock.frozen_time}`);
+
+    return {
+      frozenTime: updatedClock.frozen_time,
+      message: `Test clock advanced by ${months} month(s)`,
+    };
+  }
+}

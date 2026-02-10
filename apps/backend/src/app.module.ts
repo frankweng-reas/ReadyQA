@@ -18,6 +18,7 @@ import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { AudioModule } from './audio/audio.module';
 import { QueryModule } from './query/query.module';
 import { AiModule } from './ai/ai.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AiModule } from './ai/ai.module';
     AudioModule,
     QueryModule,
     AiModule,
+    StripeModule,
   ],
   controllers: [AppController],
   providers: [
