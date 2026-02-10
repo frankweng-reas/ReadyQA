@@ -749,6 +749,7 @@
         "title": "付款失敗測試",
         "description": "測試付款失敗時的系統行為",
         "triggerPaymentFailed": "觸發付款失敗 (模擬)",
+        "updateToFailedCard": "刪除付款方式",
         "getPaymentFailedInfo": "查看付款失敗資訊",
         "getFailedInvoices": "查看失敗發票列表",
         "noActiveSubscription": "目前沒有 active 訂閱，請先建立訂閱",

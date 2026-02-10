@@ -117,7 +117,13 @@ export default function PaymentFailedBanner() {
           {latestFailedInvoice && latestFailedInvoice.nextRetryAt && (
             <p className="mt-2 text-base text-yellow-700">
               {t('nextRetryAt', {
-                date: new Date(latestFailedInvoice.nextRetryAt).toLocaleString('zh-TW'),
+                date: new Date(latestFailedInvoice.nextRetryAt).toLocaleString('zh-TW', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
               })}
             </p>
           )}
@@ -152,13 +158,22 @@ export default function PaymentFailedBanner() {
                 <div className="flex justify-between">
                   <dt className="text-gray-600">{t('amount')}:</dt>
                   <dd className="font-medium text-gray-900">
-                    ${latestFailedInvoice.amount} {latestFailedInvoice.currency}
+                    {latestFailedInvoice.amount.toLocaleString('zh-TW', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })} {latestFailedInvoice.currency}
                   </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-600">{t('failedAt')}:</dt>
                   <dd className="font-medium text-gray-900">
-                    {new Date(latestFailedInvoice.failedAt).toLocaleString('zh-TW')}
+                    {new Date(latestFailedInvoice.failedAt).toLocaleString('zh-TW', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </dd>
                 </div>
                 <div className="flex justify-between">

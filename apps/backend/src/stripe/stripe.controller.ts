@@ -505,6 +505,33 @@ export class StripeController {
     }
   }
 
+  @Post('test/update-to-failed-card')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '測試：更新訂閱付款方式為失敗測試卡 (僅供開發測試)' })
+  async updateToFailedCard(@CurrentUser() supabaseUser: any) {
+    try {
+      const userProfile = await this.authService.getUserProfile(supabaseUser.id);
+      if (!userProfile || !userProfile.tenantId) {
+        return {
+          success: false,
+          message: 'User profile or tenant not found',
+        };
+      }
+
+      const result = await this.stripeService.updateSubscriptionToFailedCard(userProfile.tenantId);
+      
+      return {
+        success: true,
+        message: 'Subscription payment method updated to failed card',
+        data: result,
+      };
+    } catch (error) {
+      console.error('[Stripe Controller] Error updating to failed card:', error);
+      throw new BadRequestException(error.message || 'Failed to update payment method');
+    }
+  }
+
   @Post('create-billing-portal-session')
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()

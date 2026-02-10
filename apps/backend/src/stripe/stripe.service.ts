@@ -945,8 +945,28 @@ export class StripeService {
         where: { stripePaymentIntentId: paymentIntentId },
       });
 
-      // 對於 subscription_cycle，即使 payment 已存在，也要檢查並更新 Tenant planCode（降級生效）
-      if (existingPayment && invoice.billing_reason === 'subscription_cycle') {
+      // 如果已存在 Payment 記錄
+      if (existingPayment) {
+        // 如果狀態是 failed，現在付款成功了，更新為 succeeded
+        if (existingPayment.status === 'failed') {
+          this.logger.log(`[Invoice Payment] Updating failed payment to succeeded: ${existingPayment.id}`);
+          await this.prisma.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              status: 'succeeded',
+              paidAt: invoice.status_transitions?.paid_at 
+                ? new Date(invoice.status_transitions.paid_at * 1000)
+                : new Date(),
+            },
+          });
+          this.logger.log(`[Invoice Payment] ✅ Updated payment ${existingPayment.id} from failed to succeeded`);
+        } else if (existingPayment.status === 'succeeded') {
+          // 已經是 succeeded，記錄日誌但繼續處理（因為 subscription_cycle 可能需要更新 planCode）
+          this.logger.log(`[Invoice Payment] Payment already succeeded: ${existingPayment.id} (webhook duplicate?)`);
+        }
+
+        // 對於 subscription_cycle，即使 payment 已存在，也要檢查並更新 Tenant planCode（降級生效）
+        if (invoice.billing_reason === 'subscription_cycle') {
         this.logger.log(`[Invoice Payment] Payment already exists, but checking if tenant planCode needs update (subscription_cycle)...`);
         
         // 優先從 line item metadata 取得 planCode，否則從 price 判斷
@@ -996,12 +1016,11 @@ export class StripeService {
           }
         }
         
-        return; // Payment 已存在，不需要重複創建
-      }
-
-      if (existingPayment) {
-        this.logger.warn(`[Invoice Payment] Payment record already exists for invoice ${invoice.id} (paymentIntent: ${paymentIntentId}) - SKIPPING (webhook duplicate?)`);
-        return;
+          return; // Payment 已存在，planCode 已處理，不需要重複創建
+        } else {
+          // 非 subscription_cycle，payment 已存在，直接返回
+          return;
+        }
       }
 
       this.logger.log(`[Invoice Payment] No existing payment found, will create new record...`);
@@ -2147,6 +2166,23 @@ export class StripeService {
       throw new BadRequestException('No active Test Clock subscription found');
     }
 
+    // 檢查 customer 的預設付款方式
+    const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const customer = await this.stripe.customers.retrieve(stripeSubscription.customer as string);
+    const customerId = (customer as Stripe.Customer).id;
+    
+    const customerDetails = await this.stripe.customers.retrieve(customerId, {
+      expand: ['invoice_settings.default_payment_method'],
+    });
+    
+    const defaultPaymentMethod = (customerDetails as Stripe.Customer).invoice_settings?.default_payment_method;
+    if (typeof defaultPaymentMethod === 'object' && defaultPaymentMethod) {
+      const pm = defaultPaymentMethod as Stripe.PaymentMethod;
+      this.logger.log(`[Test Clock] Customer default payment method: ${pm.id}, type: ${pm.type}, card last4: ${pm.card?.last4 || 'N/A'}`);
+    } else {
+      this.logger.warn(`[Test Clock] Customer has no default payment method set`);
+    }
+
     // 取得當前 Test Clock 狀態
     const testClock = await this.stripe.testHelpers.testClocks.retrieve(testClockId);
     const currentTime = testClock.frozen_time;
@@ -2200,13 +2236,25 @@ export class StripeService {
             
             // Finalize invoice
             const finalizedInvoice = await this.stripe.invoices.finalizeInvoice(invoice.id);
-            this.logger.log(`[Test Clock] Invoice ${invoice.id} finalized`);
+            this.logger.log(`[Test Clock] Invoice ${invoice.id} finalized, status: ${finalizedInvoice.status}`);
 
-            // Pay invoice
-            const paidInvoice = await this.stripe.invoices.pay(invoice.id);
-            this.logger.log(`[Test Clock] Invoice ${invoice.id} paid: ${paidInvoice.amount_paid / 100} ${paidInvoice.currency.toUpperCase()}`);
-            
-            processedInvoices++;
+            // Pay invoice（如果付款方式已更新為失敗卡，這裡會失敗）
+            try {
+              const paidInvoice = await this.stripe.invoices.pay(invoice.id);
+              this.logger.log(`[Test Clock] ✅ Invoice ${invoice.id} paid successfully: ${paidInvoice.amount_paid / 100} ${paidInvoice.currency.toUpperCase()}`);
+              processedInvoices++;
+            } catch (payError: any) {
+              // 付款失敗是預期的（如果已更新為失敗卡）
+              this.logger.log(`[Test Clock] ❌ Invoice ${invoice.id} payment failed (expected if failed card is set): ${payError.message}`);
+              this.logger.log(`[Test Clock] Invoice status: ${finalizedInvoice.status}, payment intent: ${finalizedInvoice.payment_intent || 'none'}`);
+              
+              // 檢查 invoice 狀態
+              const updatedInvoice = await this.stripe.invoices.retrieve(invoice.id);
+              this.logger.log(`[Test Clock] Updated invoice status: ${updatedInvoice.status}`);
+              
+              // 即使付款失敗，也算處理過（因為我們嘗試了）
+              processedInvoices++;
+            }
           } catch (error) {
             this.logger.error(`[Test Clock] Failed to process invoice ${invoice.id}: ${error.message}`);
           }
@@ -2280,11 +2328,24 @@ export class StripeService {
       const failedInvoices = [];
       
       for (const payment of failedPayments) {
-        if (payment.stripeInvoiceId) {
-          // 檢查是否為測試記錄（ID 包含 test）
-          const isTestPayment = payment.stripeInvoiceId.includes('test');
-          
-          if (isTestPayment) {
+        // 如果沒有 stripeInvoiceId，使用基本資訊
+        if (!payment.stripeInvoiceId) {
+          this.logger.log(`[Payment Failed Info] Payment ${payment.id} has no stripeInvoiceId, using basic info`);
+          failedInvoices.push({
+            invoiceId: payment.id, // 使用 payment ID 作為 invoice ID
+            amount: payment.amount,
+            currency: payment.currency,
+            failedAt: payment.createdAt,
+            reason: '付款失敗（無發票資訊）',
+            nextRetryAt: null,
+          });
+          continue;
+        }
+        
+        // 檢查是否為測試記錄（ID 包含 test）
+        const isTestPayment = payment.stripeInvoiceId.includes('test');
+        
+        if (isTestPayment) {
             // 測試記錄：使用模擬資料
             this.logger.log(`[Payment Failed Info] Test payment detected, using mock data`);
             failedInvoices.push({
@@ -2298,14 +2359,45 @@ export class StripeService {
           } else {
             // 真實記錄：從 Stripe API 取得
             try {
-              const invoice = await this.stripe.invoices.retrieve(payment.stripeInvoiceId);
+              const invoice = await this.stripe.invoices.retrieve(payment.stripeInvoiceId, {
+                expand: ['payment_intent'],
+              });
+              
+              // 取得失敗原因
+              let reason = 'Unknown error';
+              
+              // 優先從 payment intent 取得錯誤
+              if (invoice.payment_intent && typeof invoice.payment_intent === 'object') {
+                const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+                if (paymentIntent.last_payment_error) {
+                  reason = paymentIntent.last_payment_error.message || paymentIntent.last_payment_error.type || 'Payment failed';
+                } else if (paymentIntent.status === 'requires_payment_method') {
+                  reason = '沒有付款方式';
+                }
+              }
+              
+              // 如果沒有 payment intent 錯誤，檢查 invoice 的錯誤
+              if (reason === 'Unknown error' && invoice.last_finalization_error) {
+                reason = invoice.last_finalization_error.message || 'Invoice finalization failed';
+              }
+              
+              // 如果還是沒有，根據 invoice 狀態判斷
+              if (reason === 'Unknown error') {
+                if (invoice.status === 'open' && invoice.attempt_count === 0) {
+                  reason = '尚未嘗試付款';
+                } else if (invoice.status === 'open' && invoice.attempt_count > 0) {
+                  reason = '付款嘗試失敗';
+                } else if (invoice.status === 'uncollectible') {
+                  reason = '無法收款';
+                }
+              }
               
               failedInvoices.push({
                 invoiceId: invoice.id,
                 amount: payment.amount,
                 currency: payment.currency,
                 failedAt: payment.createdAt,
-                reason: invoice.last_finalization_error?.message || 'Unknown error',
+                reason,
                 nextRetryAt: invoice.next_payment_attempt 
                   ? new Date(invoice.next_payment_attempt * 1000)
                   : null,
@@ -2323,7 +2415,6 @@ export class StripeService {
               });
             }
           }
-        }
       }
 
       const hasFailedPayment = subscription.status === 'past_due' || failedInvoices.length > 0;
@@ -2563,6 +2654,120 @@ export class StripeService {
       };
     } catch (error) {
       this.logger.error(`[Trigger Test Payment Failed] Error: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * 刪除 Test Clock 訂閱的付款方式
+   * 用於測試付款失敗流程（當沒有付款方式時，Stripe 嘗試收款會失敗）
+   */
+  async updateSubscriptionToFailedCard(tenantId: string) {
+    try {
+      this.logger.log(`[Delete Payment Method] Starting for tenant: ${tenantId}`);
+
+      // 1. 找到該 tenant 的 active subscription
+      const subscription = await this.prisma.subscription.findFirst({
+        where: {
+          tenantId,
+          status: { in: ['active', 'trialing', 'past_due'] },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!subscription) {
+        throw new NotFoundException(`No subscription found for tenant ${tenantId}`);
+      }
+
+      this.logger.log(`[Delete Payment Method] Found subscription: ${subscription.stripeSubscriptionId}, customer: ${subscription.stripeCustomerId}`);
+
+      // 2. 取得 customer 的所有付款方式
+      const customer = await this.stripe.customers.retrieve(subscription.stripeCustomerId, {
+        expand: ['invoice_settings.default_payment_method'],
+      });
+      
+      const existingDefaultPM = (customer as Stripe.Customer).invoice_settings?.default_payment_method;
+      let deletedPaymentMethods: string[] = [];
+      
+      if (typeof existingDefaultPM === 'object' && existingDefaultPM) {
+        const existingPM = existingDefaultPM as Stripe.PaymentMethod;
+        this.logger.log(`[Delete Payment Method] Current default payment method: ${existingPM.id}, card last4: ${existingPM.card?.last4 || 'N/A'}`);
+        
+        // 3. 刪除預設付款方式
+        try {
+          await this.stripe.paymentMethods.detach(existingPM.id);
+          deletedPaymentMethods.push(existingPM.id);
+          this.logger.log(`[Delete Payment Method] ✅ Deleted default payment method: ${existingPM.id}`);
+        } catch (error: any) {
+          this.logger.warn(`[Delete Payment Method] Failed to delete default payment method: ${error.message}`);
+        }
+      } else if (typeof existingDefaultPM === 'string') {
+        try {
+          await this.stripe.paymentMethods.detach(existingDefaultPM);
+          deletedPaymentMethods.push(existingDefaultPM);
+          this.logger.log(`[Delete Payment Method] ✅ Deleted default payment method: ${existingDefaultPM}`);
+        } catch (error: any) {
+          this.logger.warn(`[Delete Payment Method] Failed to delete default payment method: ${error.message}`);
+        }
+      }
+
+      // 4. 列出並刪除所有其他付款方式
+      const paymentMethods = await this.stripe.paymentMethods.list({
+        customer: subscription.stripeCustomerId,
+        type: 'card',
+      });
+
+      this.logger.log(`[Delete Payment Method] Found ${paymentMethods.data.length} payment method(s) for customer`);
+
+      for (const pm of paymentMethods.data) {
+        if (!deletedPaymentMethods.includes(pm.id)) {
+          try {
+            await this.stripe.paymentMethods.detach(pm.id);
+            deletedPaymentMethods.push(pm.id);
+            this.logger.log(`[Delete Payment Method] ✅ Deleted payment method: ${pm.id}`);
+          } catch (error: any) {
+            this.logger.warn(`[Delete Payment Method] Failed to delete payment method ${pm.id}: ${error.message}`);
+          }
+        }
+      }
+
+      // 5. 清除 customer 的預設付款方式設定
+      await this.stripe.customers.update(subscription.stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: undefined,
+        },
+      });
+      this.logger.log(`[Delete Payment Method] ✅ Cleared default payment method setting`);
+
+      // 6. 驗證刪除是否成功
+      const updatedCustomer = await this.stripe.customers.retrieve(subscription.stripeCustomerId, {
+        expand: ['invoice_settings.default_payment_method'],
+      });
+      
+      const newDefaultPM = (updatedCustomer as Stripe.Customer).invoice_settings?.default_payment_method;
+      const remainingPMs = await this.stripe.paymentMethods.list({
+        customer: subscription.stripeCustomerId,
+        type: 'card',
+      });
+
+      if (newDefaultPM === null && remainingPMs.data.length === 0) {
+        this.logger.log(`[Delete Payment Method] ✅ Verified: All payment methods deleted, no default payment method`);
+      } else {
+        this.logger.warn(`[Delete Payment Method] ⚠️ Warning: Still has ${remainingPMs.data.length} payment method(s) or default payment method: ${newDefaultPM}`);
+      }
+
+      return {
+        success: true,
+        customerId: subscription.stripeCustomerId,
+        subscriptionId: subscription.stripeSubscriptionId,
+        deletedPaymentMethods: deletedPaymentMethods,
+        message: 'All payment methods deleted. Next invoice payment will fail due to no payment method.',
+        note: 'When Stripe attempts to charge the subscription, it will fail because there is no payment method, and trigger invoice.payment_failed webhook.',
+      };
+    } catch (error) {
+      this.logger.error(`[Delete Payment Method] Error: ${error.message}`, error.stack);
       throw error;
     }
   }

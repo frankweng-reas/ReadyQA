@@ -402,3 +402,257 @@ if (result.url.includes(window.location.origin)) {
 ### 文檔
 - 完整文檔：`docs/SUBSCRIPTION.md`
 - 升級文檔：`docs/STRIPE-UPGRADE-PLAN.md`
+
+---
+
+## 11. 付款失敗處理流程
+
+### 觸發條件
+- Stripe 嘗試從用戶的付款方式扣款時失敗
+- 常見原因：
+  - 沒有付款方式（付款方式被刪除）
+  - 卡片被拒絕（餘額不足、卡片過期、銀行拒絕等）
+  - 付款方式無效
+
+### 處理流程
+
+#### 1. Stripe 發送 Webhook
+當付款失敗時，Stripe 會自動發送兩個 webhook：
+- `invoice.payment_failed` - 付款失敗事件
+- `customer.subscription.updated` - 訂閱狀態更新為 `past_due`
+
+#### 2. 處理 `invoice.payment_failed` Webhook
+```typescript
+async handleInvoicePaymentFailed(event: Stripe.InvoicePaymentFailedEvent) {
+  // 1. 從 invoice 取得 subscriptionId 和 paymentIntentId
+  const subscriptionId = invoice.subscription
+  const paymentIntentId = invoice.payment_intent
+  
+  // 2. 查找資料庫中的訂閱記錄
+  const subscription = await prisma.subscription.findUnique({
+    where: { stripeSubscriptionId: subscriptionId }
+  })
+  
+  // 3. 從 payment_intent.last_payment_error 取得失敗原因
+  const failureReason = paymentIntent.last_payment_error?.message || '付款失敗'
+  
+  // 4. 創建 Payment 記錄（status: 'failed'）
+  await prisma.payment.create({
+    data: {
+      tenantId: subscription.tenantId,
+      subscriptionId: subscription.id,
+      stripeInvoiceId: invoice.id,
+      stripePaymentIntentId: paymentIntentId,
+      amount: invoice.amount_due,
+      currency: invoice.currency,
+      status: 'failed',
+      failureReason: failureReason,
+      failedAt: new Date(),
+      // ...
+    }
+  })
+}
+```
+
+**重要**：
+- ✅ 只創建 Payment 記錄（status: 'failed'）
+- ❌ **不更新訂閱狀態**（由 `customer.subscription.updated` 處理）
+
+#### 3. 處理 `customer.subscription.updated` Webhook
+```typescript
+async handleSubscriptionUpdated(event: Stripe.CustomerSubscriptionUpdatedEvent) {
+  const subscription = event.data.object
+  
+  // Stripe 自動將訂閱狀態更新為 'past_due'
+  if (subscription.status === 'past_due') {
+    // 更新資料庫中的訂閱狀態
+    await prisma.subscription.update({
+      where: { stripeSubscriptionId: subscription.id },
+      data: { status: 'past_due' }
+    })
+  }
+}
+```
+
+**結果**：
+- ✅ Subscription 狀態更新為 `past_due`
+- ✅ Payment 記錄創建（status: 'failed'）
+- ✅ Dashboard 顯示付款失敗警告橫幅
+
+### 前端顯示
+
+#### PaymentFailedBanner 組件
+- **位置**：`apps/frontend/src/components/dashboard/PaymentFailedBanner.tsx`
+- **顯示條件**：訂閱狀態為 `past_due` 且有失敗的 Payment 記錄
+- **功能**：
+  - 顯示失敗金額、失敗時間、失敗原因
+  - 顯示下次重試時間（如果有）
+  - 「更新付款方式」按鈕 → 導向 Stripe Billing Portal
+  - 「查看詳情」按鈕 → 顯示詳細失敗資訊
+
+### 恢復流程（付款成功）
+
+#### 1. 用戶更新付款方式
+- 點擊 Dashboard 的「更新付款方式」按鈕
+- 導向 Stripe Billing Portal
+- 在 Stripe 中添加/更新付款方式
+
+#### 2. Stripe 自動重試
+- Stripe 會自動使用新的付款方式重試扣款
+- 如果成功，發送 `invoice.payment_succeeded` webhook
+
+#### 3. 處理 `invoice.payment_succeeded` Webhook
+```typescript
+async handleInvoicePaymentSucceeded(event: Stripe.InvoicePaymentSucceededEvent) {
+  const invoice = event.data.object
+  const paymentIntentId = invoice.payment_intent
+  
+  // 1. 檢查是否存在失敗的 Payment 記錄（相同 paymentIntentId）
+  const existingPayment = await prisma.payment.findFirst({
+    where: {
+      stripePaymentIntentId: paymentIntentId,
+      status: 'failed'
+    }
+  })
+  
+  if (existingPayment) {
+    // 2. 更新失敗記錄為成功
+    await prisma.payment.update({
+      where: { id: existingPayment.id },
+      data: {
+        status: 'succeeded',
+        paidAt: new Date(),
+        failureReason: null
+      }
+    })
+  } else {
+    // 3. 如果沒有失敗記錄，創建新的成功記錄
+    await prisma.payment.create({
+      data: {
+        status: 'succeeded',
+        paidAt: new Date(),
+        // ...
+      }
+    })
+  }
+  
+  // 4. 如果是 subscription_cycle，更新 planCode
+  if (invoice.billing_reason === 'subscription_cycle') {
+    // 更新 Subscription 和 Tenant 的 planCode
+  }
+}
+```
+
+**結果**：
+- ✅ Payment 記錄更新為 `succeeded`（或創建新的成功記錄）
+- ✅ Subscription 狀態由 `customer.subscription.updated` 更新為 `active`
+- ✅ Dashboard 付款失敗警告橫幅消失
+
+### 測試流程
+
+在測試頁面 (`/zh-TW/test`) 的「付款失敗測試」tab：
+
+1. **步驟 ① - 清除測試資料**
+   - 點擊右上角「清除測試資料」重置環境
+
+2. **步驟 ② - 創建 Test Clock 訂閱**
+   - 點擊「⏰ Starter $10」創建 Test Clock 訂閱
+
+3. **步驟 ③ - 模擬付款失敗**
+   - 點擊「💳 刪除付款方式」移除所有付款方式
+   - 這會刪除 Stripe Customer 的所有付款方式，確保付款失敗
+
+4. **步驟 ④ - 快轉 Test Clock（觸發付款失敗）**
+   - 點擊「⏩ 快轉 +1 個月」觸發付款嘗試
+   - Stripe 會自動產生 invoice 並嘗試收款
+   - 因為沒有付款方式會失敗，並發送 `invoice.payment_failed` webhook
+
+5. **查看結果**
+   - 查看 Process Log 和下方資料，確認付款失敗
+   - 前往 Dashboard 查看付款失敗警告橫幅
+
+6. **恢復正常**
+   - 前往 Dashboard，透過「更新付款方式」按鈕
+   - 在 Stripe Billing Portal 中添加正確的付款方式
+   - Stripe 自動重試扣款，成功後恢復正常
+
+### 特點
+- ✅ **自動處理**：Stripe 自動發送 webhook，系統自動更新狀態
+- ✅ **狀態同步**：訂閱狀態由 `customer.subscription.updated` 統一管理
+- ✅ **記錄完整**：Payment 記錄完整記錄失敗和成功狀態
+- ✅ **用戶友好**：Dashboard 顯示清晰的警告和恢復指引
+- ✅ **自動重試**：Stripe 會自動重試失敗的付款（根據設定）
+
+### 相關 API 端點
+
+#### 取得付款失敗資訊
+```
+GET /api/stripe/payment-failed-info
+Authorization: Bearer {token}
+```
+
+**回應**：
+```json
+{
+  "success": true,
+  "data": {
+    "hasFailedPayment": true,
+    "subscriptionStatus": "past_due",
+    "failedInvoices": [
+      {
+        "invoiceId": "in_xxx",
+        "amount": 1000,
+        "currency": "usd",
+        "failedAt": "2026-02-10T10:00:00Z",
+        "reason": "沒有付款方式",
+        "nextRetryAt": "2026-02-12T10:00:00Z"
+      }
+    ],
+    "canRetry": true
+  }
+}
+```
+
+#### 建立 Billing Portal Session
+```
+POST /api/stripe/create-billing-portal-session
+Authorization: Bearer {token}
+```
+
+**功能**：建立 Stripe Billing Portal session，返回 URL 供用戶更新付款方式
+
+**回應**：
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://billing.stripe.com/session/xxx"
+  }
+}
+```
+
+### Webhook 事件
+
+#### 付款失敗
+- `invoice.payment_failed` - 付款失敗，創建 Payment 記錄（status: 'failed'）
+- `customer.subscription.updated` - 訂閱狀態更新為 `past_due`
+
+#### 付款成功（恢復）
+- `invoice.payment_succeeded` - 付款成功，更新或創建 Payment 記錄（status: 'succeeded'）
+- `customer.subscription.updated` - 訂閱狀態更新為 `active`
+
+### 程式碼位置
+
+#### 後端
+- Webhook 處理：`apps/backend/src/stripe/stripe.service.ts`
+  - `handleInvoicePaymentFailed()` - 處理付款失敗
+  - `handleInvoicePaymentSucceeded()` - 處理付款成功（恢復）
+  - `handleSubscriptionUpdated()` - 處理訂閱狀態更新
+- Controller：`apps/backend/src/stripe/stripe.controller.ts`
+  - `getPaymentFailedInfo()` - 取得付款失敗資訊
+  - `createBillingPortalSession()` - 建立 Billing Portal session
+
+#### 前端
+- Banner 組件：`apps/frontend/src/components/dashboard/PaymentFailedBanner.tsx`
+- Dashboard：`apps/frontend/src/app/[locale]/dashboard/page.tsx`
+- 測試頁面：`apps/frontend/src/app/[locale]/test/page.tsx`（付款失敗測試 tab）

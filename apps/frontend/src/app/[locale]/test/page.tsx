@@ -722,6 +722,108 @@ export default function TestPage() {
     }
   }
 
+  const handleUpdateToFailedCard = async () => {
+    if (isProcessing) return
+
+    if (!confirm('確定要刪除訂閱的所有付款方式嗎？\n\n這將會：\n1. 刪除 Stripe Customer 的所有付款方式\n2. 清除預設付款方式設定\n3. 快轉 Test Clock 時，Stripe 嘗試收款會因為沒有付款方式而失敗\n4. Stripe 會自動發送 invoice.payment_failed webhook\n\n請確保有 active 訂閱。')) {
+      return
+    }
+
+    setIsProcessing(true)
+    setProcessLog([])
+    sessionStorage.removeItem('testPageProcessLog')
+
+    const addLog = (msg: string) => {
+      console.log(msg)
+      setProcessLog(prev => {
+        const newLogs = [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]
+        sessionStorage.setItem('testPageProcessLog', JSON.stringify(newLogs))
+        return newLogs
+      })
+    }
+
+    try {
+      addLog(`💳 開始刪除所有付款方式`)
+
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        addLog('❌ 未找到登入憑證')
+        setIsProcessing(false)
+        return
+      }
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+      const url = `${API_URL}/stripe/test/update-to-failed-card`
+
+      addLog(`📡 調用 API: ${url}`)
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      addLog(`📥 收到回應: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        let errorText = ''
+        try {
+          const errorJson = await response.json()
+          errorText = errorJson.message || JSON.stringify(errorJson)
+        } catch {
+          errorText = await response.text()
+        }
+        addLog(`❌ API 錯誤 (${response.status}): ${errorText}`)
+        setIsProcessing(false)
+        return
+      }
+
+      const result = await response.json()
+      addLog(`📦 結果: success=${result.success}`)
+      
+      if (result.success) {
+        addLog(`✓ ${result.message}`)
+        if (result.data?.customerId) {
+          addLog(`📌 Customer ID: ${result.data.customerId}`)
+        }
+        if (result.data?.subscriptionId) {
+          addLog(`📌 Subscription ID: ${result.data.subscriptionId}`)
+        }
+        if (result.data?.deletedPaymentMethods && result.data.deletedPaymentMethods.length > 0) {
+          addLog(`🗑️ 已刪除 ${result.data.deletedPaymentMethods.length} 個付款方式`)
+          result.data.deletedPaymentMethods.forEach((pmId: string) => {
+            addLog(`   - ${pmId}`)
+          })
+        }
+        if (result.data?.note) {
+          addLog(`ℹ️ 說明: ${result.data.note}`)
+        }
+        addLog('✅ 所有付款方式已刪除')
+        addLog('⏰ 現在快轉 Test Clock，Stripe 嘗試收款時會因為沒有付款方式而失敗')
+        addLog('📡 Stripe 會自動發送 invoice.payment_failed webhook')
+        
+        setTimeout(async () => {
+          await loadData()
+          addLog('✓ 資料載入完成')
+          setIsProcessing(false)
+        }, 1000)
+      } else {
+        addLog(`❌ 失敗: ${result.message || '未知錯誤'}`)
+        setIsProcessing(false)
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || '未知錯誤'
+      addLog(`❌ 例外錯誤: ${errorMsg}`)
+      console.error('[TestPage] Update to failed card error:', err)
+      setIsProcessing(false)
+    }
+  }
+
   const handleGetFailedInvoices = async () => {
     if (isProcessing) return
 
@@ -1076,31 +1178,90 @@ export default function TestPage() {
                   )}
                   {activeSubscriptionTab === 'payment-failed' && (
                     <div>
-                      <div className="mb-4 rounded-lg bg-red-50 p-4 border border-yellow-200">
-                        <p className="text-lg text-red-900">
-                          📋 <strong>{t('subscription.paymentFailed.testSteps')}</strong>：
-                          <ul className="mt-2 ml-4 list-disc">
-                            <li>確保有 active 訂閱</li>
-                            <li>點擊「觸發付款失敗 (模擬)」按鈕</li>
-                            <li>查看 Process Log，確認執行結果</li>
-                            <li>點擊「重新載入」查看更新後的資料</li>
-                            <li>前往 Dashboard 查看付款失敗警告橫幅</li>
-                          </ul>
+                      <div className="mb-6">
+                        <h3 className="mb-3 text-lg font-semibold text-gray-900">步驟 ① - 清除測試資料：</h3>
+                        <p className="text-base text-gray-600">
+                          💡 點擊右上角「清除測試資料」按鈕，清除所有測試訂閱、付款記錄，並重置為 Free 方案
                         </p>
                       </div>
-                      <div className="space-y-3">
-                        <button
-                          onClick={handleTestPaymentFailed}
-                          disabled={isProcessing || !data?.subscriptions.some(sub => sub.status === 'active' || sub.status === 'trialing')}
-                          className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isProcessing ? t('subscription.processing') : `⚠️ ${t('subscription.paymentFailed.triggerPaymentFailed')}`}
-                        </button>
+
+                      <div className="mb-6">
+                        <h3 className="mb-3 text-lg font-semibold text-gray-900">步驟 ② - 創建 Test Clock 訂閱：</h3>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => handleCreateTestClockSubscription('starter')}
+                            disabled={isProcessing}
+                            className="rounded-lg bg-purple-600 px-6 py-3 text-lg font-semibold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isProcessing ? t('subscription.processing') : '⏰ Starter $10'}
+                          </button>
+                          <button
+                            onClick={() => handleCreateTestClockSubscription('pro')}
+                            disabled={isProcessing}
+                            className="rounded-lg bg-purple-600 px-6 py-3 text-lg font-semibold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isProcessing ? t('subscription.processing') : '⏰ Pro $30'}
+                          </button>
+                          <button
+                            onClick={() => handleCreateTestClockSubscription('enterprise')}
+                            disabled={isProcessing}
+                            className="rounded-lg bg-purple-600 px-6 py-3 text-lg font-semibold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isProcessing ? t('subscription.processing') : '⏰ Enterprise $100'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="mb-3 text-lg font-semibold text-gray-900">步驟 ③ - 模擬付款失敗：</h3>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={handleUpdateToFailedCard}
+                            disabled={isProcessing || !data?.subscriptions.some(sub => sub.status === 'active' || sub.status === 'trialing')}
+                            className="rounded-lg bg-orange-600 px-6 py-3 text-lg font-semibold text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isProcessing ? t('subscription.processing') : `💳 ${t('subscription.paymentFailed.updateToFailedCard')}`}
+                          </button>
+                        </div>
+                        <p className="mt-2 text-base text-gray-600">
+                          💡 刪除所有付款方式，讓 Stripe 嘗試收款時因沒有付款方式而失敗
+                        </p>
                         {!data?.subscriptions.some(sub => sub.status === 'active' || sub.status === 'trialing') && (
-                          <p className="text-base text-gray-500">
-                            ℹ️ {t('subscription.paymentFailed.noActiveSubscription')}
+                          <p className="mt-2 text-base text-yellow-600">
+                            ⚠️ {t('subscription.paymentFailed.noActiveSubscription')}
                           </p>
                         )}
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="mb-3 text-lg font-semibold text-gray-900">步驟 ④ - 快轉 Test Clock（觸發付款失敗）：</h3>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => handleAdvanceTestClock(1)}
+                            disabled={isProcessing}
+                            className="rounded-lg bg-indigo-600 px-6 py-3 text-lg font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isProcessing ? t('subscription.processing') : '⏩ 快轉 +1 個月'}
+                          </button>
+                        </div>
+                        <p className="mt-2 text-base text-gray-600">
+                          💡 快轉後，Stripe 會自動產生 invoice 並嘗試收款，因為沒有付款方式會失敗，並發送 invoice.payment_failed webhook
+                        </p>
+                      </div>
+
+                      <div className="mb-6 rounded-lg bg-blue-50 p-4 border border-blue-200">
+                        <p className="text-base text-blue-900">
+                          <strong>📋 測試流程說明：</strong>
+                          <ol className="mt-2 ml-4 list-decimal space-y-1">
+                            <li>點擊右上角「清除測試資料」重置環境</li>
+                            <li>點擊「⏰ Starter $10」創建 Test Clock 訂閱</li>
+                            <li>點擊「💳 刪除付款方式」移除所有付款方式</li>
+                            <li>點擊「⏩ 快轉 +1 個月」觸發付款嘗試</li>
+                            <li>查看 Process Log 和下方資料，確認付款失敗</li>
+                            <li>前往 Dashboard 查看付款失敗警告橫幅</li>
+                            <li>前往 Dashboard，透過「更新付款方式」付款，恢復正常</li>
+                          </ol>
+                        </p>
                       </div>
                     </div>
                   )}

@@ -200,9 +200,9 @@ export default function PlansPage() {
                 {/* Price */}
                 <div className="mb-6 text-center">
                   <div className="text-4xl font-bold text-gray-900">
-                    ${plan.priceTwdMonthly.toLocaleString()}
+                    ${plan.priceUsdMonthly.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="mt-1 text-base text-gray-600">{t('perMonth')}</div>
+                  <div className="mt-1 text-base text-gray-600">USD {t('perMonth')}</div>
                 </div>
 
                 {/* Features */}
