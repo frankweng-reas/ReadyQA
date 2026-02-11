@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "EasyFAQ",
+    "appName": "ReadyQA",
     "loading": "Loading...",
     "error": "Error occurred",
     "success": "Success",
@@ -187,8 +187,57 @@
     }
   },
   "auth": {
+    "login": {
+      "title": "Sign In",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign In",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign Up",
+      "emailPlaceholder": "Enter your email",
+      "passwordPlaceholder": "Enter your password",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password",
+      "loginFailed": "Sign in failed, please check your credentials",
+      "loginError": "An error occurred during sign in, please try again later",
+      "testAccountInfo": "Test Account",
+      "testAccountEmail": "email: test01@test.com",
+      "testAccountPassword": "password: 123456",
+      "googleSignIn": "Sign in with Google",
+      "or": "or",
+      "continueWithGoogle": "Continue with Google"
+    },
+    "signup": {
+      "title": "Sign Up",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Sign Up",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign In",
+      "namePlaceholder": "Enter your name",
+      "emailPlaceholder": "Enter your email",
+      "passwordPlaceholder": "Enter your password",
+      "confirmPasswordPlaceholder": "Enter your password again",
+      "nameRequired": "Please enter your name",
+      "emailRequired": "Please enter your email",
+      "passwordRequired": "Please enter your password",
+      "confirmPasswordRequired": "Please enter confirm password",
+      "passwordMismatch": "Passwords do not match",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "signupFailed": "Sign up failed, please check your input",
+      "signupError": "An error occurred during sign up, please try again later",
+      "signupSuccess": "Sign up successful!",
+      "emailConfirmMessage": "We've sent a confirmation email to your inbox. Please check and click the confirmation link to activate your account.",
+      "googleSignIn": "Sign up with Google",
+      "or": "or",
+      "continueWithGoogle": "Continue with Google"
+    },
     "logout": "Logout",
-    "logoutDesc": "Sign out of your account"
+    "logoutDesc": "Sign out of your account",
+    "signOut": "Logout"
   },
   "errors": {
     "quotaExceeded": "Monthly query limit reached, please upgrade your plan",

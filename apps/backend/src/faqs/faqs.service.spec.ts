@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FaqsService } from './faqs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
+import { QuotaService } from '../common/quota.service';
 import { generateEmbedding } from '../common/embedding.service';
 
 // Mock generateEmbedding
@@ -15,6 +16,7 @@ describe('FaqsService', () => {
   let service: FaqsService;
   let prismaService: any;
   let elasticsearchService: any;
+  let quotaService: any;
 
   const mockPrismaService = {
     faq: {
@@ -39,6 +41,10 @@ describe('FaqsService', () => {
     deleteFaq: jest.fn(),
   };
 
+  const mockQuotaService = {
+    checkCanCreateFaq: jest.fn().mockResolvedValue({ allowed: true, current_count: 0, max_count: null }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,12 +57,17 @@ describe('FaqsService', () => {
           provide: ElasticsearchService,
           useValue: mockElasticsearchService,
         },
+        {
+          provide: QuotaService,
+          useValue: mockQuotaService,
+        },
       ],
     }).compile();
 
     service = module.get<FaqsService>(FaqsService);
     prismaService = module.get(PrismaService);
     elasticsearchService = module.get(ElasticsearchService);
+    quotaService = module.get(QuotaService);
 
     jest.clearAllMocks();
   });
@@ -478,12 +489,51 @@ describe('FaqsService', () => {
       // Mock client 通過反射設置（因為是 private）
       (elasticsearchService as any).client = mockElasticsearchClient;
       mockElasticsearchClient.indices.exists.mockResolvedValue(true);
+      // 預設配額檢查通過（quota 相關測試會覆寫）
+      quotaService.checkCanCreateFaq.mockResolvedValue({
+        allowed: true,
+        current_count: 0,
+        max_count: null,
+      });
     });
 
     it('❌ 應該拒絕空的 FAQ 列表', async () => {
       await expect(
         service.bulkUpload({ chatbotId: 'chatbot-1', faqs: [] }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('❌ 應該拒絕配額已滿的批量上傳', async () => {
+      prismaService.faq.findMany.mockResolvedValue([]);
+      quotaService.checkCanCreateFaq.mockResolvedValue({
+        allowed: false,
+        reason: '已達到 FAQ 總數限制（50 個），請升級方案',
+        current_count: 50,
+        max_count: 50,
+      });
+
+      await expect(service.bulkUpload(bulkDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.bulkUpload(bulkDto)).rejects.toThrow(
+        '已達到 FAQ 總數限制（50 個），請升級方案',
+      );
+    });
+
+    it('❌ 應該拒絕本次新增會超過配額的批量上傳', async () => {
+      prismaService.faq.findMany.mockResolvedValue([]);
+      quotaService.checkCanCreateFaq.mockResolvedValue({
+        allowed: true,
+        current_count: 49,
+        max_count: 50,
+      });
+
+      await expect(service.bulkUpload(bulkDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.bulkUpload(bulkDto)).rejects.toThrow(
+        /本次將新增 2 個 FAQ，將超過方案限制/,
+      );
     });
 
     it('✅ 應該成功批量上傳 FAQ', async () => {

@@ -11,6 +11,8 @@ interface AuthContextType {
   postgresUserId: number | null // 新增：PostgreSQL user_id
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
+  signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      console.log('[AuthProvider] Starting user mapping for:', user.email, 'UUID:', user.id)
       const userId = await getOrCreateUserId(
         user.id,
         user.email,
@@ -48,8 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPostgresUserId(userId)
       console.log('[AuthProvider] PostgreSQL user_id:', userId)
     } catch (error) {
-      console.error('[AuthProvider] 創建用戶記錄失敗:', error)
+      const errMsg = error instanceof Error ? error.message : String(error)
+      console.error('[AuthProvider] 創建用戶記錄失敗:', errMsg, error)
       setPostgresUserId(null)
+      // 顯示具體錯誤以利診斷（網路錯誤、API 失敗、後端未啟動等）
+      alert(`無法建立用戶資料：${errMsg}\n\n請確認後端已啟動，或重新整理頁面後重試。`)
     }
   }
 
@@ -113,6 +119,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const signUp = async (email: string, password: string, name?: string) => {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name || email.split('@')[0],
+          },
+        },
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('註冊失敗'),
+      }
+    }
+  }
+
+  const signInWithGoogle = async () => {
+    try {
+      if (typeof window === 'undefined') {
+        return { error: new Error('Google 登入只能在客戶端執行') }
+      }
+
+      // 從當前 URL 獲取 locale（格式：/zh-TW/login 或 /en/signup）
+      const pathParts = window.location.pathname.split('/').filter(Boolean)
+      const locale = pathParts[0] || 'zh-TW'
+      const redirectTo = `${window.location.origin}/${locale}/auth/callback`
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+        },
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('Google 登入失敗'),
+      }
+    }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
     setPostgresUserId(null)
@@ -125,6 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     postgresUserId,
     loading,
     signIn,
+    signUp,
+    signInWithGoogle,
     signOut,
   }
 

@@ -23,6 +23,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  // 0.5. 排除 auth callback 路由，直接通過（不做任何認證檢查）
+  if (pathname.includes('/auth/callback')) {
+    return NextResponse.next();
+  }
+
+  // 0.6. 排除靜態資源（圖片等），讓 Next.js 直接從 public 提供
+  if (/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(pathname)) {
+    return NextResponse.next();
+  }
+
   // 1. 處理靜態 HTML 文件
   // 如果路徑包含 .html，移除語言前綴並重寫到實際的靜態文件路徑
   if (pathname.includes('.html')) {
@@ -84,8 +94,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 8. 已登入訪問登入頁 -> 導向 dashboard
-  if (pathname.includes('/login') && session) {
+  // 8. 已登入訪問登入頁或註冊頁 -> 導向 dashboard
+  if ((pathname.includes('/login') || pathname.includes('/signup')) && session) {
     const redirectUrl = request.nextUrl.searchParams.get('redirect');
     return NextResponse.redirect(
       new URL(redirectUrl || `/${locale}/dashboard`, request.url)

@@ -80,11 +80,11 @@ export default function DashboardPage() {
 
   // 載入 chatbots
   useEffect(() => {
-    if (user) {
-      console.log('[Dashboard] User logged in, loading chatbots...')
+    if (user && postgresUserId) {
+      console.log('[Dashboard] User logged in, loading chatbots for userId:', postgresUserId)
       loadChatbots()
     }
-  }, [user])
+  }, [user, postgresUserId])
 
   const loadUserProfile = async () => {
     try {
@@ -103,7 +103,15 @@ export default function DashboardPage() {
     try {
       console.log('[Dashboard] Loading chatbots...')
       setIsLoading(true)
-      const data = await chatbotApi.getAll()
+      
+      // 傳入 postgresUserId 以只載入該用戶的 chatbots
+      if (!postgresUserId) {
+        console.log('[Dashboard] No postgresUserId, skipping chatbots load')
+        setIsLoading(false)
+        return
+      }
+      
+      const data = await chatbotApi.getAll(postgresUserId)
       console.log('[Dashboard] Chatbots loaded:', data.length)
       // 後端已經按照 updatedAt 降序排序，直接使用
       setChatbots(data)

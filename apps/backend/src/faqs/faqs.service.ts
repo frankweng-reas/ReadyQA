@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
+import { QuotaService } from '../common/quota.service';
 import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto, BulkUploadFaqItemDto } from './dto/faq.dto';
 import { generateEmbedding } from '../common/embedding.service';
 
@@ -39,6 +40,7 @@ export class FaqsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly elasticsearchService: ElasticsearchService,
+    private readonly quotaService: QuotaService,
   ) {}
 
   async create(createDto: CreateFaqDto) {
@@ -402,6 +404,20 @@ export class FaqsService {
     }
 
     this.logger.log(`[Bulk Upload] 過濾後，需要處理 ${faqsToProcess.length} 個新 FAQ`);
+
+    // 檢查 FAQ 總量配額（tenant 總量，與單筆建立一致）
+    const quotaCheck = await this.quotaService.checkCanCreateFaq(dto.chatbotId);
+    if (!quotaCheck.allowed) {
+      throw new BadRequestException(quotaCheck.reason);
+    }
+    if (
+      quotaCheck.max_count !== null &&
+      quotaCheck.current_count + faqsToProcess.length > quotaCheck.max_count
+    ) {
+      throw new BadRequestException(
+        `本次將新增 ${faqsToProcess.length} 個 FAQ，將超過方案限制（目前 ${quotaCheck.current_count}/${quotaCheck.max_count}），請升級方案`,
+      );
+    }
 
     // 步驟 1: 並行生成 Embedding
     const embeddingPromises = faqsToProcess.map(async (faq) => {

@@ -29,18 +29,20 @@ export async function getOrCreateUserId(
       }),
     })
 
+    const result = await response.json().catch(() => null)
+
     if (!response.ok) {
-      throw new Error(`API 請求失敗: ${response.status}`)
+      const msg = result?.message || result?.error || `API 請求失敗: ${response.status}`
+      throw new Error(msg)
     }
 
-    const result: GetOrCreateUserResponse = await response.json()
-
-    if (!result.success) {
-      throw new Error(result.message || '獲取用戶 ID 失敗')
+    const typedResult = result as GetOrCreateUserResponse
+    if (!typedResult?.success) {
+      throw new Error(typedResult?.message || '獲取用戶 ID 失敗')
     }
 
     // 檢查是否發生了帳號合併
-    const isMerged = result.message.includes('已更新') || result.message.includes('智能合併') || result.message.includes('保留')
+    const isMerged = typedResult.message?.includes('已更新') || typedResult.message?.includes('智能合併') || typedResult.message?.includes('保留')
 
     if (isMerged && !result.created) {
       // 帳號已合併，在 sessionStorage 中標記
@@ -50,13 +52,13 @@ export async function getOrCreateUserId(
       }
     }
 
-    console.log(`[User Mapping] ✅ Supabase UUID: ${supabaseUserId} -> PostgreSQL user_id: ${result.userId} (${result.created ? '新建' : '已存在'})`)
+    console.log(`[User Mapping] ✅ Supabase UUID: ${supabaseUserId} -> PostgreSQL user_id: ${typedResult.userId} (${typedResult.created ? '新建' : '已存在'})`)
     
     if (isMerged) {
-      console.log(`[User Mapping] 🔄 帳號已合併: ${result.message}`)
+      console.log(`[User Mapping] 🔄 帳號已合併: ${typedResult.message}`)
     }
 
-    return result.userId
+    return typedResult.userId
   } catch (error) {
     console.error('[User Mapping] ❌ 獲取用戶 ID 失敗:', error)
     throw error

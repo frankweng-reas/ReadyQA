@@ -7,22 +7,24 @@ import { useTranslations } from 'next-intl'
 import { useAuth } from '@/lib/auth/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Modal from '@/components/ui/Modal'
 
 /**
- * 登入頁面 - 支援多語言
+ * 註冊頁面 - 支援多語言
  */
-export default function LoginPage() {
-  const t = useTranslations('auth.login')
+export default function SignupPage() {
+  const t = useTranslations('auth.signup')
   const tCommon = useTranslations('common')
   const params = useParams()
   const locale = params.locale as string
   
-  // 測試帳號：自動填入方便測試
-  const [email, setEmail] = useState('test01@test.com')
-  const [password, setPassword] = useState('123456')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
   const router = useRouter()
 
   const handleGoogleSignIn = async () => {
@@ -32,12 +34,12 @@ export default function LoginPage() {
     try {
       const { error: googleError } = await signInWithGoogle()
       if (googleError) {
-        setError(googleError.message || t('loginError'))
+        setError(googleError.message || t('signupError'))
         setIsLoading(false)
       }
       // Google OAuth 會自動跳轉，不需要手動處理
     } catch (err) {
-      setError(t('loginError'))
+      setError(t('signupError'))
       setIsLoading(false)
     }
   }
@@ -47,26 +49,49 @@ export default function LoginPage() {
     setError(null)
     setIsLoading(true)
 
-    if (!email || !password) {
+    // 驗證
+    if (!email || !password || !confirmPassword) {
       setError(t('emailRequired'))
       setIsLoading(false)
       return
     }
 
-    try {
-      const { error: signInError } = await signIn(email, password)
+    if (password.length < 6) {
+      setError(t('passwordTooShort'))
+      setIsLoading(false)
+      return
+    }
 
-      if (signInError) {
-        setError(signInError.message || t('loginFailed'))
+    if (password !== confirmPassword) {
+      setError(t('passwordMismatch'))
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const { error: signUpError } = await signUp(email, password)
+
+      if (signUpError) {
+        setError(signUpError.message || t('signupFailed'))
         setIsLoading(false)
       } else {
-        // 登入成功，手動跳轉到 dashboard
-        router.push(`/${locale}/dashboard`)
+        // 註冊成功，顯示成功彈窗
+        setIsLoading(false)
+        setShowSuccessModal(true)
+        // 清空表單
+        setEmail('')
+        setPassword('')
+        setConfirmPassword('')
       }
     } catch (err) {
-      setError(t('loginError'))
+      setError(t('signupError'))
       setIsLoading(false)
     }
+  }
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false)
+    router.push(`/${locale}/login`)
   }
 
   return (
@@ -89,7 +114,7 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* 登入表單卡片 */}
+        {/* 註冊表單卡片 */}
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           {/* 錯誤訊息 */}
           {error && (
@@ -176,7 +201,18 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('passwordPlaceholder')}
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
+              disabled={isLoading}
+            />
+
+            <Input
+              label={t('confirmPassword')}
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t('confirmPasswordPlaceholder')}
+              required
+              autoComplete="new-password"
               disabled={isLoading}
             />
 
@@ -191,20 +227,77 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* 註冊連結 */}
+          {/* 登入連結 */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              {t('noAccount')}{' '}
+              {t('hasAccount')}{' '}
               <Link
-                href={`/${locale}/signup`}
+                href={`/${locale}/login`}
                 className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
               >
-                {t('signUp')}
+                {t('signIn')}
               </Link>
             </p>
           </div>
         </div>
       </div>
+
+      {/* 成功彈窗 */}
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={handleCloseSuccessModal}
+        title={t('signupSuccess')}
+        maxWidth="md"
+        icon={
+          <svg
+            className="w-6 h-6 text-green-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        }
+        footer={
+          <div className="flex justify-end">
+            <Button
+              onClick={handleCloseSuccessModal}
+              variant="primary"
+              size="lg"
+            >
+              {t('signIn')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="text-center py-4">
+          <div className="mb-4 flex justify-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+          </div>
+          <p className="text-gray-700 text-lg leading-relaxed">
+            {t('emailConfirmMessage')}
+          </p>
+        </div>
+      </Modal>
     </div>
   )
 }

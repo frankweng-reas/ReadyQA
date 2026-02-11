@@ -19,24 +19,21 @@ QAPlus 使用雙層保護機制來保障系統穩定性和商業公平性：
 
 ### Rate Limiting（速率限制）
 
-| API 端點 | 限制 | 說明 |
-|---------|------|------|
-| **`POST /api/query/chat`** | 10 次/分鐘 | AI 對話查詢（成本高） |
-| **`POST /api/query/log-faq-action`** | 無限制 | FAQ 操作記錄（輕量） |
-| **`POST /api/query/log-faq-browse`** | 30 次/分鐘 | FAQ 瀏覽記錄 |
-| **`POST /api/sessions/init`** | 20 次/分鐘 | Session 初始化 |
+- **`POST /api/query/chat`**：10 次/分鐘（AI 對話查詢，成本高）
+- **`POST /api/query/log-faq-action`**：使用全局預設 60 次/分鐘（FAQ 操作記錄，輕量，無自訂限制）
+- **`POST /api/query/log-faq-browse`**：30 次/分鐘（FAQ 瀏覽記錄）
+- **`POST /api/sessions/init`**：20 次/分鐘（Session 初始化）
 
 ### Quota（配額限制）
 
-| 項目 | 限制來源 | 說明 |
-|------|---------|------|
-| **Chatbot 數量** | `Plan.maxChatbots` | 租戶可創建的最大 chatbot 數量，`NULL` = 無限制 |
-| **FAQ 數量** | `Plan.maxFaqsPerBot` | 每個 chatbot 的最大 FAQ 數量（只計算 active 狀態），`NULL` = 無限制 |
-| **每月 AI 查詢次數** | `Plan.maxQueriesPerMo` | 每月總查詢次數，`NULL` = 無限制 |
+- **Chatbot 數量**：`Plan.maxChatbots`，租戶可創建的最大 chatbot 數量，`NULL` = 無限制
+- **FAQ 數量**：`Plan.maxFaqsPerBot`，tenant 的 FAQ 總數限制（只計算 active 狀態），`NULL` = 無限制
+- **每月 AI 查詢次數**：`Plan.maxQueriesPerMo`，每月總查詢次數，`NULL` = 無限制
 
 **適用端點：**
 - `POST /api/chatbots` - 創建 Chatbot（檢查 `maxChatbots`）
 - `POST /api/faqs` - 創建 FAQ（檢查 `maxFaqsPerBot`）
+- `POST /api/faqs/bulk-upload` - 批量上傳 FAQ（檢查 `maxFaqsPerBot`）
 - `POST /api/query/chat` - AI 對話查詢（檢查 `maxQueriesPerMo`）
 - `POST /api/query/log-faq-browse` - FAQ 瀏覽（檢查 `maxQueriesPerMo`）
 
@@ -135,8 +132,8 @@ export class QuotaService {
    */
   async checkCanCreateFaq(chatbotId: string): Promise<QuotaCheckResult> {
     // 1. 獲取 chatbot 的 tenant 和 plan 資訊
-    // 2. 檢查 maxFaqsPerBot（NULL = 無限制）
-    // 3. 統計當前 FAQ 數量（只計算 active 狀態）
+    // 2. 檢查 maxFaqsPerBot（NULL = 無限制，此欄位代表整個 tenant 的 FAQ 總數限制）
+    // 3. 統計 tenant 的 FAQ 總數（只計算 active 狀態）
     // 4. 判斷是否超過限制
   }
 
@@ -154,7 +151,8 @@ export class QuotaService {
    * 獲取租戶本月的查詢次數（從 query_logs 統計）
    */
   async getMonthlyQueryCount(tenantId: string): Promise<number> {
-    // 統計本月的查詢次數（ignored = false）
+    // 若 tenant 無 chatbot，直接回傳 0
+    // 統計本月 1 日至今的查詢次數（ignored = false）
   }
 }
 ```
@@ -162,26 +160,25 @@ export class QuotaService {
 ### 資料庫 Schema
 
 **相關表：**
-- `Plan`：方案配置（`maxQueriesPerMo`）
+- `Plan`：方案配置（`maxChatbots`、`maxFaqsPerBot`、`maxQueriesPerMo`）
 - `Tenant`：租戶資訊（關聯到 `Plan`）
 - `Chatbot`：聊天機器人（關聯到 `Tenant`）
-- `QueryLog`：查詢日誌（記錄每次查詢，`ignored = false` 才計入配額）
+- `QueryLog`：查詢日誌（記錄每次查詢，欄位 `ignored = false` 才計入配額）
 
 ---
 
 ## 📊 對照 AnswerGO
 
-| 項目 | AnswerGO | QAPlus | 一致性 |
-|------|----------|--------|--------|
-| **Rate Limiting** | | | |
-| AI 對話 | 10 次/分鐘 | 10 次/分鐘 | ✅ |
-| FAQ 操作 | 30 次/分鐘 | 無限制 | ⚠️ 更寬鬆 |
-| FAQ 瀏覽 | 30 次/分鐘 | 30 次/分鐘 | ✅ |
-| Session Init | 20 次/分鐘 | 20 次/分鐘 | ✅ |
-| **Quota** | | | |
-| 每月查詢配額 | ✅ 從 Plan 讀取 | ✅ 從 Plan 讀取 | ✅ |
-| Session 查詢限制 | ❌ 已移除 | ❌ 已移除 | ✅ |
-| **錯誤訊息** | 中文友好 | 中文友好 | ✅ |
+**Rate Limiting：**
+- AI 對話：AnswerGO 10 次/分鐘，QAPlus 10 次/分鐘（一致）
+- FAQ 操作：AnswerGO 30 次/分鐘，QAPlus 使用全局預設 60 次/分鐘（更寬鬆）
+- FAQ 瀏覽：AnswerGO 30 次/分鐘，QAPlus 30 次/分鐘（一致）
+- Session Init：AnswerGO 20 次/分鐘，QAPlus 20 次/分鐘（一致）
+
+**Quota：**
+- 每月查詢配額：兩者皆從 Plan 讀取（一致）
+- Session 查詢限制：兩者皆已移除（一致）
+- 錯誤訊息：兩者皆為中文友好（一致）
 
 ---
 
@@ -265,13 +262,14 @@ cd apps/backend
 **A:** 
 - 修改資料庫 `plans` 表的配額欄位：
   - `maxChatbots` - Chatbot 數量限制
-  - `maxFaqsPerBot` - 每個 Chatbot 的 FAQ 數量限制
+  - `maxFaqsPerBot` - tenant 的 FAQ 總數限制
   - `maxQueriesPerMo` - 每月查詢次數限制
 - `NULL` = 無限制
 - 不需要重啟服務，即時生效
 
 ### Q6: FAQ 數量如何計算？
 **A:** 
+- 統計整個 tenant 下所有 chatbot 的 FAQ 總數
 - 只計算 `status = 'active'` 的 FAQ
 - 已刪除或停用的 FAQ 不計入配額
 
@@ -295,7 +293,8 @@ cd apps/backend
 - ✅ 自定義中文錯誤訊息
 - ✅ 整合到 `/chatbots`, `/faqs`, `/query/chat`, `/query/log-faq-browse` 端點
 - ✅ Chatbot 數量限制（`maxChatbots`）
-- ✅ FAQ 數量限制（`maxFaqsPerBot`）
+- ✅ FAQ 數量限制（`maxFaqsPerBot`，tenant 總量）
+- ✅ 批量上傳 FAQ 配額檢查
 
 ### 待實作
 - ⏳ 後台監控 Dashboard
@@ -305,8 +304,6 @@ cd apps/backend
 - ⏳ 配額預警通知
   - 達到 80% 時發送通知
   - 達到 100% 時提示升級
-- ⏳ 批量上傳時的配額檢查
-  - 批量上傳 FAQ 時檢查是否超過 `maxFaqsPerBot`
 
 ---
 

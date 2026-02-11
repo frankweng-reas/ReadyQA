@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { QuotaService } from '../common/quota.service';
 import { GetOrCreateUserDto } from './dto/get-or-create-user.dto';
 
 describe('AuthService', () => {
@@ -25,6 +26,10 @@ describe('AuthService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockQuotaService = {
+    getMonthlyQueryCount: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -32,6 +37,10 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: QuotaService,
+          useValue: mockQuotaService,
         },
       ],
     }).compile();

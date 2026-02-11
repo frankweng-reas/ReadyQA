@@ -30,6 +30,19 @@ export class QuotaService {
     const startTime = Date.now();
 
     try {
+      // 先確認該 tenant 是否有 chatbot
+      const chatbotCount = await this.prisma.chatbot.count({
+        where: { tenantId },
+      });
+
+      // 若無 chatbot，直接回傳 0
+      if (chatbotCount === 0) {
+        this.logger.log(
+          `[QuotaService] ⏱️  getMonthlyQueryCount: tenant ${tenantId} 無 chatbot，回傳 0`,
+        );
+        return 0;
+      }
+
       // 統計本月的查詢次數（從本月 1 日 00:00:00 開始）
       const startOfMonth = new Date();
       startOfMonth.setDate(1);

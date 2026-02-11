@@ -87,96 +87,17 @@ export class AuthService {
         },
       });
 
-      // 2. 統計整個 tenant 的 FAQ 總數（不分 bot，包含所有狀態）
-      // 先檢查是否有 chatbots
-      if (chatbotCount === 0) {
-        console.log(`[Auth Service] 📊 沒有 chatbots，FAQ 總數為 0`);
-        const totalFaqsCount = 0;
-        const monthlyQueryCount = await this.quotaService.getMonthlyQueryCount(tenantId);
-        
-        return {
-          ...user,
-          subscription,
-          quota: {
-            chatbots: {
-              current: 0,
-              max: user.tenant?.plan.maxChatbots ?? null,
-            },
-            faqsTotal: {
-              current: 0,
-              max: user.tenant?.plan.maxFaqsPerBot ?? null,
-            },
-            queriesMonthly: {
-              current: monthlyQueryCount,
-              max: user.tenant?.plan.maxQueriesPerMo ?? null,
-            },
-          },
-        };
-      }
-
-      // 先找出該 tenant 的所有 chatbots（用於 debug）
-      const chatbots = await this.prisma.chatbot.findMany({
-        where: { tenantId },
-        select: { id: true, name: true, tenantId: true },
-      });
-      console.log(`[Auth Service] 📊 找到 ${chatbots.length} 個 chatbots:`, chatbots.map(c => ({ id: c.id, name: c.name, tenantId: c.tenantId })));
-
-      // 使用關聯查詢統計 FAQ
-      const totalFaqsCount = await this.prisma.faq.count({
+      // 2. 統計整個 tenant 的 FAQ 總數（只計算 active 狀態，與 QuotaService 一致）
+      const faqsTotalCount = await this.prisma.faq.count({
         where: {
-          chatbot: {
-            tenantId,
-          },
+          chatbot: { tenantId },
+          status: 'active',
         },
+      }).catch((err) => {
+        console.warn(`[Auth Service] ⚠️ 統計 FAQ 失敗（可能 tenant 無 chatbot）: ${err.message}`);
+        return 0;
       });
-      console.log(`[Auth Service] 📊 FAQ 總數（關聯查詢）: ${totalFaqsCount}`);
-      
-      // 驗證：直接使用 chatbotIds 查詢（備用方法）
-      if (chatbots.length > 0) {
-        const chatbotIds = chatbots.map(c => c.id);
-        const totalFaqsCountDirect = await this.prisma.faq.count({
-          where: {
-            chatbotId: {
-              in: chatbotIds,
-            },
-          },
-        });
-        console.log(`[Auth Service] 📊 FAQ 總數（直接查詢）: ${totalFaqsCountDirect}`);
-        
-        // 如果兩種方法結果不同，使用直接查詢的結果
-        if (totalFaqsCount !== totalFaqsCountDirect) {
-          console.warn(`[Auth Service] ⚠️ 兩種查詢方法結果不一致！關聯查詢: ${totalFaqsCount}, 直接查詢: ${totalFaqsCountDirect}`);
-        }
-      }
-      
-      // 驗證：檢查特定 chatbot 的 FAQ 數量（用於 debug）
-      const testChatbotId = '1768886285765_k2ej9vnku';
-      const testFaqCount = await this.prisma.faq.count({
-        where: { chatbotId: testChatbotId },
-      });
-      const testChatbot = await this.prisma.chatbot.findUnique({
-        where: { id: testChatbotId },
-        select: { id: true, tenantId: true, name: true },
-      });
-      console.log(`[Auth Service] 🔍 Debug - Chatbot ${testChatbotId}:`, {
-        exists: !!testChatbot,
-        tenantId: testChatbot?.tenantId,
-        expectedTenantId: tenantId,
-        tenantIdMatch: testChatbot?.tenantId === tenantId,
-        name: testChatbot?.name,
-        faqCount: testFaqCount,
-      });
-      
-      // 使用直接查詢的結果（更可靠）
-      const finalFaqsCount = chatbots.length > 0
-        ? await this.prisma.faq.count({
-            where: {
-              chatbotId: {
-                in: chatbots.map(c => c.id),
-              },
-            },
-          })
-        : 0;
+      console.log(`[Auth Service] 📊 FAQ 總數（active）: ${faqsTotalCount}`);
 
       // 3. 取得本月查詢次數
       const monthlyQueryCount = await this.quotaService.getMonthlyQueryCount(tenantId);
@@ -191,7 +112,7 @@ export class AuthService {
             max: user.tenant?.plan.maxChatbots ?? null,
           },
           faqsTotal: {
-            current: finalFaqsCount,
+            current: faqsTotalCount,
             max: user.tenant?.plan.maxFaqsPerBot ?? null, // 此欄位現在代表整個 tenant 的 FAQ 總數限制
           },
           queriesMonthly: {
