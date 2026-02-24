@@ -110,9 +110,11 @@ export default function QACardEditor({
       console.log('[QACardEditor] 上傳回應:', result)
 
       if (result.success && result.data?.imageUrl) {
-        // 返回完整的圖片 URL
-        const imageBaseUrl = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl
-        const imageUrl = `${imageBaseUrl}${result.data.imageUrl}`
+        // 返回的 imageUrl 可能是完整 URL（GCS）或相對路徑 /uploads/...
+        const raw = result.data.imageUrl
+        const imageUrl = raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : `${baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl}${raw}`
         console.log('[QACardEditor] ✅ 圖片上傳成功:', imageUrl)
         return imageUrl
       } else {

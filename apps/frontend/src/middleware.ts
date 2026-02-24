@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.includes('.html')) {
     // 檢查是否是帶語言前綴的路徑，如 /zh-TW/faq-demo.html
     const pathParts = pathname.split('/').filter(Boolean);
-    if (pathParts.length === 2 && locales.includes(pathParts[0])) {
+    if (pathParts.length === 2 && (locales as readonly string[]).includes(pathParts[0])) {
       // 移除語言前綴，重寫到 /faq-demo.html
       const htmlFile = pathParts[1];
       const url = request.nextUrl.clone();
@@ -52,7 +52,18 @@ export async function middleware(request: NextRequest) {
   // 2. 先處理 i18n 路由
   const response = intlMiddleware(request);
 
-  // 3. 建立 Supabase 客戶端進行認證檢查
+  // 3. 僅在需要認證判斷的路徑才呼叫 Supabase（效能優化：跳過公開頁面）
+  const protectedRoutes = ['/dashboard', '/settings', '/profile'];
+  const authCheckRoutes = ['/login', '/signup'];
+  const isProtectedRoute = protectedRoutes.some((r) => pathname.includes(r));
+  const isAuthCheckRoute = authCheckRoutes.some((r) => pathname.includes(r));
+
+  if (!isProtectedRoute && !isAuthCheckRoute) {
+    // 公開頁面（chatbot 嵌入、plans 等）直接通過，不呼叫 getSession
+    return response;
+  }
+
+  // 4. 建立 Supabase 客戶端並檢查 session（僅受保護/登入頁才執行）
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -73,28 +84,20 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 4. 檢查用戶認證狀態
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // 5. 提取當前語言（從 pathname 中）
   const locale = pathname.split('/')[1] || defaultLocale;
 
-  // 6. 需要認證的路由
-  const protectedRoutes = ['/dashboard', '/settings', '/profile'];
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.includes(route)
-  );
-
-  // 7. 未登入訪問受保護路由 -> 導向登入頁
+  // 5. 未登入訪問受保護路由 -> 導向登入頁
   if (isProtectedRoute && !session) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 8. 已登入訪問登入頁或註冊頁 -> 導向 dashboard
+  // 6. 已登入訪問登入頁或註冊頁 -> 導向 dashboard
   if ((pathname.includes('/login') || pathname.includes('/signup')) && session) {
     const redirectUrl = request.nextUrl.searchParams.get('redirect');
     return NextResponse.redirect(

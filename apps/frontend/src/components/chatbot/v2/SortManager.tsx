@@ -303,42 +303,11 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
       const reorderedItems = arrayMove(items, oldIndex, newIndex);
 
       // 準備批量更新（只更新受影響的項目）
+      // 註：draggedItem.type 在此必為 'faq'（topic 已在上面 return，此處不處理 topic 排序）
       const topicUpdates: Array<{ id: string; sortOrder: number; oldSortOrder: number }> = [];
       const faqUpdates: Array<{ id: string; sortOrder: number; oldSortOrder: number }> = [];
 
-      if (draggedItem.type === 'topic') {
-        // 只更新 Topics：找出受影響的範圍
-        const topLevelTopics = reorderedItems.filter(item => item.type === 'topic');
-        const draggedTopic = draggedItem.data as Topic;
-        const oldTopicIndex = items
-          .filter(item => item.type === 'topic')
-          .findIndex(item => item.id === draggedItem.id);
-        const newTopicIndex = reorderedItems
-          .filter(item => item.type === 'topic')
-          .findIndex(item => item.id === draggedItem.id);
-
-        // 只更新受影響範圍內的 Topics（從 min 到 max）
-        const affectedRange = {
-          start: Math.min(oldTopicIndex, newTopicIndex),
-          end: Math.max(oldTopicIndex, newTopicIndex),
-        };
-
-        topLevelTopics.forEach((item, index) => {
-          const topic = item.data as Topic;
-          // 只更新受影響範圍內的項目，或 sortOrder 實際變化的項目
-          if (
-            index >= affectedRange.start &&
-            index <= affectedRange.end &&
-            topic.sortOrder !== index
-          ) {
-            topicUpdates.push({
-              id: topic.id,
-              sortOrder: index,
-              oldSortOrder: topic.sortOrder,
-            });
-          }
-        });
-      } else {
+      {
         // 只更新 FAQs：找出受影響的 Topic 組或未分類組
         const draggedFaq = draggedItem.data as FAQ;
         const draggedTopicId = draggedFaq.topicId || null;
@@ -407,7 +376,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
             faqUpdates.push({
               id: faq.id,
               sortOrder: index,
-              oldSortOrder: faq.sortOrder,
+              oldSortOrder: faq.sortOrder ?? 0,
             });
           }
         });

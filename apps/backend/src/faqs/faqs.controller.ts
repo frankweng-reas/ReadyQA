@@ -14,12 +14,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
+import * as fs from 'fs';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto, UpdateFaqDto, FaqQueryDto, BulkUploadFaqDto, BatchUpdateSortOrderDto } from './dto/faq.dto';
 import { QuotaService } from '../common/quota.service';
+import { StorageService } from '../storage/storage.service';
 
 /**
  * FAQ 管理 Controller
@@ -45,6 +47,7 @@ export class FaqsController {
   constructor(
     private readonly faqsService: FaqsService,
     private readonly quotaService: QuotaService,
+    private readonly storageService: StorageService,
   ) {}
 
   @Post()
@@ -155,41 +158,49 @@ export class FaqsController {
   @ApiResponse({ status: 400, description: '檔案格式或大小不符' })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/faq-images',
-        filename: (req, file, cb) => {
-          // 生成唯一檔名: faq-{timestamp}-{random}{ext}
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(2, 9);
-          const ext = extname(file.originalname);
-          cb(null, `faq-${timestamp}-${random}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        // 只允許圖片檔案
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(new BadRequestException('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'), false);
         }
         cb(null, true);
       },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('請上傳檔案');
     }
-
-    // 返回圖片 URL 路徑
-    const imagePath = `/uploads/faq-images/${file.filename}`;
-
+    const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from((file as any).buffer ?? []);
+    if (buffer.length === 0) {
+      throw new BadRequestException('檔案內容為空');
+    }
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 9);
+    const ext = extname(file.originalname);
+    const filename = `faq-${timestamp}-${random}${ext}`;
+    const dir = './uploads/faq-images';
+    let imageUrl: string;
+    if (this.storageService.isGcsEnabled()) {
+      try {
+        const objectName = `faq-images/${filename}`;
+        imageUrl = await this.storageService.uploadChatbotImage(buffer, objectName, file.mimetype);
+      } catch (e) {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(`${dir}/${filename}`, buffer);
+        imageUrl = `/uploads/faq-images/${filename}`;
+      }
+    } else {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${filename}`, buffer);
+      imageUrl = `/uploads/faq-images/${filename}`;
+    }
     return {
       success: true,
       data: {
-        imageUrl: imagePath,
-        filename: file.filename,
+        imageUrl,
+        filename,
       },
       message: '圖片上傳成功',
     };

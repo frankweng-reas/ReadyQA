@@ -25,7 +25,7 @@ import { StripeModule } from './stripe/stripe.module';
     // Environment configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['../../.env.local', '.env'],
+      envFilePath: ['.env'],
     }),
     // Rate limiting
     ThrottlerModule.forRoot({

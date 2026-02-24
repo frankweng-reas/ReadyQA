@@ -707,10 +707,13 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={chatbot.id}
+                      onMouseEnter={() => {
+                        // 預先載入目標頁面，加快點擊後導向速度
+                        router.prefetch(`/${params.locale}/chatbots/${chatbot.id}`)
+                      }}
                       onClick={() => {
-                        // 更新 updatedAt 時間戳（fire-and-forget）
-                        chatbotApi.touch(chatbot.id)
-                        router.push(`/chatbots/${chatbot.id}`)
+                        void chatbotApi.touch(chatbot.id)
+                        router.push(`/${params.locale}/chatbots/${chatbot.id}`)
                       }}
                       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
                       style={{

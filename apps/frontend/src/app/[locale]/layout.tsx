@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
-import { Inter, Nunito, Roboto } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
 import { AuthProvider } from '@/lib/auth/auth-provider'
 import { NotificationProvider } from '@/lib/notifications/NotificationProvider'
 import '../globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
-const nunito = Nunito({ subsets: ['latin'], weight: ['400', '700', '900'] })
-const roboto = Roboto({ subsets: ['latin'], weight: ['400', '700', '900'] })
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap', // 避免字體阻塞首次渲染
+})
 
 export const metadata: Metadata = {
   title: 'ReadyQA - Knowledge Base Management',

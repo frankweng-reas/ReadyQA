@@ -221,7 +221,7 @@ export const defaultTheme: ChatbotTheme = {
   topicCardColor: '#9333EA', // 預設紫色
   homePageConfig: {
     enabled: false,
-    backgroundImage: null,
+    backgroundImage: undefined,
     faqMode: 'chat', // 預設為問答模式
     ctaButton: {
       show: true,

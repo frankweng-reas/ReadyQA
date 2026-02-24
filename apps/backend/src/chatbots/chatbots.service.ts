@@ -610,55 +610,37 @@ export class ChatbotsService {
     }
   }
 
-  async updateLogo(id: string, filename: string): Promise<string> {
-    // 確認 chatbot 存在
+  /** @param logoPathOrUrl 完整 URL（GCS）或相對路徑 /uploads/chatbot-logos/... */
+  async updateLogo(id: string, logoPathOrUrl: string): Promise<string> {
     const chatbot = await this.findOne(id);
-
-    // Logo 路徑（相對路徑，供前端使用）
-    const logoPath = `/uploads/chatbot-logos/${filename}`;
-
-    // 更新 theme 中的 headerLogo
     const currentTheme = (chatbot.theme as any) || {};
     const updatedTheme = {
       ...currentTheme,
-      headerLogo: logoPath,
+      headerLogo: logoPathOrUrl,
     };
-
     await this.prisma.chatbot.update({
       where: { id },
-      data: {
-        theme: updatedTheme as any,
-      },
+      data: { theme: updatedTheme as any },
     });
-
-    return logoPath;
+    return logoPathOrUrl;
   }
 
-  async updateHomeImage(id: string, filename: string): Promise<string> {
-    // 確認 chatbot 存在
+  /** @param imagePathOrUrl 完整 URL（GCS）或相對路徑 /uploads/chatbot-logos/... */
+  async updateHomeImage(id: string, imagePathOrUrl: string): Promise<string> {
     const chatbot = await this.findOne(id);
-
-    // 圖片路徑（相對路徑，供前端使用）
-    const imagePath = `/uploads/chatbot-logos/${filename}`;
-
-    // 更新 theme 中的 homePageConfig.backgroundImage
     const currentTheme = (chatbot.theme as any) || {};
     const updatedTheme = {
       ...currentTheme,
       homePageConfig: {
         ...(currentTheme.homePageConfig || {}),
-        backgroundImage: imagePath,
+        backgroundImage: imagePathOrUrl,
       },
     };
-
     await this.prisma.chatbot.update({
       where: { id },
-      data: {
-        theme: updatedTheme as any,
-      },
+      data: { theme: updatedTheme as any },
     });
-
-    return imagePath;
+    return imagePathOrUrl;
   }
 }
 

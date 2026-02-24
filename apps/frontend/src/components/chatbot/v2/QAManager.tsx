@@ -198,33 +198,33 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
           </div>
         </div>
 
-        {/* 內容區域 */}
+        {/* 內容區域：僅渲染當前 tab 以加快首次載入 */}
         <div
           className="flex-1 overflow-y-auto"
           style={{
             padding: layout.content.padding,
           }}
         >
-          <div style={{ display: activeTab === 'faq-list' ? 'block' : 'none' }}>
+          {activeTab === 'faq-list' && (
             <FaqList
               chatbotId={chatbotId}
               refreshTrigger={refreshTrigger}
               onRefresh={handleRefresh}
             />
-          </div>
-          <div style={{ display: activeTab === 'topics' ? 'block' : 'none' }}>
+          )}
+          {activeTab === 'topics' && (
             <TopicManager
               chatbotId={chatbotId}
               onRefresh={handleRefresh}
             />
-          </div>
-          <div style={{ display: activeTab === 'bulk-upload' ? 'block' : 'none' }}>
+          )}
+          {activeTab === 'bulk-upload' && (
             <BulkUploadView
               chatbotId={chatbotId}
               onSuccess={handleRefresh}
             />
-          </div>
-          <div style={{ display: activeTab === 'ai-cards' ? 'block' : 'none' }}>
+          )}
+          {activeTab === 'ai-cards' && (
             <AIMultiCard
               isOpen={true}
               onClose={() => {}}
@@ -233,13 +233,13 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
               onRefresh={handleRefresh}
               inModal={false}
             />
-          </div>
-          <div style={{ display: activeTab === 'sort' ? 'block' : 'none' }}>
+          )}
+          {activeTab === 'sort' && (
             <SortManager
               chatbotId={chatbotId}
               onRefresh={handleRefresh}
             />
-          </div>
+          )}
         </div>
       </div>
 

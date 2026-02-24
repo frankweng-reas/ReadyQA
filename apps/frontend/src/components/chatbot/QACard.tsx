@@ -11,7 +11,7 @@ import { QACardProps, QACardSlots } from '@/types/qa-card'
 import { useImageLightbox } from '@/hooks/useImageLightbox'
 
 /**
- * 默認樣式配置
+ * 默認樣式配置（與 types/chat.ts defaultTheme.qaCardStyle 對齊）
  */
 const defaultQACardStyle = {
   backgroundColor: '#FFFFFF',
@@ -21,6 +21,11 @@ const defaultQACardStyle = {
   shadow: 'shadow-md hover:shadow-lg',
   questionColor: '#111827',
   questionFontSize: '16px',
+  questionBackgroundColor: 'transparent' as string,
+  questionUseGradient: false,
+  questionGradientStartColor: '#3B82F6',
+  questionGradientEndColor: '#8B5CF6',
+  questionGradientDirection: 'to right' as const,
   answerColor: '#374151',
   answerFontSize: '14px',
   questionPrefixColor: '#2563EB',

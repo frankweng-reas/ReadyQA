@@ -451,7 +451,7 @@ describe('ChatbotsService', () => {
 
   describe('updateLogo', () => {
     const chatbotId = 'chatbot-1';
-    const filename = 'logo.png';
+    const logoPath = '/uploads/chatbot-logos/logo.png';
     const mockChatbot = {
       id: chatbotId,
       name: 'Test Chatbot',
@@ -462,17 +462,17 @@ describe('ChatbotsService', () => {
       prismaService.chatbot.findUnique.mockResolvedValue(mockChatbot);
       prismaService.chatbot.update.mockResolvedValue({
         ...mockChatbot,
-        theme: { headerLogo: `/uploads/chatbot-logos/${filename}` },
+        theme: { headerLogo: logoPath },
       });
 
-      const result = await service.updateLogo(chatbotId, filename);
+      const result = await service.updateLogo(chatbotId, logoPath);
 
-      expect(result).toBe(`/uploads/chatbot-logos/${filename}`);
+      expect(result).toBe(logoPath);
       expect(prismaService.chatbot.update).toHaveBeenCalledWith({
         where: { id: chatbotId },
         data: {
           theme: expect.objectContaining({
-            headerLogo: `/uploads/chatbot-logos/${filename}`,
+            headerLogo: logoPath,
           }),
         },
       });
@@ -490,11 +490,11 @@ describe('ChatbotsService', () => {
       prismaService.chatbot.findUnique.mockResolvedValue(chatbotWithTheme);
       prismaService.chatbot.update.mockResolvedValue(chatbotWithTheme);
 
-      await service.updateLogo(chatbotId, filename);
+      await service.updateLogo(chatbotId, logoPath);
 
       const updateCall = prismaService.chatbot.update.mock.calls[0][0];
       expect(updateCall.data.theme.primaryColor).toBe('#000000');
-      expect(updateCall.data.theme.headerLogo).toBe(`/uploads/chatbot-logos/${filename}`);
+      expect(updateCall.data.theme.headerLogo).toBe(logoPath);
     });
   });
 
@@ -502,7 +502,7 @@ describe('ChatbotsService', () => {
 
   describe('updateHomeImage', () => {
     const chatbotId = 'chatbot-1';
-    const filename = 'home-image.jpg';
+    const imagePath = '/uploads/chatbot-logos/home-image.jpg';
     const mockChatbot = {
       id: chatbotId,
       name: 'Test Chatbot',
@@ -515,20 +515,20 @@ describe('ChatbotsService', () => {
         ...mockChatbot,
         theme: {
           homePageConfig: {
-            backgroundImage: `/uploads/chatbot-logos/${filename}`,
+            backgroundImage: imagePath,
           },
         },
       });
 
-      const result = await service.updateHomeImage(chatbotId, filename);
+      const result = await service.updateHomeImage(chatbotId, imagePath);
 
-      expect(result).toBe(`/uploads/chatbot-logos/${filename}`);
+      expect(result).toBe(imagePath);
       expect(prismaService.chatbot.update).toHaveBeenCalledWith({
         where: { id: chatbotId },
         data: {
           theme: expect.objectContaining({
             homePageConfig: expect.objectContaining({
-              backgroundImage: `/uploads/chatbot-logos/${filename}`,
+              backgroundImage: imagePath,
             }),
           }),
         },
@@ -549,13 +549,11 @@ describe('ChatbotsService', () => {
       prismaService.chatbot.findUnique.mockResolvedValue(chatbotWithConfig);
       prismaService.chatbot.update.mockResolvedValue(chatbotWithConfig);
 
-      await service.updateHomeImage(chatbotId, filename);
+      await service.updateHomeImage(chatbotId, imagePath);
 
       const updateCall = prismaService.chatbot.update.mock.calls[0][0];
       expect(updateCall.data.theme.homePageConfig.title).toBe('Welcome');
-      expect(updateCall.data.theme.homePageConfig.backgroundImage).toBe(
-        `/uploads/chatbot-logos/${filename}`,
-      );
+      expect(updateCall.data.theme.homePageConfig.backgroundImage).toBe(imagePath);
     });
   });
 });

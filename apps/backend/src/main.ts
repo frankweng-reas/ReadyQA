@@ -35,12 +35,15 @@ async function bootstrap() {
   // Global prefix（只影響 API 路由，不影響靜態文件）
   app.setGlobalPrefix('api');
 
-  // CORS
+  // CORS（支援 localhost、網域、以及不同 port 的部署方式）
   app.enableCors({
     origin: [
       'http://localhost:3000',
-      'http://192.168.0.38:3000',
-      'https://qaplus.example.com',
+      'http://localhost:3001',
+      'https://readyqa.crossbot.com.tw',
+      'http://readyqa.crossbot.com.tw',
+      'http://readyqa.crossbot.com.tw:3000',
+      'http://readyqa.crossbot.com.tw:8000',
     ],
     credentials: true,
   });

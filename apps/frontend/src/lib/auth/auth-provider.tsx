@@ -67,12 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: { session },
         } = await supabase.auth.getSession()
         setUser(session?.user ?? null)
-        
-        // 確保 PostgreSQL 有對應記錄
-        await handleUserMapping(session?.user ?? null)
+        // 先結束 loading，避免 API 慢或失敗時卡在轉圈圈
+        setLoading(false)
+        // 背景執行用戶映射（不阻塞 UI）
+        void handleUserMapping(session?.user ?? null)
       } catch (error) {
-        console.error('Failed to get session:', error)
-      } finally {
+        console.error('[AuthProvider] Failed to get session:', error)
         setLoading(false)
       }
     }
@@ -85,14 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthProvider] Auth state changed:', event, session?.user?.email)
       setUser(session?.user ?? null)
-      
-      // 確保 PostgreSQL 有對應記錄
-      await handleUserMapping(session?.user ?? null)
-      
       setLoading(false)
-      
-      // 移除自動跳轉邏輯，避免離開/回來瀏覽器時誤觸發
-      // 登入跳轉由 login page 的 signIn 成功後處理
+      // 背景執行用戶映射（不阻塞 UI）
+      void handleUserMapping(session?.user ?? null)
     })
 
     return () => {

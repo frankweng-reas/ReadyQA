@@ -1,15 +1,14 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { AuthProvider } from '@/lib/auth/auth-provider'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'ReadyQA',
   description: 'AI 驅動的問答庫管理系統',
 }
 
+/**
+ * Root layout：必須有 html/body，AuthProvider 僅在 [locale]/layout 保留一層
+ */
 export default function RootLayout({
   children,
 }: {
@@ -17,9 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }

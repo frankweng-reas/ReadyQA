@@ -1,13 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import ChatbotSidebarV2 from '@/components/chatbot/v2/ChatbotSidebarV2';
 import QAManager from '@/components/chatbot/v2/QAManager';
-import DesignManager from '@/components/chatbot/v2/DesignManager';
-import PublishManager from '@/components/chatbot/v2/PublishManager';
-import InsightManager from '@/components/chatbot/v2/InsightManager';
 import { layout } from '@/config/layout';
+
+// 延遲載入較重的元件，縮小首次載入 bundle
+const DesignManager = dynamic(
+  () => import('@/components/chatbot/v2/DesignManager'),
+  { loading: () => <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div> }
+);
+const PublishManager = dynamic(
+  () => import('@/components/chatbot/v2/PublishManager'),
+  { loading: () => <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div> }
+);
+const InsightManager = dynamic(
+  () => import('@/components/chatbot/v2/InsightManager'),
+  { loading: () => <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div> }
+);
 
 type ViewType = 'knowledge' | 'design' | 'publish' | 'insight' | 'test';
 

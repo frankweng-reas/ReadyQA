@@ -1,0 +1,19 @@
+# QAPlus Elasticsearch 設定（含 CORS 供 Elasticvue 等瀏覽器工具連線）
+
+cluster.name: "qaplus-cluster"
+node.name: "qaplus-node"
+
+# 對外監聽
+network.host: 0.0.0.0
+
+# 單節點
+discovery.type: single-node
+
+# 關閉 X-Pack 認證（開發環境）
+xpack.security.enabled: false
+
+# CORS：讓 Elasticvue 等瀏覽器端工具可連線
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-methods: OPTIONS, HEAD, GET, POST, PUT, DELETE
+http.cors.allow-headers: "X-Requested-With, Content-Type, Content-Length, Authorization, Accept"

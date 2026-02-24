@@ -4,9 +4,10 @@ import { FaqsService } from './faqs.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ElasticsearchModule } from '../elasticsearch/elasticsearch.module';
 import { QuotaService } from '../common/quota.service';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, ElasticsearchModule],
+  imports: [PrismaModule, ElasticsearchModule, StorageModule],
   controllers: [FaqsController],
   providers: [FaqsService, QuotaService],
   exports: [FaqsService],

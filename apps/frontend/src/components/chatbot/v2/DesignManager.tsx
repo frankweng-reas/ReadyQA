@@ -12,6 +12,7 @@ import ColorInput from '@/components/ui/ColorInput';
 import HelpModal from '@/components/ui/HelpModal';
 import { useNotification } from '@/hooks/useNotification';
 import ImageCropModal from '@/components/ui/ImageCropModal';
+import { createClient } from '@/lib/supabase/client';
 
 interface DesignManagerProps {
   chatbotId: string;
@@ -151,13 +152,21 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
     setIsUploadingLogo(true);
 
     try {
-      // 使用 FormData 上傳檔案
       const formData = new FormData();
       formData.append('file', file);
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const headers: HeadersInit = {};
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      } catch (_) {}
       const response = await fetch(`${API_BASE}/chatbots/${chatbotId}/upload-logo`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 
@@ -233,10 +242,15 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       const uploadUrl = `${API_BASE}/chatbots/${chatbotId}/upload-homeimage`;
-      console.log('🔵 [handleCropComplete] uploadUrl:', uploadUrl);
-
+      const headers: HeadersInit = {};
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      } catch (_) {}
       const response = await fetch(uploadUrl, {
         method: 'POST',
+        headers,
         body: formData,
       });
 

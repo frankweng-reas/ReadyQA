@@ -16,13 +16,15 @@ import {
   Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import { Request } from 'express';
+import * as fs from 'fs';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ChatbotsService } from './chatbots.service';
 import { CreateChatbotDto, UpdateChatbotDto, ChatbotQueryDto } from './dto/chatbot.dto';
 import { QuotaService } from '../common/quota.service';
+import { StorageService } from '../storage/storage.service';
 
 /**
  * Chatbots Controller
@@ -41,6 +43,7 @@ export class ChatbotsController {
   constructor(
     private readonly chatbotsService: ChatbotsService,
     private readonly quotaService: QuotaService,
+    private readonly storageService: StorageService,
   ) {}
 
   @Post()
@@ -286,26 +289,14 @@ export class ChatbotsController {
   @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/chatbot-logos',
-        filename: (req, file, cb) => {
-          // 生成唯一檔名: chatbot-{id}-{timestamp}{ext}
-          const chatbotId = req.params.id;
-          const timestamp = Date.now();
-          const ext = extname(file.originalname);
-          cb(null, `chatbot-${chatbotId}-${timestamp}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        // 只允許圖片檔案
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(new BadRequestException('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'), false);
         }
         cb(null, true);
       },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
   async uploadLogo(
@@ -315,15 +306,33 @@ export class ChatbotsController {
     if (!file) {
       throw new BadRequestException('請上傳檔案');
     }
-
-    const logoPath = await this.chatbotsService.updateLogo(id, file.filename);
-
+    const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from((file as any).buffer ?? []);
+    if (buffer.length === 0) {
+      throw new BadRequestException('檔案內容為空');
+    }
+    const timestamp = Date.now();
+    const ext = extname(file.originalname);
+    const filename = `chatbot-${id}-${timestamp}${ext}`;
+    const dir = './uploads/chatbot-logos';
+    let logoPath: string;
+    if (this.storageService.isGcsEnabled()) {
+      try {
+        const objectName = `chatbot-logos/${filename}`;
+        logoPath = await this.storageService.uploadChatbotImage(buffer, objectName, file.mimetype);
+      } catch (e) {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(`${dir}/${filename}`, buffer);
+        logoPath = `/uploads/chatbot-logos/${filename}`;
+      }
+    } else {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${filename}`, buffer);
+      logoPath = `/uploads/chatbot-logos/${filename}`;
+    }
+    await this.chatbotsService.updateLogo(id, logoPath);
     return {
       success: true,
-      data: {
-        logoPath,
-        filename: file.filename,
-      },
+      data: { logoPath, filename },
       message: 'Logo 上傳成功',
     };
   }
@@ -336,26 +345,14 @@ export class ChatbotsController {
   @ApiResponse({ status: 404, description: 'Chatbot 不存在' })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/chatbot-logos',
-        filename: (req, file, cb) => {
-          // 生成唯一檔名: chatbot-{id}-home-{timestamp}{ext}
-          const chatbotId = req.params.id;
-          const timestamp = Date.now();
-          const ext = extname(file.originalname);
-          cb(null, `chatbot-${chatbotId}-home-${timestamp}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        // 只允許圖片檔案
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(new BadRequestException('只允許上傳圖片檔案（jpg, jpeg, png, gif, webp）'), false);
         }
         cb(null, true);
       },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
   async uploadHomeImage(
@@ -365,15 +362,33 @@ export class ChatbotsController {
     if (!file) {
       throw new BadRequestException('請上傳檔案');
     }
-
-    const imagePath = await this.chatbotsService.updateHomeImage(id, file.filename);
-
+    const buffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from((file as any).buffer ?? []);
+    if (buffer.length === 0) {
+      throw new BadRequestException('檔案內容為空');
+    }
+    const timestamp = Date.now();
+    const ext = extname(file.originalname);
+    const filename = `chatbot-${id}-home-${timestamp}${ext}`;
+    const dir = './uploads/chatbot-logos';
+    let imagePath: string;
+    if (this.storageService.isGcsEnabled()) {
+      try {
+        const objectName = `chatbot-logos/${filename}`;
+        imagePath = await this.storageService.uploadChatbotImage(buffer, objectName, file.mimetype);
+      } catch (e) {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(`${dir}/${filename}`, buffer);
+        imagePath = `/uploads/chatbot-logos/${filename}`;
+      }
+    } else {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${filename}`, buffer);
+      imagePath = `/uploads/chatbot-logos/${filename}`;
+    }
+    await this.chatbotsService.updateHomeImage(id, imagePath);
     return {
       success: true,
-      data: {
-        imagePath,
-        filename: file.filename,
-      },
+      data: { imagePath, filename },
       message: '首頁背景圖上傳成功',
     };
   }

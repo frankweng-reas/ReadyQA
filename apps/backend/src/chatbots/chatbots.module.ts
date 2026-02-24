@@ -4,9 +4,10 @@ import { ChatbotsService } from './chatbots.service';
 import { ElasticsearchModule } from '../elasticsearch/elasticsearch.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { QuotaService } from '../common/quota.service';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [ElasticsearchModule, PrismaModule],
+  imports: [ElasticsearchModule, PrismaModule, StorageModule],
   controllers: [ChatbotsController],
   providers: [ChatbotsService, QuotaService],
   exports: [ChatbotsService],
