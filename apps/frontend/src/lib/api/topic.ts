@@ -81,7 +81,7 @@ export const topicApi = {
     }
 
     const result = await response.json();
-    return result;
+    return result.data || result;
   },
 
   /**

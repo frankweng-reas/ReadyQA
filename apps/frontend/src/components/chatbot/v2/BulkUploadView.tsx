@@ -330,7 +330,7 @@ export default function BulkUploadView({
           name: topicName,
           sortOrder: 0,
         })
-        topicMap.set(topicName, newTopic.id)
+        if (newTopic?.id) topicMap.set(topicName, newTopic.id)
       } catch (error: any) {
         console.error(`創建 Topic "${topicName}" 時發生錯誤:`, error)
         // 如果創建失敗，可能是因為重複，重新查詢

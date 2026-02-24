@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:local": "npm run dev:local -w @qaplus/frontend",
+    "dev:local:backend": "npm run dev:local:backend -w @qaplus/backend",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
