@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
+import { notFound } from 'next/navigation'
 import { AuthProvider } from '@/lib/auth/auth-provider'
 import { NotificationProvider } from '@/lib/notifications/NotificationProvider'
+import { locales } from '@/i18n'
 import '../globals.css'
 
 export const metadata: Metadata = {
@@ -20,6 +22,11 @@ export default async function LocaleLayout({
   children: React.ReactNode
   params: { locale: string }
 }) {
+  // 防止非 locale 路徑（如 favicon.ico）誤入導致載入不存在的 messages 崩潰
+  if (!(locales as readonly string[]).includes(params.locale)) {
+    notFound()
+  }
+
   // 載入翻譯訊息
   const messages = await getMessages({ locale: params.locale })
 
