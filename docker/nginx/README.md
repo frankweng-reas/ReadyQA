@@ -1,6 +1,8 @@
 # Nginx 反向代理設定
 
-讓使用者訪問 `http://readyqa.crossbot.com.tw` 即可，不需打 `:3000`。
+讓使用者訪問 `readyqa.crossbot.com.tw` 即可，不需打 `:3000`。
+
+**HTTPS**：見 [docs/HTTPS-SETUP.md](../../docs/HTTPS-SETUP.md)
 
 ## 部署步驟
 

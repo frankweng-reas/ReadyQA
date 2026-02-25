@@ -72,10 +72,14 @@ async function bootstrap() {
 
   const port = process.env.PORT || 8000;
   await app.listen(port, '0.0.0.0');
-  
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${port}/api`;
   console.log(`🚀 Backend API is running on: http://localhost:${port}/api`);
   console.log(`🚀 Backend API is also accessible at: http://192.168.0.38:${port}/api`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  if (apiBase.startsWith('https://')) {
+    console.log(`🌐 對外存取（經 Nginx）: ${apiBase} | Docs: ${apiBase.replace('/api', '')}/api/docs`);
+  }
 }
 
 bootstrap();

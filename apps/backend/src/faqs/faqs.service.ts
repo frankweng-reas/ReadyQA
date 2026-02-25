@@ -263,7 +263,7 @@ export class FaqsService {
     });
 
     if (existingFaqs.length !== faqIds.length) {
-      const missingIds = faqIds.filter(id => !existingFaqs.find(f => f.id === id));
+      const missingIds = faqIds.filter(id => !existingFaqs.find((f: { id: string }) => f.id === id));
       this.logger.error(`[FaqsService] 部分 FAQ 不屬於此 chatbot: ${missingIds.join(', ')}`);
       throw new BadRequestException(`Some FAQs do not belong to this chatbot: ${missingIds.join(', ')}`);
     }
@@ -369,7 +369,7 @@ export class FaqsService {
       select: { question: true },
     });
 
-    const existingQuestions = new Set(existingFaqs.map(f => f.question));
+    const existingQuestions = new Set(existingFaqs.map((f: { question: string }) => f.question));
     this.logger.log(`[Bulk Upload] 發現 ${existingQuestions.size} 個重複的問題`);
 
     // 過濾掉重複的 FAQ

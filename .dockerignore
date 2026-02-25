@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+.next
+dist
+coverage
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docs & misc
+*.md
+docs/
+.DS_Store
+
+# Test
+**/*.spec.ts
+**/*.test.ts
+**/__tests__
+**/test
+**/e2e

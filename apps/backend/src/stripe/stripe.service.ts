@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionClient } from '../prisma/prisma.service';
 
 @Injectable()
 export class StripeService {
@@ -602,7 +602,7 @@ export class StripeService {
       }
 
       // 使用事務處理
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
         // 建立或更新 Subscription 記錄
         const subscriptionRecord = await tx.subscription.upsert({
           where: { stripeSubscriptionId: subscriptionId },
@@ -779,7 +779,7 @@ export class StripeService {
         return;
       }
 
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
         // 更新 Subscription 狀態為 canceled
         await tx.subscription.updateMany({
           where: { stripeSubscriptionId: subscription.id },
@@ -1133,7 +1133,7 @@ export class StripeService {
           );
         }
 
-        await this.prisma.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
           // 創建 payment 記錄
           await tx.payment.create({
             data: {
@@ -1215,7 +1215,7 @@ export class StripeService {
         this.logger.log(`[Invoice Payment] Derived planCode from metadata: ${actualPlanCode}`);
       }
 
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
         // 創建 payment 記錄
         await tx.payment.create({
           data: {
@@ -2154,7 +2154,7 @@ export class StripeService {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (subscription) {
+      if (subscription?.stripeSubscriptionId) {
         stripeSubscriptionId = subscription.stripeSubscriptionId;
         const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
         const customer = await this.stripe.customers.retrieve(stripeSubscription.customer as string);
@@ -2166,8 +2166,8 @@ export class StripeService {
       throw new BadRequestException('No active Test Clock subscription found');
     }
 
-    // 檢查 customer 的預設付款方式
-    const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
+    // 檢查 customer 的預設付款方式（stripeSubscriptionId 已由上方 throw 保證非 null）
+    const stripeSubscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId!);
     const customer = await this.stripe.customers.retrieve(stripeSubscription.customer as string);
     const customerId = (customer as Stripe.Customer).id;
     
@@ -2575,7 +2575,7 @@ export class StripeService {
       this.logger.log(`[Create Test Payment] Creating payment record with ID: pay_${testPaymentIntentId}`);
 
       // 使用事務同時創建 payment 和更新訂閱狀態
-      const result = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
         // 2.1 創建 failed payment 記錄
         const payment = await tx.payment.create({
           data: {

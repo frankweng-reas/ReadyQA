@@ -42,7 +42,56 @@ services:
       timeout: 10s
       retries: 5
 
+  # Backend (NestJS) - 暴露 8000 供 host nginx HTTPS 代理
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: qaplus-backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://qaplus:password@postgres:5432/qaplus?schema=public
+      ELASTICSEARCH_HOST: http://elasticsearch:9200
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - backend_uploads:/app/uploads
+
+  # Frontend (Next.js) - 暴露 3000 供 host nginx HTTPS 代理
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://readyqa.crossbot.com.tw/api}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://readyqa.crossbot.com.tw}
+    container_name: qaplus-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # Nginx 反向代理（僅 Docker 內部用，對外由 host nginx 處理 HTTPS）
+  nginx:
+    image: nginx:alpine
+    container_name: qaplus-nginx
+    # 不暴露 port 80，改由 host nginx 處理
+    volumes:
+      - ./docker/nginx/readyqa-docker.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
 volumes:
   postgres_data:
   elasticsearch_data:
+  backend_uploads:
 

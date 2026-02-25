@@ -327,9 +327,9 @@ export class ChatbotsService {
         : 0;
 
       // 計算滿意度（基於 like/dislike）
-      const likeCount = Number(feedbackStats.find(f => f.userAction === 'like')?._count || 0);
-      const dislikeCount = Number(feedbackStats.find(f => f.userAction === 'dislike')?._count || 0);
-      const viewedCount = Number(feedbackStats.find(f => f.userAction === 'viewed')?._count || 0);
+      const likeCount = Number(feedbackStats.find((f: { userAction: string; _count?: number }) => f.userAction === 'like')?._count || 0);
+      const dislikeCount = Number(feedbackStats.find((f: { userAction: string; _count?: number }) => f.userAction === 'dislike')?._count || 0);
+      const viewedCount = Number(feedbackStats.find((f: { userAction: string; _count?: number }) => f.userAction === 'viewed')?._count || 0);
       const totalFeedback = likeCount + dislikeCount;
       const avgSatisfaction = totalFeedback > 0
         ? Number(((likeCount / totalFeedback) * 5).toFixed(1))
@@ -348,7 +348,7 @@ export class ChatbotsService {
           GROUP BY DATE(created_at)
           ORDER BY date ASC
         `;
-        queryTrend = trendData.map(item => ({
+        queryTrend = trendData.map((item: { date: Date; count: bigint }) => ({
           date: item.date.toISOString().split('T')[0],
           count: Number(item.count),
         }));
@@ -471,7 +471,7 @@ export class ChatbotsService {
 
         // 手動統計分類分佈
         const topicMap = new Map<string, number>();
-        viewedDetails.forEach(detail => {
+        viewedDetails.forEach((detail: { faq: { topic: { name: string } | null } }) => {
           const topicName = detail.faq.topic?.name || '未分類';
           topicMap.set(topicName, (topicMap.get(topicName) || 0) + 1);
         });
@@ -574,7 +574,7 @@ export class ChatbotsService {
 
       // 獲取每個查詢的最後查詢時間
       const queriesWithDetails = await Promise.all(
-        zeroResultQueries.map(async (item) => {
+        zeroResultQueries.map(async (item: { query: string; _count: { query: number } }) => {
           const lastQuery = await this.prisma.queryLog.findFirst({
             where: {
               chatbotId: id,

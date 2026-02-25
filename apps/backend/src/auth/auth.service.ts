@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionClient } from '../prisma/prisma.service';
 import { QuotaService } from '../common/quota.service';
 import { GetOrCreateUserDto } from './dto/get-or-create-user.dto';
 
@@ -93,8 +93,9 @@ export class AuthService {
           chatbot: { tenantId },
           status: 'active',
         },
-      }).catch((err) => {
-        console.warn(`[Auth Service] ⚠️ 統計 FAQ 失敗（可能 tenant 無 chatbot）: ${err.message}`);
+      }).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[Auth Service] ⚠️ 統計 FAQ 失敗（可能 tenant 無 chatbot）: ${msg}`);
         return 0;
       });
       console.log(`[Auth Service] 📊 FAQ 總數（active）: ${faqsTotalCount}`);
@@ -224,7 +225,7 @@ export class AuthService {
       const username = dto.name || 'Supabase User';
 
       // 使用事務確保 user 和 tenant 一起創建
-      const result = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx: PrismaTransactionClient) => {
         // 創建用戶（先不設置 tenantId）
         const newUser = await tx.user.create({
           data: {
