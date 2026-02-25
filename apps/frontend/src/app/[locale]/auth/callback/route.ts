@@ -2,6 +2,15 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+/** 取得正確的 base URL（nginx 反向代理時 request.url 可能為內部位址） */
+function getBaseUrl(request: NextRequest): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (appUrl) return appUrl
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
+  const proto = request.headers.get('x-forwarded-proto') || 'https'
+  return host ? `${proto}://${host}` : request.url
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { locale: string } }
@@ -9,9 +18,10 @@ export async function GET(
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const locale = params.locale || 'zh-TW'
+  const baseUrl = getBaseUrl(request)
 
   if (code) {
-    const response = NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url))
+    const response = NextResponse.redirect(new URL(`/${locale}/dashboard`, baseUrl))
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,5 +47,5 @@ export async function GET(
   }
 
   // 如果沒有 code，導向登入頁
-  return NextResponse.redirect(new URL(`/${locale}/login`, request.url))
+  return NextResponse.redirect(new URL(`/${locale}/login`, baseUrl))
 }

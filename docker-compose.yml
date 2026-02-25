@@ -5,6 +5,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: qaplus-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: qaplus
       POSTGRES_PASSWORD: password
@@ -21,6 +22,7 @@ services:
 
   # Elasticsearch with IK Analyzer
   elasticsearch:
+    restart: unless-stopped
     build:
       context: ./docker/elasticsearch
       dockerfile: Dockerfile
@@ -44,6 +46,7 @@ services:
 
   # Backend (NestJS) - 暴露 8000 供 host nginx HTTPS 代理
   backend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -81,6 +84,7 @@ services:
 
   # Nginx 反向代理（僅 Docker 內部用，對外由 host nginx 處理 HTTPS）
   nginx:
+    restart: unless-stopped
     image: nginx:alpine
     container_name: qaplus-nginx
     # 不暴露 port 80，改由 host nginx 處理
