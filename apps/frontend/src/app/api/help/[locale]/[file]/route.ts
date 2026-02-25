@@ -25,28 +25,41 @@ export async function GET(
       )
     }
     
-    // 讀取檔案（從專案根目錄的 help 目錄）
-    // process.cwd() 在 Next.js API route 中會返回專案根目錄
-    const filePath = join(process.cwd(), 'help', locale, `${file}.md`)
+    // 讀取 help 檔案
+    // 不依賴 process.cwd()，因 Docker 與本地執行時 cwd 可能不同
+    // - Docker/turbo: cwd = monorepo 根目錄 → apps/frontend/help
+    // - 從 apps/frontend 執行: cwd = apps/frontend → help
+    const possiblePaths = [
+      join(process.cwd(), 'apps', 'frontend', 'help', locale, `${file}.md`),
+      join(process.cwd(), 'help', locale, `${file}.md`),
+    ]
     
-    try {
-      const content = await readFile(filePath, 'utf-8')
-      
-      return new NextResponse(content, {
-        headers: {
-          'Content-Type': 'text/markdown; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-      })
-    } catch (error) {
-      console.error(`[Help API] File not found: ${filePath}`, error)
+    let content: string | null = null
+    for (const filePath of possiblePaths) {
+      try {
+        content = await readFile(filePath, 'utf-8')
+        break
+      } catch {
+        // 嘗試下一個路徑
+      }
+    }
+    
+    if (!content) {
+      console.error(`[Help API] File not found. Tried: ${possiblePaths.join(', ')}`)
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
       )
     }
+    
+    return new NextResponse(content, {
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error('[Help API] Error:', error)
     return NextResponse.json(
