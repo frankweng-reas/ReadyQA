@@ -66,6 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession()
+        if (session?.user) {
+          console.log('[AuthProvider] Supabase 專案:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+          console.log('[AuthProvider] Supabase User ID:', session.user.id, '(請用此 ID 在 Supabase SQL Editor 查詢: SELECT * FROM auth.users WHERE id = \'' + session.user.id + '\')')
+        }
         setUser(session?.user ?? null)
         // 先結束 loading，避免 API 慢或失敗時卡在轉圈圈
         setLoading(false)
@@ -84,6 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthProvider] Auth state changed:', event, session?.user?.email)
+      if (session?.user) {
+        console.log('[AuthProvider] Supabase 專案:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+        console.log('[AuthProvider] Supabase User ID:', session.user.id, '(請用此 ID 在 Supabase SQL Editor 查詢: SELECT * FROM auth.users WHERE id = \'' + session.user.id + '\')')
+      }
       setUser(session?.user ?? null)
       setLoading(false)
       // 背景執行用戶映射（不阻塞 UI）
@@ -116,22 +124,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, name?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      // emailRedirectTo：確認信連結點擊後導向的 URL，需在 Supabase Redirect URLs 白名單中
+      const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []
+      const locale = pathParts[0] || 'zh-TW'
+      const redirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/${locale}/auth/callback`
+          : undefined
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             name: name || email.split('@')[0],
           },
+          ...(redirectTo && { emailRedirectTo: redirectTo }),
         },
       })
 
       if (error) {
+        console.error('[AuthProvider] signUp error:', error.message)
         return { error }
       }
 
+      // 若需 email 確認，data.user 存在但 data.session 可能為 null
+      if (data?.user && !data?.session) {
+        console.log('[AuthProvider] 註冊成功，請至信箱點擊確認連結')
+      }
       return { error: null }
     } catch (error) {
+      console.error('[AuthProvider] signUp exception:', error)
       return {
         error: error instanceof Error ? error : new Error('註冊失敗'),
       }

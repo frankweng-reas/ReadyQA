@@ -1,15 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
 import { AuthProvider } from '@/lib/auth/auth-provider'
 import { NotificationProvider } from '@/lib/notifications/NotificationProvider'
 import '../globals.css'
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap', // 避免字體阻塞首次渲染
-})
 
 export const metadata: Metadata = {
   title: 'ReadyQA',
@@ -30,17 +24,13 @@ export default async function LocaleLayout({
   const messages = await getMessages({ locale: params.locale })
 
   return (
-    <html lang={params.locale} suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <NextIntlClientProvider locale={params.locale} messages={messages}>
-          <AuthProvider>
-            <NotificationProvider>
-              {children}
-            </NotificationProvider>
-          </AuthProvider>
-        </NextIntlClientProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider locale={params.locale} messages={messages}>
+      <AuthProvider>
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
+      </AuthProvider>
+    </NextIntlClientProvider>
   )
 }
 

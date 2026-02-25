@@ -17,12 +17,23 @@ export async function GET(
 ) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const error = requestUrl.searchParams.get('error')
+  const errorDescription = requestUrl.searchParams.get('error_description')
   const locale = params.locale || 'zh-TW'
   const baseUrl = getBaseUrl(request)
 
+  // 處理 Supabase 導向的錯誤（例如確認連結過期）
+  if (error) {
+    console.error('[Auth Callback] Supabase redirect error:', error, errorDescription)
+    const loginUrl = new URL(`/${locale}/login`, baseUrl)
+    loginUrl.searchParams.set('error', error)
+    if (errorDescription) loginUrl.searchParams.set('message', errorDescription)
+    return NextResponse.redirect(loginUrl)
+  }
+
   if (code) {
     const response = NextResponse.redirect(new URL(`/${locale}/dashboard`, baseUrl))
-    
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,8 +52,14 @@ export async function GET(
       }
     )
 
-    await supabase.auth.exchangeCodeForSession(code)
-    
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    if (exchangeError) {
+      console.error('[Auth Callback] exchangeCodeForSession failed:', exchangeError.message)
+      const loginUrl = new URL(`/${locale}/login`, baseUrl)
+      loginUrl.searchParams.set('error', exchangeError.message)
+      return NextResponse.redirect(loginUrl)
+    }
+
     return response
   }
 

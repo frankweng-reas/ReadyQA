@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useAuth } from '@/lib/auth/auth-provider'
@@ -15,12 +15,21 @@ export default function LoginPage() {
   const t = useTranslations('auth.login')
   const tCommon = useTranslations('common')
   const params = useParams()
+  const searchParams = useSearchParams()
   const locale = params.locale as string
-  
+
+  // 從 URL 讀取 auth callback 導向的錯誤訊息（例如確認連結過期）
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    const urlError = searchParams.get('error') || searchParams.get('message')
+    if (urlError) {
+      setError(decodeURIComponent(urlError))
+    }
+  }, [searchParams])
+
   // 測試帳號：自動填入方便測試
   const [email, setEmail] = useState('test01@test.com')
   const [password, setPassword] = useState('123456')
-  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuth()
   const router = useRouter()
