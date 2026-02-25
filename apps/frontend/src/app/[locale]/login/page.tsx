@@ -23,9 +23,10 @@ export default function LoginPage() {
   useEffect(() => {
     const urlError = searchParams.get('error') || searchParams.get('message')
     if (urlError) {
-      setError(decodeURIComponent(urlError))
+      const decoded = decodeURIComponent(urlError)
+      setError(decoded === 'session_expired' ? t('sessionExpired') : decoded)
     }
-  }, [searchParams])
+  }, [searchParams, t])
 
   // 測試帳號：自動填入方便測試
   const [email, setEmail] = useState('test01@test.com')
@@ -178,16 +179,26 @@ export default function LoginPage() {
               disabled={isLoading}
             />
 
-            <Input
-              label={t('password')}
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t('passwordPlaceholder')}
-              required
-              autoComplete="current-password"
-              disabled={isLoading}
-            />
+            <div className="space-y-2">
+              <Input
+                label={t('password')}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('passwordPlaceholder')}
+                required
+                autoComplete="current-password"
+                disabled={isLoading}
+              />
+              <div className="flex justify-end">
+                <Link
+                  href={`/${locale}/forgot-password`}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  {t('forgotPassword')}
+                </Link>
+              </div>
+            </div>
 
             <Button
               type="submit"

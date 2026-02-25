@@ -636,7 +636,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
           </div>
           
           <div style={{ width: mobileDevice.width, height: mobileDevice.height }} className="relative">
-            {/* 左側箭頭指示器 - 放在 chatbot 容器外部 */}
+            {/* 左側圓角矩形指示條 - 放在 chatbot 容器外部 */}
             {(() => {
               // 計算各區域的位置
               const headerSizeConfig = {
@@ -646,137 +646,69 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
               };
               const headerConfig = headerSizeConfig[theme.headerSize || 'medium'];
               const headerHeight = headerConfig.minHeight;
-              
-              // Header 箭頭位置
-              const headerCenterTop = `calc(${headerHeight} / 2)`;
-              
-              // Chat 區域位置：在 header 下方，垂直置中於剩餘空間
-              // 簡化計算：假設 chat 區域在 header 下方，高度約為容器高度的一半
-              const chatCenterTop = `calc(${headerHeight} + 50%)`;
-              
-              // Input 區域位置：在底部
               const inputHeight = '60px'; // 輸入區域大約高度
-              const inputCenterTop = `calc(100% - ${inputHeight} / 2)`;
-              
+
+              // 各區域的 top 與 height，與右側 chatbot 區塊對齊
+              const headerTop = '0';
+              const headerBarHeight = headerHeight;
+
+              const chatTop = theme.showHeader ? headerHeight : '0';
+              const chatBarHeight = theme.showHeader
+                ? `calc(100% - ${headerHeight} - ${inputHeight})`
+                : `calc(100% - ${inputHeight})`;
+
+              const inputTop = `calc(100% - ${inputHeight})`;
+              const inputBarHeight = inputHeight;
+
+              // 圓角矩形指示條基礎樣式
+              const indicatorBaseStyle = {
+                width: '6px',
+                borderRadius: '9999px',
+                backgroundColor: '#20B2AA',
+                boxShadow: '0 2px 8px rgba(32, 178, 170, 0.35)'
+              };
+
               return (
                 <>
-                  {/* Header 箭頭 */}
+                  {/* Header 指示條 - 高度對齊 header 區塊 */}
                   {theme.showHeader && selectedSection === 'header' && (
-                    <div 
-                      className="absolute pointer-events-none z-[9999] flex items-center"
-                      style={{ 
-                        left: '-40px',
-                        top: headerCenterTop,
-                        transform: 'translateY(-50%)',
-                        opacity: 1 
+                    <div
+                      className="absolute pointer-events-none z-[9999]"
+                      style={{
+                        left: '-24px',
+                        top: headerTop,
+                        height: headerBarHeight
                       }}
                     >
-                      <div style={{ position: 'relative' }}>
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '22px solid transparent',
-                            borderBottom: '22px solid transparent',
-                            borderLeft: '32px solid black',
-                            left: 0,
-                            top: '-22px'
-                          }}
-                        />
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '18px solid transparent',
-                            borderBottom: '18px solid transparent',
-                            borderLeft: '28px solid #20B2AA',
-                            left: '2px',
-                            top: '-18px'
-                          }}
-                        />
-                      </div>
+                      <div style={{ ...indicatorBaseStyle, height: '100%', minHeight: '24px' }} />
                     </div>
                   )}
-                  
-                  {/* Chat 箭頭 */}
+
+                  {/* Chat 指示條 - 高度對齊 chat 區塊 */}
                   {selectedSection === 'chat' && (
-                    <div 
-                      className="absolute pointer-events-none z-[9999] flex items-center"
-                      style={{ 
-                        left: '-40px',
-                        top: chatCenterTop,
-                        transform: 'translateY(-50%)',
-                        opacity: 1 
+                    <div
+                      className="absolute pointer-events-none z-[9999]"
+                      style={{
+                        left: '-24px',
+                        top: chatTop,
+                        height: chatBarHeight
                       }}
                     >
-                      <div style={{ position: 'relative' }}>
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '22px solid transparent',
-                            borderBottom: '22px solid transparent',
-                            borderLeft: '32px solid black',
-                            left: 0,
-                            top: '-22px'
-                          }}
-                        />
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '18px solid transparent',
-                            borderBottom: '18px solid transparent',
-                            borderLeft: '28px solid #20B2AA',
-                            left: '2px',
-                            top: '-18px'
-                          }}
-                        />
-                      </div>
+                      <div style={{ ...indicatorBaseStyle, height: '100%', minHeight: '24px' }} />
                     </div>
                   )}
-                  
-                  {/* Input 箭頭 */}
+
+                  {/* Input 指示條 - 高度對齊 input 區塊 */}
                   {selectedSection === 'input' && (
-                    <div 
-                      className="absolute pointer-events-none z-[9999] flex items-center"
-                      style={{ 
-                        left: '-40px',
-                        top: inputCenterTop,
-                        transform: 'translateY(-50%)',
-                        opacity: 1 
+                    <div
+                      className="absolute pointer-events-none z-[9999]"
+                      style={{
+                        left: '-24px',
+                        top: inputTop,
+                        height: inputBarHeight
                       }}
                     >
-                      <div style={{ position: 'relative' }}>
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '22px solid transparent',
-                            borderBottom: '22px solid transparent',
-                            borderLeft: '32px solid black',
-                            left: 0,
-                            top: '-22px'
-                          }}
-                        />
-                        <div 
-                          style={{ 
-                            position: 'absolute',
-                            width: 0,
-                            height: 0,
-                            borderTop: '18px solid transparent',
-                            borderBottom: '18px solid transparent',
-                            borderLeft: '28px solid #20B2AA',
-                            left: '2px',
-                            top: '-18px'
-                          }}
-                        />
-                      </div>
+                      <div style={{ ...indicatorBaseStyle, height: '100%', minHeight: '24px' }} />
                     </div>
                   )}
                 </>

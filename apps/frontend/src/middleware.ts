@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 0.5. 排除 auth callback 路由，直接通過（不做任何認證檢查）
-  if (pathname.includes('/auth/callback')) {
+  if (pathname.includes('/auth/callback') || pathname.includes('/auth/reset-callback')) {
     return NextResponse.next();
   }
 
@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
 
   // 3. 僅在需要認證判斷的路徑才呼叫 Supabase（效能優化：跳過公開頁面）
   const protectedRoutes = ['/dashboard', '/settings', '/profile'];
-  const authCheckRoutes = ['/login', '/signup'];
+  const authCheckRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const isProtectedRoute = protectedRoutes.some((r) => pathname.includes(r));
   const isAuthCheckRoute = authCheckRoutes.some((r) => pathname.includes(r));
 
@@ -102,12 +102,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 6. 已登入訪問登入頁或註冊頁 -> 導向 dashboard
-  if ((pathname.includes('/login') || pathname.includes('/signup')) && session) {
+  // 6. 已登入訪問登入頁、註冊頁、忘記密碼頁 -> 導向 dashboard（reset-password 除外，需讓用戶設定新密碼）
+  if (
+    (pathname.includes('/login') || pathname.includes('/signup') || pathname.includes('/forgot-password')) &&
+    session
+  ) {
     const redirectUrl = request.nextUrl.searchParams.get('redirect');
     return NextResponse.redirect(
       new URL(redirectUrl || `/${locale}/dashboard`, request.url)
     );
+  }
+
+  // 7. 未登入訪問 reset-password -> 導向登入頁
+  if (pathname.includes('/reset-password') && !session) {
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
 
   return response;

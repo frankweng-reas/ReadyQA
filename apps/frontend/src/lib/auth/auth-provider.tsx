@@ -14,6 +14,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
   signInWithGoogle: () => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
+  resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -198,6 +200,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/zh-TW/login')
   }
 
+  const resetPasswordForEmail = async (email: string) => {
+    try {
+      if (typeof window === 'undefined') {
+        return { error: new Error('忘記密碼只能在客戶端執行') }
+      }
+
+      const pathParts = window.location.pathname.split('/').filter(Boolean)
+      const locale = pathParts[0] || 'zh-TW'
+      const redirectTo = `${window.location.origin}/${locale}/auth/reset-callback`
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('發送重設密碼郵件失敗'),
+      }
+    }
+  }
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('更新密碼失敗'),
+      }
+    }
+  }
+
   const value = {
     user,
     postgresUserId,
@@ -206,6 +250,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signInWithGoogle,
     signOut,
+    resetPasswordForEmail,
+    updatePassword,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

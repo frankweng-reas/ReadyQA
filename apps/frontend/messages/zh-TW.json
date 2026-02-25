@@ -39,7 +39,36 @@
       "testAccountPassword": "密碼：123456",
       "googleSignIn": "使用 Google 登入",
       "or": "或",
-      "continueWithGoogle": "使用 Google 繼續"
+      "continueWithGoogle": "使用 Google 繼續",
+      "sessionExpired": "連結已過期，請重新申請重設密碼"
+    },
+    "forgotPassword": {
+      "title": "忘記密碼",
+      "description": "輸入您的 Email，我們將寄送重設密碼的連結給您",
+      "email": "Email",
+      "emailPlaceholder": "請輸入您的 Email",
+      "emailRequired": "請輸入 Email",
+      "submit": "發送重設連結",
+      "sendFailed": "發送失敗，請稍後再試",
+      "checkEmail": "請查收您的信箱",
+      "checkEmailMessage": "我們已寄送重設密碼的連結到您的信箱，請點擊連結以繼續。若未收到信件，請檢查垃圾郵件匣。",
+      "backToLogin": "返回登入"
+    },
+    "resetPassword": {
+      "title": "設定新密碼",
+      "description": "請輸入您的新密碼",
+      "newPassword": "新密碼",
+      "newPasswordPlaceholder": "請輸入新密碼",
+      "confirmPassword": "確認密碼",
+      "confirmPasswordPlaceholder": "請再次輸入新密碼",
+      "submit": "重設密碼",
+      "passwordTooShort": "密碼長度至少需要 6 個字元",
+      "passwordMismatch": "兩次輸入的密碼不一致",
+      "updateFailed": "更新密碼失敗，請稍後再試",
+      "successTitle": "密碼已更新",
+      "successMessage": "您的密碼已成功更新，請使用新密碼登入。",
+      "backToLogin": "返回登入",
+      "sessionExpired": "連結已過期，請重新申請重設密碼"
     },
     "signup": {
       "title": "註冊",

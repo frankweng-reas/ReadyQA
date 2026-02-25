@@ -206,7 +206,36 @@
       "testAccountPassword": "password: 123456",
       "googleSignIn": "Sign in with Google",
       "or": "or",
-      "continueWithGoogle": "Continue with Google"
+      "continueWithGoogle": "Continue with Google",
+      "sessionExpired": "Link expired, please request a new password reset"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "description": "Enter your email and we'll send you a link to reset your password",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "emailRequired": "Please enter your email",
+      "submit": "Send Reset Link",
+      "sendFailed": "Failed to send, please try again later",
+      "checkEmail": "Check your email",
+      "checkEmailMessage": "We've sent a password reset link to your email. Please click the link to continue. If you don't see it, check your spam folder.",
+      "backToLogin": "Back to Sign In"
+    },
+    "resetPassword": {
+      "title": "Set New Password",
+      "description": "Please enter your new password",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Enter new password",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Enter new password again",
+      "submit": "Reset Password",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordMismatch": "Passwords do not match",
+      "updateFailed": "Failed to update password, please try again later",
+      "successTitle": "Password Updated",
+      "successMessage": "Your password has been successfully updated. Please sign in with your new password.",
+      "backToLogin": "Back to Sign In",
+      "sessionExpired": "Link expired, please request a new password reset"
     },
     "signup": {
       "title": "Sign Up",
