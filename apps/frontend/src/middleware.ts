@@ -33,6 +33,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 0.7. 排除 help 靜態 MD 檔案（online help 說明）
+  if (pathname.startsWith('/help/') && pathname.endsWith('.md')) {
+    return NextResponse.next();
+  }
+
   // 1. 處理靜態 HTML 文件
   // 如果路徑包含 .html，移除語言前綴並重寫到實際的靜態文件路徑
   if (pathname.includes('.html')) {
@@ -117,6 +122,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|help).*)',
   ],
 };

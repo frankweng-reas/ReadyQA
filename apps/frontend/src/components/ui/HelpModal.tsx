@@ -29,9 +29,9 @@ export default function HelpModal({ isOpen, onClose, helpFile }: HelpModalProps)
       setError(null)
       
       try {
-        // 透過 API route 載入 MD 檔案，加上 timestamp 避免快取
+        // 從 public 靜態檔案載入（適用所有環境：本地、Docker、生產）
         const timestamp = Date.now()
-        const response = await fetch(`/api/help/${locale}/${helpFile}?t=${timestamp}`, {
+        const response = await fetch(`/help/${locale}/${helpFile}.md?t=${timestamp}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache',
