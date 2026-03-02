@@ -365,11 +365,15 @@ export default function PlanQuotaModal({
                 </button>
               )}
 
-              {/* 取消訂閱按鈕（僅在有付費方案且未設定取消時顯示） */}
-              {isPaidPlan && !isCancelScheduled && (
-                <button
+              {/* 取消訂閱按鈕（暫時停用）
+                  啟用時：移除 disabled，恢復 onClick 與 className
                   onClick={() => setShowCancelDialog(true)}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-red-300 bg-red-50 px-4 py-3 font-semibold text-red-600 transition-colors hover:bg-red-100"
+              */}
+              {isPaidPlan && !isCancelScheduled && (
+                <button
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 border-gray-300 bg-gray-100 px-4 py-3 font-semibold text-gray-500"
                 >
                   <svg
                     className="h-5 w-5"
@@ -388,13 +392,14 @@ export default function PlanQuotaModal({
                 </button>
               )}
 
-              {/* 升級/變更方案按鈕 */}
+              {/* 升級/變更方案按鈕（暫時停用）
+                  啟用時：移除 disabled，恢復 onClick 與 className
+                  onClick={() => { onClose(); router.push(`/${locale}/plans`) }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
+              */}
               <button
-                onClick={() => {
-                  onClose()
-                  router.push(`/${locale}/plans`)
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
+                disabled
+                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-400 px-4 py-3 font-semibold text-white"
               >
                 <svg
                   className="h-5 w-5"
