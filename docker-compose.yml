@@ -66,6 +66,7 @@ services:
 
   # Frontend (Next.js) - 暴露 3000 供 host nginx HTTPS 代理
   frontend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
