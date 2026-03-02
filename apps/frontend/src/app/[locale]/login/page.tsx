@@ -28,9 +28,8 @@ export default function LoginPage() {
     }
   }, [searchParams, t])
 
-  // 測試帳號：自動填入方便測試
-  const [email, setEmail] = useState('test01@test.com')
-  const [password, setPassword] = useState('123456')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuth()
   const router = useRouter()

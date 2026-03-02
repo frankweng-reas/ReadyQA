@@ -156,10 +156,13 @@ export class AuthService {
         };
       }
 
-      // 2. 如果提供了 email，檢查 email 是否已存在
+      // 2. 如果提供了 email，檢查 email 是否已存在（不區分大小寫，避免 Google 與 DB 格式差異）
       if (dto.email) {
-        const userWithEmail = await this.prisma.user.findUnique({
-          where: { email: dto.email },
+        const emailNormalized = dto.email.trim().toLowerCase();
+        const userWithEmail = await this.prisma.user.findFirst({
+          where: {
+            email: { equals: emailNormalized, mode: 'insensitive' as const },
+          },
           select: {
             id: true,
             email: true,
@@ -220,8 +223,8 @@ export class AuthService {
         }
       }
 
-      // 3. 用戶不存在，建立新用戶
-      const userEmail = dto.email || `user_${dto.supabaseUserId.substring(0, 8)}@supabase.local`;
+      // 3. 用戶不存在，建立新用戶（email 正規化為小寫，避免重複）
+      const userEmail = (dto.email?.trim().toLowerCase()) || `user_${dto.supabaseUserId.substring(0, 8)}@supabase.local`;
       const username = dto.name || 'Supabase User';
 
       // 使用事務確保 user 和 tenant 一起創建
@@ -292,7 +295,32 @@ export class AuthService {
         userId: result.id,
         created: true,
       };
-    } catch (error) {
+    } catch (error: any) {
+      // 若為 email 唯一約束錯誤（競態或大小寫差異），嘗試以 email 查找並更新
+      const isUniqueError =
+        error?.code === 'P2002' ||
+        (error?.message && error.message.includes('Unique constraint'));
+      if (isUniqueError && dto.email) {
+        const fallbackUser = await this.prisma.user.findFirst({
+          where: {
+            email: { equals: dto.email.trim(), mode: 'insensitive' as const },
+          },
+          select: { id: true },
+        });
+        if (fallbackUser) {
+          await this.prisma.user.update({
+            where: { id: fallbackUser.id },
+            data: { supabaseUserId: dto.supabaseUserId },
+          });
+          console.log(`[Auth Service] ✅ 唯一約束 fallback：已更新 user_id=${fallbackUser.id} 的 supabase_user_id`);
+          return {
+            success: true,
+            message: '已更新用戶的 Supabase ID',
+            userId: fallbackUser.id,
+            created: false,
+          };
+        }
+      }
       console.error('[Auth Service] ❌ 獲取或建立用戶失敗:', error);
       throw new BadRequestException(`獲取或建立用戶失敗: ${error.message}`);
     }
