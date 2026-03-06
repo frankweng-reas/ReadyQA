@@ -1,0 +1,26 @@
+[Unit]
+Description=ReadyQA Docker Compose - Postgres, Elasticsearch, Backend, Frontend
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# 專案目錄（請依實際路徑修改）
+WorkingDirectory=/home/frank_weng/ReadyQA
+
+# 先 down 再 up，確保依正確順序啟動（避免 Docker 自動重啟時 backend 早於 ES）
+# postgres、elasticsearch 先 healthy，再啟動 backend，ES 連線才不會失敗
+ExecStart=/bin/bash -c '/usr/bin/docker compose down 2>/dev/null; /usr/bin/docker compose up -d'
+ExecStop=/usr/bin/docker compose down
+
+# 若 docker 指令不在 /usr/bin，可改為: which docker compose 的輸出
+# ExecStart=/usr/local/bin/docker compose up -d
+
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
