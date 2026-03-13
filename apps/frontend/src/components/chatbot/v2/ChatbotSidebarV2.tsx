@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { chatbotApi } from '@/lib/api/chatbot';
 import { layout } from '@/config/layout';
 import { cn } from '@/lib/utils';
+import Modal from '@/components/ui/Modal';
 
 interface ChatbotSidebarV2Props {
   chatbotId: string;
@@ -27,6 +28,18 @@ export default function ChatbotSidebarV2({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
+  const [showChatbotInfoModal, setShowChatbotInfoModal] = useState(false);
+  const [chatbotInfoLoading, setChatbotInfoLoading] = useState(false);
+  const [chatbotInfoError, setChatbotInfoError] = useState<string | null>(null);
+  const [chatbotInfo, setChatbotInfo] = useState<{
+    name: string;
+    description: string | null;
+    status: string;
+    isActive: string;
+    createdAt: string;
+    updatedAt: string;
+    _count?: { faqs: number; topics: number };
+  } | null>(null);
   const [internalCurrentView, setInternalCurrentView] = useState<
     'knowledge' | 'design' | 'publish' | 'insight' | 'test'
   >('knowledge');
@@ -458,9 +471,28 @@ export default function ChatbotSidebarV2({
         }}
       >
         <button
-          onClick={() => {
-            // TODO: 實作點擊功能
-            console.log('[ChatbotSidebarV2] Chatbot info clicked');
+          onClick={async () => {
+            setShowChatbotInfoModal(true);
+            setChatbotInfo(null);
+            setChatbotInfoError(null);
+            setChatbotInfoLoading(true);
+            try {
+              const chatbot = await chatbotApi.getOne(chatbotId);
+              setChatbotInfo({
+                name: chatbot.name || '',
+                description: chatbot.description ?? null,
+                status: chatbot.status || '',
+                isActive: chatbot.isActive || '',
+                createdAt: chatbot.createdAt || '',
+                updatedAt: chatbot.updatedAt || '',
+                _count: chatbot._count,
+              });
+            } catch (error) {
+              console.error('[ChatbotSidebarV2] 載入 chatbot 資訊失敗:', error);
+              setChatbotInfoError(t('loadFailed'));
+            } finally {
+              setChatbotInfoLoading(false);
+            }
           }}
           className={cn(
             'w-full flex items-center transition-colors relative rounded-lg text-sidebar-text hover:bg-sidebar-bg-hover',
@@ -512,6 +544,70 @@ export default function ChatbotSidebarV2({
           {renderTooltip('chatbot', chatbotName || t('loading'))}
         </button>
       </div>
+
+      {/* Chatbot 資訊 Modal */}
+      <Modal
+        isOpen={showChatbotInfoModal}
+        onClose={() => {
+          setShowChatbotInfoModal(false);
+          setChatbotInfo(null);
+          setChatbotInfoError(null);
+        }}
+        title={t('chatbotInfo')}
+        maxWidth="md"
+        zIndex={10000}
+      >
+        <div className="space-y-4">
+          {chatbotInfoLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            </div>
+          ) : chatbotInfoError ? (
+            <div className="text-center py-8 text-red-600">
+              {chatbotInfoError}
+            </div>
+          ) : chatbotInfo ? (
+            <>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{t('chatbotName')}</dt>
+                <dd className="mt-1 text-base text-gray-900">{chatbotInfo.name}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{t('chatbotDescription')}</dt>
+                <dd className="mt-1 text-base text-gray-700">
+                  {chatbotInfo.description || t('noDescription')}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{t('chatbotStatus')}</dt>
+                <dd className="mt-1 text-base text-gray-900">
+                  {chatbotInfo.isActive === 'active' ? t('statusActive') : t('statusInactive')}
+                </dd>
+              </div>
+              {chatbotInfo._count && (
+                <div className="flex gap-6">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('faqCount')}</dt>
+                    <dd className="mt-1 text-base text-gray-900">{chatbotInfo._count.faqs ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">{t('topicCount')}</dt>
+                    <dd className="mt-1 text-base text-gray-900">{chatbotInfo._count.topics ?? 0}</dd>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-6 text-sm text-gray-500">
+                <span>
+                  {t('chatbotCreatedAt')}: {chatbotInfo.createdAt ? new Date(chatbotInfo.createdAt).toLocaleString() : '-'}
+                </span>
+                <span>
+                  {t('chatbotUpdatedAt')}: {chatbotInfo.updatedAt ? new Date(chatbotInfo.updatedAt).toLocaleString() : '-'}
+                </span>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   );
 }

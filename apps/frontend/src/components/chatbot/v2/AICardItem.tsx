@@ -115,8 +115,8 @@ export default function AICardItem({ card, onTitleChange, onDelete, onEditAndSav
         />
         <button
           onClick={() => onRegenerate(card.id, card.question)}
-          disabled={isRegenerating || !card.question.trim()}
-          className="px-3 py-2 text-sm bg-primary text-white rounded-full hover:bg-primary/90 disabled:bg-disabled disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          disabled={isRegenerating || !card.question.trim() || card.isSaved}
+          className="px-3 py-2 text-sm bg-primary text-white rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           title={t('regenerateTitle')}
         >
           {isRegenerating ? t('generating') : t('regenerate')}
@@ -148,7 +148,7 @@ export default function AICardItem({ card, onTitleChange, onDelete, onEditAndSav
           <button
             onClick={() => onEditAndSave(card)}
             disabled={card.isSaved}
-            className="px-3 py-1.5 text-sm bg-primary text-white rounded-full hover:bg-primary/90 disabled:bg-disabled disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1.5 text-sm bg-primary text-white rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {card.isSaved ? t('saved') : t('editAndSave')}
           </button>

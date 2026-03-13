@@ -19,6 +19,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AUTH_SYNC_CHANNEL = 'qaplus-auth-sync'
 
 /**
  * Auth Provider - 提供認證狀態和方法
@@ -104,6 +105,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
     }
   }, [supabase, router])
+
+  // 跨分頁登出同步：監聽其他分頁的登出事件
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return
+
+    const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
+    channel.onmessage = (event: MessageEvent) => {
+      if (event.data?.type === 'LOGOUT') {
+        setUser(null)
+        setPostgresUserId(null)
+        const pathParts = window.location.pathname.split('/').filter(Boolean)
+        const locale = pathParts[0] || 'zh-TW'
+        router.push(`/${locale}/login`)
+      }
+    }
+
+    return () => {
+      channel.close()
+    }
+  }, [router])
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -196,8 +217,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut()
     setPostgresUserId(null)
-    // 使用預設 locale
-    router.push('/zh-TW/login')
+
+    // 通知其他分頁同步登出
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
+      channel.postMessage({ type: 'LOGOUT' })
+      channel.close()
+    }
+
+    const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []
+    const locale = pathParts[0] || 'zh-TW'
+    router.push(`/${locale}/login`)
   }
 
   const resetPasswordForEmail = async (email: string) => {

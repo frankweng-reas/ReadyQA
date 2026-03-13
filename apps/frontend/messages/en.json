@@ -142,7 +142,19 @@
     "insight": "Insights",
     "test": "Test",
     "loading": "Loading...",
-    "currentChatbot": "Current Assistant"
+    "currentChatbot": "Current Assistant",
+    "chatbotInfo": "Q&A Assistant Information",
+    "chatbotName": "Name",
+    "chatbotDescription": "Description",
+    "chatbotStatus": "Status",
+    "chatbotCreatedAt": "Created",
+    "chatbotUpdatedAt": "Updated",
+    "faqCount": "FAQs",
+    "topicCount": "Topics",
+    "noDescription": "No description",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "loadFailed": "Failed to load, please try again later"
   },
   "design": {
     "queryTypeSetting": "Query Mode Setting",

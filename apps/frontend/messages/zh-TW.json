@@ -382,7 +382,19 @@
     "insight": "分析",
     "test": "測試",
     "loading": "載入中...",
-    "currentChatbot": "當前助手"
+    "currentChatbot": "當前助手",
+    "chatbotInfo": "問答助手資訊",
+    "chatbotName": "名稱",
+    "chatbotDescription": "描述",
+    "chatbotStatus": "狀態",
+    "chatbotCreatedAt": "建立時間",
+    "chatbotUpdatedAt": "更新時間",
+    "faqCount": "問答數",
+    "topicCount": "分類數",
+    "noDescription": "無描述",
+    "statusActive": "啟用",
+    "statusInactive": "停用",
+    "loadFailed": "載入失敗，請稍後再試"
   },
   "design": {
     "title": "打造你的問答助手，彰顯你的品牌風格！",

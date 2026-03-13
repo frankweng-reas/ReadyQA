@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { chatbotApi } from '@/lib/api/chatbot';
+import HelpModal from '@/components/ui/HelpModal';
 
 interface PublishManagerProps {
   chatbotId: string;
@@ -19,7 +20,9 @@ interface DomainWhitelist {
 export default function PublishManager({ chatbotId }: PublishManagerProps) {
   const t = useTranslations('chatbotSidebar');
   const tPublish = useTranslations('publish');
+  const tCommon = useTranslations('common');
 
+  const [showHelp, setShowHelp] = useState(false);
   const [activeTab, setActiveTab] = useState<'publish-assistant' | 'access-control'>('publish-assistant');
   const [urlCopied, setUrlCopied] = useState(false);
   const [iframeCode, setIframeCode] = useState('');
@@ -253,6 +256,19 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
           <h1 className="text-xl font-normal text-white">
             {tPublish('title')}
           </h1>
+        </div>
+
+        {/* 右側按鈕區 */}
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="relative group w-8 h-8 rounded-full flex items-center justify-center border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 transition-all duration-200 shadow-sm hover:shadow"
+          >
+            <span className="text-base font-semibold">？</span>
+            <span className="absolute right-full mr-3 px-3 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none whitespace-nowrap z-[100]">
+              {tCommon('help')}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -531,6 +547,13 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
           )}
         </div>
       </div>
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        helpFile="publish"
+      />
     </div>
   );
 }
