@@ -194,41 +194,41 @@ describe('ChatbotsService', () => {
       expect(createCall.data.domainWhitelist).toBeDefined();
     });
 
-    it('✅ 應該在 ES 不可用時跳過索引創建', async () => {
+    it('❌ ES 不可用時應拋錯且不建立 Chatbot', async () => {
       prismaService.chatbot.findUnique.mockResolvedValue(null);
-      prismaService.chatbot.create.mockResolvedValue(createdChatbot);
       elasticsearchService.isAvailable.mockReturnValue(false);
 
-      const result = await service.create(createDto);
-
-      expect(result).toEqual(createdChatbot);
+      await expect(service.create(createDto)).rejects.toThrow(
+        '搜尋服務未就緒，無法建立 Chatbot',
+      );
       expect(elasticsearchService.createFaqIndex).not.toHaveBeenCalled();
+      expect(prismaService.chatbot.create).not.toHaveBeenCalled();
     });
 
-    it('✅ 應該處理 ES 索引創建失敗（不影響 Chatbot 創建）', async () => {
+    it('❌ createFaqIndex 回傳 false 時應拋錯且不建立 Chatbot', async () => {
       prismaService.chatbot.findUnique.mockResolvedValue(null);
-      prismaService.chatbot.create.mockResolvedValue(createdChatbot);
       elasticsearchService.isAvailable.mockReturnValue(true);
       elasticsearchService.createFaqIndex.mockResolvedValue(false);
 
-      const result = await service.create(createDto);
-
-      // Chatbot 應該成功創建，即使 ES 失敗
-      expect(result).toEqual(createdChatbot);
+      await expect(service.create(createDto)).rejects.toThrow(
+        '無法建立搜尋索引，請稍後再試',
+      );
+      expect(elasticsearchService.createFaqIndex).toHaveBeenCalled();
+      expect(prismaService.chatbot.create).not.toHaveBeenCalled();
     });
 
-    it('✅ 應該處理 ES 索引創建異常（不影響 Chatbot 創建）', async () => {
+    it('❌ createFaqIndex 拋錯時應拋錯且不建立 Chatbot', async () => {
       prismaService.chatbot.findUnique.mockResolvedValue(null);
-      prismaService.chatbot.create.mockResolvedValue(createdChatbot);
       elasticsearchService.isAvailable.mockReturnValue(true);
       elasticsearchService.createFaqIndex.mockRejectedValue(
         new Error('ES connection failed'),
       );
 
-      const result = await service.create(createDto);
-
-      // Chatbot 應該成功創建，即使 ES 異常
-      expect(result).toEqual(createdChatbot);
+      await expect(service.create(createDto)).rejects.toThrow(
+        '無法建立搜尋索引，請稍後再試',
+      );
+      expect(elasticsearchService.createFaqIndex).toHaveBeenCalled();
+      expect(prismaService.chatbot.create).not.toHaveBeenCalled();
     });
   });
 

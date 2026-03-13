@@ -28,8 +28,7 @@ import { ElasticsearchService } from '../src/elasticsearch/elasticsearch.service
  * 
  * TODO: 進階測試場景
  * - Elasticsearch 失敗恢復
- *   - ES 連接失敗時，Chatbot 仍可建立
- *   - ES 索引建立失敗時的處理
+ *   - ES 索引建立失敗時會拋錯，不建立 Chatbot（已實作）
  *   - ES 索引刪除失敗時的處理
  * - TenantId 自動取得
  *   - 建立時未提供 tenantId，從 user 取得
@@ -157,6 +156,11 @@ describe('Chatbots (e2e)', () => {
 
   describe('POST /chatbots', () => {
     it('✅ 應該成功建立 Chatbot', async () => {
+      if (!elasticsearchService.isAvailable()) {
+        console.log('⏭️ Elasticsearch 未連接，跳過此測試');
+        return;
+      }
+
       const createDto = {
         id: `test-chatbot-${Date.now()}`,
         name: '測試 Chatbot',
@@ -228,6 +232,11 @@ describe('Chatbots (e2e)', () => {
     });
 
     it('✅ 應該自動設置預設值', async () => {
+      if (!elasticsearchService.isAvailable()) {
+        console.log('⏭️ Elasticsearch 未連接，跳過此測試');
+        return;
+      }
+
       const createDto = {
         id: `test-chatbot-${Date.now()}`,
         name: '測試預設值',
@@ -252,7 +261,33 @@ describe('Chatbots (e2e)', () => {
       console.log('✅ 預設值設置正確');
     });
 
+    it('❌ ES 不可用時建立 Chatbot 應回傳 400', async () => {
+      if (elasticsearchService.isAvailable()) {
+        console.log('⏭️ Elasticsearch 已連接，跳過此測試');
+        return;
+      }
+
+      const createDto = {
+        id: `test-chatbot-${Date.now()}`,
+        name: '測試 ES 不可用',
+        userId: testUserId,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post('/chatbots')
+        .send(createDto)
+        .expect(400);
+
+      expect(response.body.message).toContain('搜尋服務未就緒');
+      console.log('✅ ES 不可用時正確回傳 400');
+    });
+
     it('❌ 應該拒絕重複的 ID', async () => {
+      if (!elasticsearchService.isAvailable()) {
+        console.log('⏭️ Elasticsearch 未連接，跳過此測試');
+        return;
+      }
+
       const chatbotId = `test-duplicate-${Date.now()}`;
       const createDto = {
         id: chatbotId,

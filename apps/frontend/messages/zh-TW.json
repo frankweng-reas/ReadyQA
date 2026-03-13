@@ -136,6 +136,8 @@
     "alerts": {
       "nameRequired": "請輸入名稱",
       "createFailed": "建立失敗，請重試",
+      "esIndexCreateFailed": "無法建立搜尋索引，請稍後再試",
+      "esNotAvailable": "搜尋服務未就緒，無法建立 Chatbot",
       "deleteConfirm": "確定要刪除 \"{name}\" 嗎？此操作無法復原。",
       "deleteFailed": "刪除失敗，請重試",
       "updateStatusFailed": "更新狀態失敗，請重試",

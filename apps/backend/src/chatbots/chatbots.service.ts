@@ -11,7 +11,6 @@ import { getDefaultTheme, getDefaultDomainWhitelist, generateChatbotId } from '.
  * 
  * TODO: 未測試的部分
  * - Line 27-35: TenantId 自動取得邏輯（當未提供 tenantId 時從 user 取得）
- * - Line 62-72: ES 索引創建失敗處理（try-catch 區塊）
  * - Line 176: ES 索引刪除失敗處理
  * - Line 211-230: updateLogo() 方法
  */
@@ -45,6 +44,28 @@ export class ChatbotsService {
       tenantId = user?.tenantId || undefined;
     }
 
+    // 先建立 Elasticsearch 索引，成功後再建立 Chatbot
+    const esAvailable = this.elasticsearchService.isAvailable();
+    if (!esAvailable) {
+      throw new BadRequestException('搜尋服務未就緒，無法建立 Chatbot');
+    }
+
+    try {
+      const esCreated = await this.elasticsearchService.createFaqIndex(chatbotId);
+      if (!esCreated) {
+        throw new BadRequestException('無法建立搜尋索引，請稍後再試');
+      }
+    } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error(
+        `[ChatbotsService] ES 索引創建異常:`,
+        error,
+      );
+      throw new BadRequestException('無法建立搜尋索引，請稍後再試');
+    }
+
     // 準備創建資料，設置預設值
     const data: any = {
       id: chatbotId,
@@ -64,24 +85,6 @@ export class ChatbotsService {
     const chatbot = await this.prisma.chatbot.create({
       data,
     });
-
-    // 創建 Elasticsearch 索引（如果 ES 可用）
-    // ES 索引創建失敗不影響 chatbot 創建
-    if (this.elasticsearchService.isAvailable()) {
-      try {
-        const esCreated = await this.elasticsearchService.createFaqIndex(chatbotId);
-        if (!esCreated) {
-          console.warn(
-            `[ChatbotsService] ES 索引創建失敗，但 chatbot 已創建: ${chatbotId}`,
-          );
-        }
-      } catch (esError) {
-        console.error(
-          `[ChatbotsService] ES 索引創建異常（不影響 chatbot 創建）:`,
-          esError,
-        );
-      }
-    }
 
     return chatbot;
   }
@@ -310,7 +313,7 @@ export class ChatbotsService {
       });
 
       // 獲取 feedback 統計
-      const logIds = queryLogsInPeriod.map(log => log.id);
+      const logIds = queryLogsInPeriod.map((log: { id: string }) => log.id);
       const feedbackStats = logIds.length > 0 
         ? await this.prisma.queryLogDetail.groupBy({
             by: ['userAction'],
@@ -391,7 +394,7 @@ export class ChatbotsService {
 
           // 統計每個 FAQ 的 dislike 數量
           const dislikeMap = new Map<string, { question: string; count: number }>();
-          dislikeDetails.forEach(detail => {
+          dislikeDetails.forEach((detail: { faq: { id: string; question: string } }) => {
             const faqId = detail.faq.id;
             const existing = dislikeMap.get(faqId);
             if (existing) {
