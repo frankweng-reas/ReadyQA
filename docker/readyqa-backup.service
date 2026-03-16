@@ -1,0 +1,19 @@
+[Unit]
+Description=ReadyQA 每日 PostgreSQL 備份
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=frank_weng
+Group=frank_weng
+
+WorkingDirectory=/home/frank_weng/ReadyQA
+ExecStart=/home/frank_weng/ReadyQA/daily_backup.sh
+
+# 環境（cron 通常繼承 minimal env）
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

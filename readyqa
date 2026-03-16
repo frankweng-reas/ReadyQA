@@ -1,0 +1,29 @@
+#!/bin/bash
+# ReadyQA - 從任何目錄執行 scripts 目錄下的腳本
+# 用法: readyqa <腳本名> [參數...]
+# 範例: readyqa install-readyqa-boot.sh
+#       readyqa dev-frontend-only.sh
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$1"
+shift 2>/dev/null || true
+
+if [ -z "$SCRIPT_NAME" ]; then
+  echo "用法: readyqa <腳本名> [參數...]"
+  echo ""
+  echo "可用腳本:"
+  ls -1 "$PROJECT_DIR/scripts"/*.sh 2>/dev/null | xargs -I {} basename {} | sed 's/^/  /'
+  exit 1
+fi
+
+# 支援加或不加 .sh
+if [ -f "$PROJECT_DIR/scripts/$SCRIPT_NAME" ]; then
+  SCRIPT="$PROJECT_DIR/scripts/$SCRIPT_NAME"
+elif [ -f "$PROJECT_DIR/scripts/${SCRIPT_NAME}.sh" ]; then
+  SCRIPT="$PROJECT_DIR/scripts/${SCRIPT_NAME}.sh"
+else
+  echo "找不到: scripts/$SCRIPT_NAME"
+  exit 1
+fi
+
+exec "$SCRIPT" "$@"

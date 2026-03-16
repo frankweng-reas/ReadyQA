@@ -17,6 +17,9 @@ cluster.routing.allocation.disk.watermark.flood_stage: "99%"
 # 關閉 X-Pack 認證（開發環境）
 xpack.security.enabled: false
 
+# Snapshot 備份路徑（供 daily_backup.sh 使用）
+path.repo: ["/usr/share/elasticsearch/backup"]
+
 # CORS：讓 Elasticvue 等瀏覽器端工具可連線
 http.cors.enabled: true
 http.cors.allow-origin: "*"
