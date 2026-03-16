@@ -1,7 +1,7 @@
 import { getRequestConfig } from 'next-intl/server';
 
-// 支援的語言列表
-export const locales = ['zh-TW', 'en', 'ja'] as const;
+// 固定繁體中文，不支援多語言切換
+export const locales = ['zh-TW'] as const;
 export type Locale = (typeof locales)[number];
 
 // 預設語言

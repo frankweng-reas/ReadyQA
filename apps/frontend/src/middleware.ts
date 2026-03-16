@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { locales, defaultLocale } from './i18n';
 
-// 建立 i18n middleware
+// 建立 i18n middleware（固定繁體中文，無視瀏覽器語言）
 const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
   localePrefix: 'always', // URL 總是包含語言前綴：/zh-TW/dashboard
+  localeDetection: false, // 不依 Accept-Language 偵測，一律使用 zh-TW
 });
 
 /**
@@ -54,7 +55,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. 先處理 i18n 路由
+  // 2. 處理 i18n 路由（localeDetection: false + 僅 zh-TW，已固定繁體中文）
   const response = intlMiddleware(request);
 
   // 3. 僅在需要認證判斷的路徑才呼叫 Supabase（效能優化：跳過公開頁面）
