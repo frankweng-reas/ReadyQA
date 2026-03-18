@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
   const response = intlMiddleware(request);
 
   // 3. 僅在需要認證判斷的路徑才呼叫 Supabase（效能優化：跳過公開頁面）
-  const protectedRoutes = ['/dashboard', '/settings', '/profile'];
+  const protectedRoutes = ['/dashboard', '/settings', '/profile', '/admin'];
   const authCheckRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const isProtectedRoute = protectedRoutes.some((r) => pathname.includes(r));
   const isAuthCheckRoute = authCheckRoutes.some((r) => pathname.includes(r));
@@ -117,6 +117,18 @@ export async function middleware(request: NextRequest) {
   // 7. 未登入訪問 reset-password -> 導向登入頁
   if (pathname.includes('/reset-password') && !session) {
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+  }
+
+  // 8. Admin 頁面：僅允許 ADMIN_EMAILS 中的用戶訪問
+  if (pathname.includes('/admin') && session) {
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const userEmail = session.user?.email?.toLowerCase();
+    if (!userEmail || !adminEmails.includes(userEmail)) {
+      return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+    }
   }
 
   return response;

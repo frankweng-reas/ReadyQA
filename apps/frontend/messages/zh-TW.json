@@ -106,6 +106,7 @@
     "welcome": "歡迎回來",
     "pageTitle": "我的問答助手",
     "pageSubtitle": "管理您的助手，設計個性化體驗",
+    "quickGuide": "快速指南",
     "testButton": "測試頁面",
     "noChatbots": "目前沒有聊天機器人",
     "noChatbotsTitle": "還沒有 Chatbot",
@@ -883,6 +884,52 @@
     "other": {
       "title": "其他",
       "description": "這裡是其他測試功能的內容區域"
+    }
+  },
+  "admin": {
+    "title": "REAS Admin",
+    "backToDashboard": "返回 Dashboard",
+    "placeholder": "管理功能待擴充。",
+    "redirecting": "導向中...",
+    "nav": {
+      "users": "Users",
+      "userPlan": "User-Plan"
+    },
+    "users": {
+      "title": "Users",
+      "totalCount": "共 {count} 位用戶",
+      "loading": "載入中...",
+      "error": "載入失敗",
+      "empty": "尚無資料",
+      "id": "ID",
+      "username": "用戶名",
+      "email": "Email",
+      "supabaseUserId": "Supabase User ID",
+      "isActive": "啟用",
+      "tenantId": "Tenant ID",
+      "createdAt": "建立時間",
+      "updatedAt": "更新時間"
+    },
+    "userPlan": {
+      "title": "User-Plan",
+      "totalCount": "共 {count} 筆 Tenant",
+      "searchEmailPlaceholder": "依 Email 模糊查詢",
+      "loading": "載入中...",
+      "error": "載入失敗",
+      "empty": "尚無資料",
+      "id": "ID",
+      "email": "Email",
+      "name": "名稱",
+      "planCode": "方案",
+      "status": "狀態",
+      "createdAt": "建立時間",
+      "updatedAt": "更新時間",
+      "edit": "編輯",
+      "editModalTitle": "修改方案",
+      "save": "儲存",
+      "saving": "儲存中...",
+      "saveSuccess": "儲存成功",
+      "saveFailed": "儲存失敗"
     }
   }
 }

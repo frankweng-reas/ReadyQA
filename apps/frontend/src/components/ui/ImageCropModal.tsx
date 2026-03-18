@@ -92,7 +92,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
-    const newScale = Math.min(Math.max(0.2, scale + delta), 2);
+    const newScale = Math.min(Math.max(0.2, scale + delta), 1.5);
     setScale(newScale);
   };
 
@@ -194,16 +194,16 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-75 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-75 p-4 image-crop-modal-scroll">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col image-crop-modal-scroll my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">裁切圖片</h3>
+        <div className="flex items-center justify-between px-6 py-2 border-b shrink-0">
+          <h3 className="text-base font-semibold text-gray-900">裁切圖片</h3>
           <button
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 -m-1"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -212,7 +212,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
         {/* Preview Area */}
         <div
           ref={containerRef}
-          className="relative flex-1 overflow-hidden"
+          className="relative flex-1 overflow-hidden min-h-0"
           style={{ 
             minHeight: '600px',
             backgroundColor: bgColor === 'black' ? '#1a1a1a' : '#ffffff'
@@ -312,68 +312,68 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
 
         {/* Controls */}
         <div className="px-6 py-4 border-t bg-gray-50">
-          {/* 比例選擇 */}
-          <div className="flex items-center justify-between mb-4">
-            <label className="text-sm font-medium text-gray-700">裁切比例</label>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setAspectRatio('3:2')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  aspectRatio === '3:2'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                3:2（橫向）
-              </button>
-              <button
-                onClick={() => setAspectRatio('3:3')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  aspectRatio === '3:3'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                3:3（方形）
-              </button>
-              <button
-                onClick={() => setAspectRatio('3:4')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  aspectRatio === '3:4'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                3:4（豎向）
-              </button>
-              <button
-                onClick={() => setAspectRatio('3:5')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  aspectRatio === '3:5'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                3:5（長豎）
-              </button>
+          {/* 比例選擇 + 縮放控制（同一排） */}
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">裁切比例</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setAspectRatio('3:2')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    aspectRatio === '3:2'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  3:2（橫向）
+                </button>
+                <button
+                  onClick={() => setAspectRatio('3:3')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    aspectRatio === '3:3'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  3:3（方形）
+                </button>
+                <button
+                  onClick={() => setAspectRatio('3:4')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    aspectRatio === '3:4'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  3:4（豎向）
+                </button>
+                <button
+                  onClick={() => setAspectRatio('3:5')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    aspectRatio === '3:5'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  3:5（長豎）
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <label className="text-sm font-medium text-gray-700">縮放 ({(scale * 100).toFixed(0)}%)</label>
+              <input
+                type="range"
+                min={0.2}
+                max={1.5}
+                step={0.01}
+                value={scale}
+                onChange={(e) => setScale(Number(e.target.value))}
+                className="w-32"
+              />
             </div>
           </div>
 
-          {/* 縮放控制 */}
-          <div className="flex items-center justify-between mb-4">
-            <label className="text-sm font-medium text-gray-700">縮放 ({(scale * 100).toFixed(0)}%)</label>
-            <input
-              type="range"
-              min={0.2}
-              max={2}
-              step={0.01}
-              value={scale}
-              onChange={(e) => setScale(Number(e.target.value))}
-              className="w-48"
-            />
-          </div>
-
-          {/* 按钮 */}
+          {/* 按鈕 */}
           <div className="flex items-center justify-end space-x-3">
             <button
               onClick={onCancel}

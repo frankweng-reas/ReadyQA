@@ -179,6 +179,7 @@
     "sessionsPlaceholder": "Session analytics content to be implemented"
   },
   "dashboard": {
+    "quickGuide": "Quick Guide",
     "plan": {
       "currentPlan": "Current Plan",
       "viewPlanQuota": "Plan & Quota",
@@ -286,5 +287,51 @@
     "chatbotNotFound": "Chatbot not found",
     "tenantNotFound": "Tenant not found or deactivated",
     "tryAgainLater": "Please try again later"
+  },
+  "admin": {
+    "title": "REAS Admin",
+    "backToDashboard": "Back to Dashboard",
+    "placeholder": "Admin features to be added.",
+    "redirecting": "Redirecting...",
+    "nav": {
+      "users": "Users",
+      "userPlan": "User-Plan"
+    },
+    "users": {
+      "title": "Users",
+      "totalCount": "{count} users total",
+      "loading": "Loading...",
+      "error": "Failed to load",
+      "empty": "No data",
+      "id": "ID",
+      "username": "Username",
+      "email": "Email",
+      "supabaseUserId": "Supabase User ID",
+      "isActive": "Active",
+      "tenantId": "Tenant ID",
+      "createdAt": "Created",
+      "updatedAt": "Updated"
+    },
+    "userPlan": {
+      "title": "User-Plan",
+      "totalCount": "{count} tenants total",
+      "searchEmailPlaceholder": "Search by email (fuzzy)",
+      "loading": "Loading...",
+      "error": "Failed to load",
+      "empty": "No data",
+      "id": "ID",
+      "email": "Email",
+      "name": "Name",
+      "planCode": "Plan",
+      "status": "Status",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "edit": "Edit",
+      "editModalTitle": "Modify Plan",
+      "save": "Save",
+      "saving": "Saving...",
+      "saveSuccess": "Saved successfully",
+      "saveFailed": "Save failed"
+    }
   }
 }

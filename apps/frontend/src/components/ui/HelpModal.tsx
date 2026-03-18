@@ -117,10 +117,10 @@ export default function HelpModal({ isOpen, onClose, helpFile }: HelpModalProps)
                     <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700">{children}</ol>
+                    <ol className="list-decimal list-outside pl-6 mb-4 space-y-2 text-gray-700">{children}</ol>
                   ),
                   li: ({ children }) => (
-                    <li className="ml-4">{children}</li>
+                    <li className="pl-1">{children}</li>
                   ),
                   strong: ({ children }) => (
                     <strong className="font-semibold text-gray-900">{children}</strong>

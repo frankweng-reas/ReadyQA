@@ -7,6 +7,7 @@ import type { UserProfile } from '@/lib/api/user'
 import { stripeApi } from '@/lib/api/stripe'
 import { userApi } from '@/lib/api/user'
 import { useNotification } from '@/hooks/useNotification'
+import HelpModal from '@/components/ui/HelpModal'
 
 interface PlanQuotaModalProps {
   userProfile: UserProfile | null
@@ -27,6 +28,7 @@ export default function PlanQuotaModal({
   const locale = params.locale as string
 
   const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [showContactModal, setShowContactModal] = useState(false)
   const [isCanceling, setIsCanceling] = useState(false)
   const [isReactivating, setIsReactivating] = useState(false)
 
@@ -294,51 +296,6 @@ export default function PlanQuotaModal({
               </div>
             )}
 
-            {/* Features */}
-            {plan && (
-              <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                  {t('plan.features')}
-                </h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-5 w-5 rounded-full ${
-                        plan.enableAnalytics
-                          ? 'bg-green-500'
-                          : 'bg-gray-300'
-                      }`}
-                    />
-                    <span className="text-sm text-gray-700">
-                      {t('plan.analytics')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-5 w-5 rounded-full ${
-                        plan.enableApi ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
-                    />
-                    <span className="text-sm text-gray-700">
-                      {t('plan.api')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-5 w-5 rounded-full ${
-                        plan.enableExport
-                          ? 'bg-green-500'
-                          : 'bg-gray-300'
-                      }`}
-                    />
-                    <span className="text-sm text-gray-700">
-                      {t('plan.export')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Action Buttons */}
             <div className="mt-6 space-y-3">
               {/* 重新啟用訂閱按鈕（僅在已設定期末取消時顯示） */}
@@ -392,14 +349,12 @@ export default function PlanQuotaModal({
                 </button>
               )}
 
-              {/* 升級/變更方案按鈕（暫時停用）
-                  啟用時：移除 disabled，恢復 onClick 與 className
-                  onClick={() => { onClose(); router.push(`/${locale}/plans`) }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
+              {/* 升級/變更方案按鈕：點擊開窗顯示 contact.md
+                  原導向方案頁：onClick={() => { onClose(); router.push(`/${locale}/plans`) }}
               */}
               <button
-                disabled
-                className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-400 px-4 py-3 font-semibold text-white"
+                onClick={() => setShowContactModal(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
               >
                 <svg
                   className="h-5 w-5"
@@ -487,6 +442,13 @@ export default function PlanQuotaModal({
           </div>
         </>
       )}
+
+      {/* Contact Modal */}
+      <HelpModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        helpFile="contact"
+      />
 
       {notify.ConfirmDialog}
     </>

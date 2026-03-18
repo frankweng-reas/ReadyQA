@@ -10,6 +10,7 @@ import { userApi, type UserProfile } from '@/lib/api/user'
 import { useNotification } from '@/hooks/useNotification'
 import PlanQuotaModal from '@/components/dashboard/PlanQuotaModal'
 import PaymentFailedBanner from '@/components/dashboard/PaymentFailedBanner'
+import HelpModal from '@/components/ui/HelpModal'
 
 /**
  * Dashboard/Home 頁面 - Chatbot 列表
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [showPlanQuotaModal, setShowPlanQuotaModal] = useState(false)
+  const [showQuickGuideModal, setShowQuickGuideModal] = useState(false)
   const newChatbotNameRef = useRef<HTMLInputElement>(null)
   const newChatbotDescRef = useRef<HTMLInputElement>(null)
   const editChatbotNameRef = useRef<HTMLInputElement>(null)
@@ -522,11 +524,17 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={() => setShowQuickGuideModal(true)}
+                    className="rounded-full border-2 border-gray-400 px-6 py-3 font-bold text-gray-700 shadow transition-colors hover:bg-gray-100"
+                  >
+                    {t('quickGuide')}
+                  </button>
+                  <button
                     onClick={() => setShowNewChatbotModal(true)}
                     className="rounded-full px-6 py-3 font-bold text-white shadow-lg transition-colors hover:opacity-90"
                     style={{ backgroundColor: '#18333D' }}
                   >
-                    + New
+                    {t('chatbots.createButton')}
                   </button>
                 </div>
               </div>
@@ -952,6 +960,13 @@ export default function DashboardPage() {
         userProfile={userProfile}
         isOpen={showPlanQuotaModal}
         onClose={() => setShowPlanQuotaModal(false)}
+      />
+
+      {/* 快速指南 Modal */}
+      <HelpModal
+        isOpen={showQuickGuideModal}
+        onClose={() => setShowQuickGuideModal(false)}
+        helpFile="faststart"
       />
 
     </div>

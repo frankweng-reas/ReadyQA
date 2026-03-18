@@ -19,6 +19,7 @@ import { AudioModule } from './audio/audio.module';
 import { QueryModule } from './query/query.module';
 import { AiModule } from './ai/ai.module';
 import { StripeModule } from './stripe/stripe.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { StripeModule } from './stripe/stripe.module';
     QueryModule,
     AiModule,
     StripeModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

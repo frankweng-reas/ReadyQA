@@ -226,8 +226,35 @@ div[contenteditable="true"] table thead td {
   margin: 0 auto;
 }
 
+/* 裁切圖片 Modal：強制捲軸固定顯示（macOS 預設捲動時才顯示） */
+.image-crop-modal-scroll {
+  overflow-y: scroll !important;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+.image-crop-modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.image-crop-modal-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.image-crop-modal-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+.image-crop-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
 /* ChatbotWidget 輸入框 placeholder 顏色 */
 .chatbot-input-textarea::placeholder {
   color: var(--placeholder-color, #9CA3AF) !important;
   opacity: 1 !important;
+}
+
+/* Admin 頁面：全頁字體不小於 16px */
+.admin-layout {
+  font-size: 16px !important;
 }
