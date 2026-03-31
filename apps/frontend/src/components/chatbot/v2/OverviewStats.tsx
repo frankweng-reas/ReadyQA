@@ -149,7 +149,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
           onClick={loadData}
           className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
-          重試
+          {t('retry')}
         </button>
       </div>
     );
@@ -163,7 +163,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
           onClick={loadData}
           disabled={isLoading}
           className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="重新載入數據"
+          title={t('reloadTooltip')}
         >
           <svg 
             className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
@@ -173,7 +173,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          刷新
+          {t('refresh')}
         </button>
 
         <div className="flex gap-2">
@@ -244,7 +244,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
             {data.kpi.totalFaqs}
           </div>
           <div className="text-sm text-label">
-            {data.kpi.activeFaqs} 啟用
+            {t('kpiActiveCount', { count: data.kpi.activeFaqs })}
           </div>
         </div>
 
@@ -375,7 +375,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
             className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
           >
             <div className="flex items-center gap-4">
-              <h3 className="text-lg font-semibold text-text">無結果查詢</h3>
+              <h3 className="text-lg font-semibold text-text">{t('noResultQueriesTitle')}</h3>
               <span className="text-sm text-label">
                 {t('zeroResultSummary', { 
                   days: timeRange, 
@@ -463,7 +463,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
                         }
                       }}
                       className="flex-shrink-0 p-1.5 text-gray-400 hover:text-primary hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                      title="編輯"
+                      title={t('edit')}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -525,7 +525,7 @@ export default function OverviewStats({ chatbotId, onCreateFaq, onEditFaq }: Ove
                         }
                       }}
                       className="flex-shrink-0 p-1.5 text-gray-400 hover:text-primary hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                      title="編輯"
+                      title={t('edit')}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

@@ -193,7 +193,7 @@ export default function QAManager({ chatbotId }: QAManagerProps) {
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
               </svg>
-              <span>排序管理</span>
+              <span>{t('sortManagerTab')}</span>
             </button>
           </div>
         </div>

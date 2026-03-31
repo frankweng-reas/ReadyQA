@@ -31,7 +31,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signIn, signInWithGoogle, sessionInitError, loading: authLoading } =
+    useAuth()
   const router = useRouter()
 
   const handleGoogleSignIn = async () => {
@@ -84,7 +85,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Link
-            href="/"
+            href={`/${locale}`}
             className="inline-block transition-opacity hover:opacity-80"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -100,6 +101,41 @@ export default function LoginPage() {
 
         {/* 登入表單卡片 */}
         <div className="rounded-2xl bg-white p-8 shadow-xl">
+          {authLoading && !sessionInitError && (
+            <p className="mb-4 text-center text-sm text-gray-500">
+              {tCommon('loading')}
+            </p>
+          )}
+          {sessionInitError === 'timeout' && (
+            <div
+              className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              role="status"
+            >
+              <p className="mb-3">{t('supabaseSessionTimeout')}</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-full bg-amber-800 px-4 py-2 text-xs font-medium text-white hover:bg-amber-900"
+              >
+                {t('refreshPage')}
+              </button>
+            </div>
+          )}
+          {sessionInitError === 'supabase_error' && (
+            <div
+              className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              role="status"
+            >
+              <p className="mb-3">{t('supabaseSessionFailed')}</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-full bg-amber-800 px-4 py-2 text-xs font-medium text-white hover:bg-amber-900"
+              >
+                {t('refreshPage')}
+              </button>
+            </div>
+          )}
           {/* 錯誤訊息 */}
           {error && (
             <div

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { AuthProvider } from '@/lib/auth/auth-provider'
 import { NotificationProvider } from '@/lib/notifications/NotificationProvider'
 import { locales } from '@/i18n'
+import { DocumentLang } from '@/components/DocumentLang'
 import '../globals.css'
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={params.locale} messages={messages}>
+      <DocumentLang locale={params.locale} />
       <AuthProvider>
         <NotificationProvider>
           {children}

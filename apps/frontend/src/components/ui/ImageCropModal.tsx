@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface ImageCropModalProps {
   image: string;
@@ -9,6 +10,8 @@ interface ImageCropModalProps {
 }
 
 export default function ImageCropModal({ image, onCropComplete, onCancel }: ImageCropModalProps) {
+  const t = useTranslations('design');
+  const tCommon = useTranslations('common');
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -142,8 +145,8 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
       
       onCropComplete(croppedBlob);
     } catch (error) {
-      console.error('裁切失败:', error);
-      alert('裁切失败，请重试');
+      console.error('[ImageCropModal] crop failed:', error);
+      alert(t('imageCrop.cropFailed'));
     } finally {
       setIsProcessing(false);
     }
@@ -198,7 +201,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col image-crop-modal-scroll my-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-2 border-b shrink-0">
-          <h3 className="text-base font-semibold text-gray-900">裁切圖片</h3>
+          <h3 className="text-base font-semibold text-gray-900">{t('imageCrop.title')}</h3>
           <button
             onClick={onCancel}
             className="text-gray-400 hover:text-gray-600 transition-colors p-1 -m-1"
@@ -233,7 +236,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
               onMouseDown={(e) => e.stopPropagation()}
               className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-all shadow-lg"
               style={{ backgroundColor: 'white' }}
-              title={bgColor === 'white' ? '切換到黑色背景' : '切換到白色背景'}
+              title={bgColor === 'white' ? t('switchToBlackBg') : t('switchToWhiteBg')}
             >
               {bgColor === 'white' ? (
                 <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
@@ -257,7 +260,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
             <img
               ref={imageRef}
               src={image}
-              alt="Crop preview"
+              alt={t('imageCrop.previewAlt')}
               draggable={false}
               style={{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
@@ -315,7 +318,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
           {/* 比例選擇 + 縮放控制（同一排） */}
           <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">裁切比例</label>
+              <label className="text-sm font-medium text-gray-700">{t('imageCrop.aspectRatio')}</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setAspectRatio('3:2')}
@@ -325,7 +328,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  3:2（橫向）
+                  {t('imageCrop.ratioLandscape')}
                 </button>
                 <button
                   onClick={() => setAspectRatio('3:3')}
@@ -335,7 +338,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  3:3（方形）
+                  {t('imageCrop.ratioSquare')}
                 </button>
                 <button
                   onClick={() => setAspectRatio('3:4')}
@@ -345,7 +348,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  3:4（豎向）
+                  {t('imageCrop.ratioPortrait')}
                 </button>
                 <button
                   onClick={() => setAspectRatio('3:5')}
@@ -355,12 +358,14 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  3:5（長豎）
+                  {t('imageCrop.ratioTallPortrait')}
                 </button>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <label className="text-sm font-medium text-gray-700">縮放 ({(scale * 100).toFixed(0)}%)</label>
+              <label className="text-sm font-medium text-gray-700">
+                {t('imageCrop.zoom', { percent: Math.round(scale * 100) })}
+              </label>
               <input
                 type="range"
                 min={0.2}
@@ -380,7 +385,7 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
               disabled={isProcessing}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              取消
+              {tCommon('cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -393,10 +398,10 @@ export default function ImageCropModal({ image, onCropComplete, onCancel }: Imag
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  處理中...
+                  {t('imageCrop.processing')}
                 </>
               ) : (
-                '確定裁切'
+                t('imageCrop.confirmCrop')
               )}
             </button>
           </div>

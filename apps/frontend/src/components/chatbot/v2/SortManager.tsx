@@ -59,6 +59,7 @@ function SortableItemComponent({
   item: SortableItem;
   index: number;
 }) {
+  const t = useTranslations('knowledge');
   const {
     attributes,
     listeners,
@@ -90,7 +91,10 @@ function SortableItemComponent({
     >
       {/* 拖曳手柄 */}
       {isTopic ? (
-        <div className="text-gray-300 flex-shrink-0 cursor-not-allowed" title="分類排序請使用分類管理">
+        <div
+          className="text-gray-300 flex-shrink-0 cursor-not-allowed"
+          title={t('sortManager.topicSortTooltip')}
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
           </svg>
@@ -121,7 +125,9 @@ function SortableItemComponent({
             </svg>
             <span className="font-medium text-gray-800 text-lg">{topic?.name}</span>
             {topic?._count?.faqs !== undefined && (
-              <span className="text-sm text-gray-500">({topic._count.faqs} 個問答)</span>
+              <span className="text-sm text-gray-500">
+                ({t('faqCountInTopic', { count: topic._count.faqs })})
+              </span>
             )}
           </div>
         ) : (
@@ -131,10 +137,14 @@ function SortableItemComponent({
             </svg>
             <span className="text-gray-700 truncate">{faq?.question}</span>
             {item.topicId && (
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">分類中</span>
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                {t('sortManager.inCategoryBadge')}
+              </span>
             )}
             {!item.topicId && (
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">未分類</span>
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                {t('uncategorized')}
+              </span>
             )}
           </div>
         )}
@@ -142,7 +152,9 @@ function SortableItemComponent({
 
       {/* 排序值顯示 */}
       <div className="flex-shrink-0 text-sm text-gray-500">
-        {isTopic ? `排序: ${topic?.sortOrder}` : `排序: ${faq?.sortOrder ?? 0}`}
+        {isTopic
+          ? t('sortManager.sortOrderLabel', { order: topic?.sortOrder ?? 0 })
+          : t('sortManager.sortOrderLabel', { order: faq?.sortOrder ?? 0 })}
       </div>
     </div>
   );
@@ -187,7 +199,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
 
       // 構建扁平化列表：先按 sortOrder 排序，然後合併
       const sortedTopics = [...topicsData]
-        .filter(t => t.parentId === null) // 只顯示頂層 topics
+        .filter((topicRow) => topicRow.parentId === null) // 只顯示頂層 topics
         .sort((a, b) => a.sortOrder - b.sortOrder);
 
       const sortedFaqs = [...faqsData].sort((a, b) => {
@@ -237,7 +249,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
       setItems([...categorized, ...uncategorized]);
     } catch (error) {
       console.error('[SortManager] 載入資料失敗:', error);
-      notify.error('載入資料失敗');
+      notify.error(t('sortManager.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -446,17 +458,20 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
       setCategorizedItems(newCategorized);
       setUncategorizedItems(newUncategorized);
 
-      notify.success('排序已更新');
+      notify.success(t('sortManager.sortUpdated'));
       if (onRefresh) onRefresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[SortManager] 更新排序失敗:', error);
-      const errorMessage = error?.message || '更新排序失敗，請稍後再試';
+      const notifyMessage =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : t('sortManager.sortUpdateFailed');
       console.error('[SortManager] 錯誤詳情:', {
-        message: errorMessage,
-        stack: error?.stack,
+        message: notifyMessage,
+        stack: error instanceof Error ? error.stack : undefined,
         error,
       });
-      notify.error(errorMessage);
+      notify.error(notifyMessage);
       // 重新載入資料以恢復原狀
       await loadData();
     } finally {
@@ -473,7 +488,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </div>
-          <p className="text-gray-600">載入中...</p>
+          <p className="text-gray-600">{tCommon('loading')}</p>
         </div>
       </div>
     );
@@ -488,9 +503,9 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1">
-            <p className="text-sm text-blue-800 font-medium mb-1">排序管理說明</p>
+            <p className="text-sm text-blue-800 font-medium mb-1">{t('sortManager.introTitle')}</p>
             <p className="text-sm text-blue-700">
-              拖曳問答左側圖標來調整順序。分類僅供參考，分類排序請使用「分類管理」功能。
+              {t('sortManager.introBody', { topicsTab: t('topics') })}
             </p>
           </div>
         </div>
@@ -499,7 +514,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
       {/* 排序列表 */}
       {items.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-600">目前沒有可排序的項目</p>
+          <p className="text-gray-600">{t('sortManager.emptyState')}</p>
         </div>
       ) : (
         <DndContext
@@ -516,7 +531,9 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
                     <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
-                    <h3 className="text-sm font-semibold text-gray-700">已分類問答</h3>
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      {t('sortManager.sectionCategorized')}
+                    </h3>
                   </div>
                   {categorizedItems.map((item, index) => (
                     <SortableItemComponent key={item.id} item={item} index={index} />
@@ -531,9 +548,11 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
                     <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="text-sm font-semibold text-gray-700">未分類問答</h3>
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      {t('sortManager.sectionUncategorized')}
+                    </h3>
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                      {uncategorizedItems.length} 個
+                      {t('sortManager.itemCount', { count: uncategorizedItems.length })}
                     </span>
                   </div>
                   {uncategorizedItems.map((item, index) => (
@@ -556,7 +575,7 @@ export default function SortManager({ chatbotId, onRefresh }: SortManagerProps) 
           <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span>正在儲存排序...</span>
+          <span>{t('sortManager.savingOrder')}</span>
         </div>
       )}
     </div>

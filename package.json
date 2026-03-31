@@ -5,7 +5,7 @@
   "description": "QAPlus - Knowledge Base Management System",
   "scripts": {
     "dev": "turbo run dev",
-    "dev:local": "npm run dev:local -w @qaplus/frontend",
+    "dev:local": "cd apps/frontend && npm run dev:local",
     "dev:local:backend": "npm run dev:local:backend -w @qaplus/backend",
     "build": "turbo run build",
     "test": "turbo run test",

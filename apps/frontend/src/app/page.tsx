@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
+import { redirect } from 'next/navigation';
+import { defaultLocale } from '@/i18n';
 
 export default function HomePage() {
-  // 重定向到預設語言的 dashboard
-  redirect('/zh-TW/dashboard')
+  redirect(`/${defaultLocale}/dashboard`);
 }
 

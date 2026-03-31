@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -89,5 +89,24 @@ export class QueryLogQueryDto {
   @IsInt()
   @IsOptional()
   offset?: number = 0;
+
+  @ApiPropertyOptional({ description: '僅 resultsCnt 為 0 的紀錄' })
+  @IsBoolean()
+  @Type(() => Boolean)
+  @IsOptional()
+  zeroOnly?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ['createdAt', 'resultsCnt', 'readCnt', 'sessionId', 'query'],
+    description: '排序欄位（預設 createdAt）',
+  })
+  @IsOptional()
+  @IsIn(['createdAt', 'resultsCnt', 'readCnt', 'sessionId', 'query'])
+  sortBy?: 'createdAt' | 'resultsCnt' | 'readCnt' | 'sessionId' | 'query';
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: '排序方向（預設 desc）' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 }
 

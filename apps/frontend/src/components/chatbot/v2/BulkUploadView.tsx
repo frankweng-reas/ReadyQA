@@ -55,12 +55,23 @@ interface UploadResult {
   skip_reason?: string
 }
 
+/** 已對應系統欄位時，若與檔案表頭不同則取翻譯標籤（英文介面可對照中文表頭） */
+function translatedTargetLabel(
+  targetField: string | null | undefined,
+  tKnowledge: (key: string) => string
+): string | null {
+  if (!targetField) return null
+  const def = SYSTEM_FIELDS.find((f) => f.key === targetField)
+  return def ? tKnowledge(def.labelKey) : null
+}
+
 export default function BulkUploadView({
   chatbotId,
   onSuccess,
 }: BulkUploadViewProps) {
   const t = useTranslations('knowledge')
   const tBulk = useTranslations('knowledge.bulkUpload')
+  const tCommon = useTranslations('common')
   const notify = useNotification()
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -640,10 +651,19 @@ export default function BulkUploadView({
             <div className="space-y-2">
               {sourceFields.map((sourceField) => {
                 const mapping = fieldMappings.find(m => m.sourceField === sourceField)
+                const targetLabel = translatedTargetLabel(mapping?.targetField, t)
+                const showTranslatedHint =
+                  targetLabel != null &&
+                  targetLabel.trim().toLowerCase() !== sourceField.trim().toLowerCase()
                 return (
                   <div key={sourceField} className="flex items-center space-x-3 bg-white px-3 py-2 rounded-lg border border-primary/20 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex-1 text-base font-medium text-text">
-                      {sourceField}
+                      <span>{sourceField}</span>
+                      {showTranslatedHint && (
+                        <span className="ml-1.5 text-sm font-normal text-label">
+                          ({targetLabel})
+                        </span>
+                      )}
                     </div>
                     <div className="text-base text-primary font-bold">→</div>
                     <div className="w-48">
@@ -959,7 +979,7 @@ export default function BulkUploadView({
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="text-lg font-semibold text-white">上傳失敗</h3>
+                    <h3 className="text-lg font-semibold text-white">{tBulk('uploadFailed')}</h3>
                   </div>
                   <button
                     onClick={() => setShowErrorModal(false)}
@@ -981,7 +1001,7 @@ export default function BulkUploadView({
                   onClick={() => setShowErrorModal(false)}
                   className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
                 >
-                  確定
+                  {tCommon('ok')}
                 </button>
               </div>
             </div>

@@ -41,11 +41,14 @@ export async function GET(request: NextRequest) {
     console.error('[ChatbotWidget] 缺少 data-chatbot-id');
     return;
   }
+
+  const rawLocale = currentScript.getAttribute('data-locale');
+  const widgetLocale = rawLocale === 'en' || rawLocale === 'zh-TW' ? rawLocale : 'zh-TW';
   
   // 取得 origin（從 script src 或 window.location）
   const scriptSrc = currentScript.src;
   const origin = scriptSrc ? scriptSrc.split('/').slice(0, 3).join('/') : window.location.origin;
-  const chatbotUrl = origin + '/zh-TW/chatbot/' + chatbotId;
+  const chatbotUrl = origin + '/' + widgetLocale + '/chatbot/' + chatbotId;
   
   // 處理圖片路徑：轉換為正確的 URL
   if (bubbleImage) {

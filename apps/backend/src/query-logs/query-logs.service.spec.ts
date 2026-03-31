@@ -141,14 +141,14 @@ describe('QueryLogsService', () => {
         id: 'log-1',
         chatbotId: 'chatbot-1',
         query: '查詢1',
-        session: { id: 'session-1', token: 'token-123' },
+        session: { id: 'session-1' },
         _count: { queryLogDetails: 3 },
       },
       {
         id: 'log-2',
         chatbotId: 'chatbot-1',
         query: '查詢2',
-        session: { id: 'session-2', token: 'token-456' },
+        session: { id: 'session-2' },
         _count: { queryLogDetails: 5 },
       },
     ];
@@ -169,7 +169,6 @@ describe('QueryLogsService', () => {
           session: {
             select: {
               id: true,
-              token: true,
             },
           },
           _count: {
@@ -184,6 +183,46 @@ describe('QueryLogsService', () => {
         skip: 0,
         take: 20,
       });
+    });
+
+    it('✅ 應該支援 zeroOnly 過濾（僅無結果）', async () => {
+      const queryZero: QueryLogQueryDto = {
+        ...queryDto,
+        zeroOnly: true,
+      };
+      prismaService.queryLog.findMany.mockResolvedValue([]);
+      prismaService.queryLog.count.mockResolvedValue(0);
+
+      await service.findAll(queryZero);
+
+      expect(prismaService.queryLog.findMany).toHaveBeenCalledWith({
+        where: {
+          chatbotId: 'chatbot-1',
+          resultsCnt: 0,
+        },
+        include: expect.any(Object),
+        orderBy: expect.any(Object),
+        skip: expect.any(Number),
+        take: expect.any(Number),
+      });
+    });
+
+    it('✅ 應該支援自訂排序欄位與方向', async () => {
+      const querySort: QueryLogQueryDto = {
+        ...queryDto,
+        sortBy: 'resultsCnt',
+        sortOrder: 'asc',
+      };
+      prismaService.queryLog.findMany.mockResolvedValue(mockLogs);
+      prismaService.queryLog.count.mockResolvedValue(2);
+
+      await service.findAll(querySort);
+
+      expect(prismaService.queryLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { resultsCnt: 'asc' },
+        }),
+      );
     });
 
     it('✅ 應該支援 sessionId 過濾', async () => {
@@ -286,8 +325,6 @@ describe('QueryLogsService', () => {
       query: '測試查詢',
       session: {
         id: 'session-1',
-        token: 'token-123',
-        tenantId: 'tenant-1',
       },
       chatbot: {
         id: 'chatbot-1',
@@ -308,8 +345,6 @@ describe('QueryLogsService', () => {
           session: {
             select: {
               id: true,
-              token: true,
-              tenantId: true,
             },
           },
           chatbot: {

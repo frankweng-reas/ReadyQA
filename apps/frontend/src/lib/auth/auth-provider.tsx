@@ -1,14 +1,27 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import { getOrCreateUserId } from './user-mapping'
 
+/** 後端 get-or-create-user 是否已嘗試完畢（避免 mapping 失敗時 isLoading 永遠 true） */
+export type UserMappingStatus = 'idle' | 'loading' | 'done'
+
+/** 初始化時 getSession 逾時或 Supabase 回傳錯誤（例如專案暫停）— 不應讓 loading 永遠 true */
+export type SessionInitErrorKind = 'timeout' | 'supabase_error' | null
+
+/** 逾時略大於 middleware / SSR 合理等待，避免 Supabase 暫慢就誤判 */
+const SESSION_INIT_TIMEOUT_MS = 12_000
+
 interface AuthContextType {
   user: User | null
   postgresUserId: number | null // 新增：PostgreSQL user_id
+  /** Supabase 已就緒後，後端 user 映射進行中／已結束 */
+  userMappingStatus: UserMappingStatus
+  /** 首次 getSession 失敗或逾時；成功連線後會清除 */
+  sessionInitError: SessionInitErrorKind
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>
@@ -33,14 +46,20 @@ const AUTH_SYNC_CHANNEL = 'qaplus-auth-sync'
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [postgresUserId, setPostgresUserId] = useState<number | null>(null)
+  const [userMappingStatus, setUserMappingStatus] =
+    useState<UserMappingStatus>('idle')
+  const [sessionInitError, setSessionInitError] =
+    useState<SessionInitErrorKind>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  /** 單一 browser client；勿每次 render 建立新實例，否則 useEffect 會反覆重跑、認證狀態異常 */
+  const supabase = useMemo(() => createClient(), [])
 
   // 統一處理用戶映射邏輯
   const handleUserMapping = async (user: User | null) => {
     if (!user) {
       setPostgresUserId(null)
+      setUserMappingStatus('idle')
       return
     }
 
@@ -57,18 +76,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const errMsg = error instanceof Error ? error.message : String(error)
       console.error('[AuthProvider] 創建用戶記錄失敗:', errMsg, error)
       setPostgresUserId(null)
-      // 顯示具體錯誤以利診斷（網路錯誤、API 失敗、後端未啟動等）
-      alert(`無法建立用戶資料：${errMsg}\n\n請確認後端已啟動，或重新整理頁面後重試。`)
+    } finally {
+      setUserMappingStatus('done')
     }
   }
 
   useEffect(() => {
     // 檢查初始 session
     const initAuth = async () => {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
       try {
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error('AUTH_SESSION_TIMEOUT')),
+            SESSION_INIT_TIMEOUT_MS
+          )
+        })
         const {
           data: { session },
-        } = await supabase.auth.getSession()
+          error: sessionError,
+        } = (await Promise.race([sessionPromise, timeoutPromise])) as Awaited<
+          ReturnType<typeof supabase.auth.getSession>
+        >
+        if (timeoutId) clearTimeout(timeoutId)
+
+        if (sessionError) {
+          console.error('[AuthProvider] getSession error:', sessionError.message)
+          setSessionInitError('supabase_error')
+          setUser(null)
+          setPostgresUserId(null)
+          setUserMappingStatus('idle')
+          setLoading(false)
+          return
+        }
+
+        setSessionInitError(null)
+
         if (session?.user) {
           console.log('[AuthProvider] Supabase 專案:', process.env.NEXT_PUBLIC_SUPABASE_URL)
           console.log('[AuthProvider] Supabase User ID:', session.user.id, '(請用此 ID 在 Supabase SQL Editor 查詢: SELECT * FROM auth.users WHERE id = \'' + session.user.id + '\')')
@@ -76,10 +120,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
         // 先結束 loading，避免 API 慢或失敗時卡在轉圈圈
         setLoading(false)
-        // 背景執行用戶映射（不阻塞 UI）
+        if (session?.user) {
+          setUserMappingStatus('loading')
+        } else {
+          setUserMappingStatus('idle')
+        }
         void handleUserMapping(session?.user ?? null)
       } catch (error) {
-        console.error('[AuthProvider] Failed to get session:', error)
+        if (timeoutId) clearTimeout(timeoutId)
+        if (error instanceof Error && error.message === 'AUTH_SESSION_TIMEOUT') {
+          console.error(
+            '[AuthProvider] getSession 逾時（常見：Supabase 專案暫停、DNS、網路不穩）'
+          )
+          setSessionInitError('timeout')
+        } else {
+          console.error('[AuthProvider] Failed to get session:', error)
+          setSessionInitError('supabase_error')
+        }
+        setUser(null)
+        setPostgresUserId(null)
+        setUserMappingStatus('idle')
         setLoading(false)
       }
     }
@@ -92,12 +152,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthProvider] Auth state changed:', event, session?.user?.email)
       if (session?.user) {
+        setSessionInitError(null)
         console.log('[AuthProvider] Supabase 專案:', process.env.NEXT_PUBLIC_SUPABASE_URL)
         console.log('[AuthProvider] Supabase User ID:', session.user.id, '(請用此 ID 在 Supabase SQL Editor 查詢: SELECT * FROM auth.users WHERE id = \'' + session.user.id + '\')')
       }
       setUser(session?.user ?? null)
       setLoading(false)
-      // 背景執行用戶映射（不阻塞 UI）
+      if (session?.user) {
+        setUserMappingStatus('loading')
+      } else {
+        setUserMappingStatus('idle')
+      }
       void handleUserMapping(session?.user ?? null)
     })
 
@@ -115,6 +180,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event.data?.type === 'LOGOUT') {
         setUser(null)
         setPostgresUserId(null)
+        setUserMappingStatus('idle')
+        setSessionInitError(null)
         const pathParts = window.location.pathname.split('/').filter(Boolean)
         const locale = pathParts[0] || 'zh-TW'
         router.push(`/${locale}/login`)
@@ -127,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router])
 
   const signIn = async (email: string, password: string) => {
+    setSessionInitError(null)
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -146,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, name?: string) => {
+    setSessionInitError(null)
     try {
       // emailRedirectTo：確認信連結點擊後導向的 URL，需在 Supabase Redirect URLs 白名單中
       const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []
@@ -185,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
+    setSessionInitError(null)
     try {
       if (typeof window === 'undefined') {
         return { error: new Error('Google 登入只能在客戶端執行') }
@@ -217,6 +287,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut()
     setPostgresUserId(null)
+    setUserMappingStatus('idle')
+    setSessionInitError(null)
 
     // 通知其他分頁同步登出
     if (typeof BroadcastChannel !== 'undefined') {
@@ -275,6 +347,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     postgresUserId,
+    userMappingStatus,
+    sessionInitError,
     loading,
     signIn,
     signUp,

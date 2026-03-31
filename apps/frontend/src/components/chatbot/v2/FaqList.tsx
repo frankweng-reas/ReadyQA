@@ -328,7 +328,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
     
     // 檔名包含日期
     const date = new Date().toISOString().split('T')[0].replace(/-/g, '')
-    link.download = `問答列表_${date}.csv`
+    link.download = t('csvDownloadFilename', { date })
     
     document.body.appendChild(link)
     link.click()
@@ -376,12 +376,14 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span className="text-base font-medium text-blue-900">
-              {isBatchProcessing ? '處理中...' : `已選擇 ${selectedIds.length} 個項目`}
+              {isBatchProcessing
+                ? t('batchProcessingLabel')
+                : t('batchSelectedCount', { count: selectedIds.length })}
             </span>
             {isBatchProcessing ? (
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                <span className="text-base text-gray-600">正在批量處理...</span>
+                <span className="text-base text-gray-600">{t('batchProcessingHint')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -396,7 +398,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                   defaultValue=""
                   disabled={isBatchProcessing}
                 >
-                  <option value="">設定分類</option>
+                  <option value="">{t('batchSetCategory')}</option>
                   <option value="null">{t('noTopic')}</option>
                   {renderTopicOptions(null, 0)}
                 </select>
@@ -406,7 +408,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                   onClick={() => handleBatchUpdateStatus('active')}
                   disabled={isBatchProcessing}
                 >
-                  啟用
+                  {t('active')}
                 </Button>
                 <Button
                   size="sm"
@@ -414,7 +416,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                   onClick={() => handleBatchUpdateStatus('inactive')}
                   disabled={isBatchProcessing}
                 >
-                  停用
+                  {t('inactive')}
                 </Button>
                 <Button
                   size="sm"
@@ -422,7 +424,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
                   onClick={handleBatchDelete}
                   disabled={isBatchProcessing}
                 >
-                  刪除
+                  {tCommon('delete')}
                 </Button>
               </div>
             )}
@@ -433,7 +435,7 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
             onClick={() => setSelectedIds([])}
             disabled={isBatchProcessing}
           >
-            取消選擇
+            {t('batchClearSelection')}
           </Button>
         </div>
       )}
@@ -659,7 +661,11 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         title={t('deleteConfirm')}
-        message={faqToDelete ? `確定要刪除「${faqToDelete.question}」嗎？此操作無法復原。` : ''}
+        message={
+          faqToDelete
+            ? t('deleteFaqConfirmMessage', { name: faqToDelete.question })
+            : ''
+        }
         confirmText={tCommon('delete')}
         cancelText={tCommon('cancel')}
         onConfirm={confirmDelete}
@@ -674,7 +680,9 @@ export default function FaqList({ chatbotId, refreshTrigger, onRefresh }: FaqLis
       <ConfirmDialog
         isOpen={showBatchDeleteConfirm}
         title={t('deleteConfirm')}
-        message={`確定要刪除 ${selectedIds.length} 個問答嗎？此操作無法復原。`}
+        message={t('deleteFaqBatchConfirmMessage', {
+          count: selectedIds.length,
+        })}
         confirmText={tCommon('delete')}
         cancelText={tCommon('cancel')}
         onConfirm={confirmBatchDelete}

@@ -36,7 +36,8 @@ export default function DashboardPage() {
   const tAuth = useTranslations('auth')
   const tCommon = useTranslations('common')
   const notify = useNotification()
-  const { user, loading, signOut, postgresUserId } = useAuth()
+  const { user, loading, signOut, postgresUserId, userMappingStatus, sessionInitError } =
+    useAuth()
   const router = useRouter()
   const params = useParams()
   const [chatbots, setChatbots] = useState<Chatbot[]>([])
@@ -51,6 +52,7 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [showPlanQuotaModal, setShowPlanQuotaModal] = useState(false)
   const [showQuickGuideModal, setShowQuickGuideModal] = useState(false)
+  const [chatbotsLoadError, setChatbotsLoadError] = useState(false)
   const newChatbotNameRef = useRef<HTMLInputElement>(null)
   const newChatbotDescRef = useRef<HTMLInputElement>(null)
   const editChatbotNameRef = useRef<HTMLInputElement>(null)
@@ -58,9 +60,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login')
+      router.push(`/${params.locale}/login`)
     }
-  }, [user, loading, router])
+  }, [user, loading, router, params.locale])
 
   // 載入用戶 profile（包含 plan 資訊）
   useEffect(() => {
@@ -84,9 +86,17 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user && postgresUserId) {
       console.log('[Dashboard] User logged in, loading chatbots for userId:', postgresUserId)
+      setChatbotsLoadError(false)
       loadChatbots()
     }
   }, [user, postgresUserId])
+
+  // mapping 已結束仍無 postgres id 時，勿讓 isLoading 卡在全螢幕轉圈
+  useEffect(() => {
+    if (user && userMappingStatus === 'done' && !postgresUserId) {
+      setIsLoading(false)
+    }
+  }, [user, userMappingStatus, postgresUserId])
 
   const loadUserProfile = async () => {
     try {
@@ -105,20 +115,23 @@ export default function DashboardPage() {
     try {
       console.log('[Dashboard] Loading chatbots...')
       setIsLoading(true)
-      
+      setChatbotsLoadError(false)
+
       // 傳入 postgresUserId 以只載入該用戶的 chatbots
       if (!postgresUserId) {
         console.log('[Dashboard] No postgresUserId, skipping chatbots load')
         setIsLoading(false)
         return
       }
-      
+
       const data = await chatbotApi.getAll(postgresUserId)
       console.log('[Dashboard] Chatbots loaded:', data.length)
       // 後端已經按照 updatedAt 降序排序，直接使用
       setChatbots(data)
     } catch (error) {
       console.error('[Dashboard] Failed to load chatbots:', error)
+      setChatbotsLoadError(true)
+      notify.error(t('chatbotsLoadFailedMessage'))
     } finally {
       setIsLoading(false)
     }
@@ -286,12 +299,43 @@ export default function DashboardPage() {
     }
   }, [openMenuId])
 
-  if (loading || (user && isLoading)) {
+  const showFullPageSpinner =
+    loading ||
+    (user != null && userMappingStatus === 'loading') ||
+    (user != null && postgresUserId != null && isLoading)
+
+  if (showFullPageSpinner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
           <p className="text-lg text-gray-600">{t('loadingTitle')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!loading && !user && sessionInitError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4">
+        <div className="max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
+          <p className="text-amber-950">{t('supabaseUnavailableBanner')}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push(`/${params.locale}/login`)}
+              className="rounded-full bg-gray-800 px-5 py-2 text-sm font-medium text-white hover:bg-gray-900"
+            >
+              {t('goToLogin')}
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-full border border-amber-300 bg-white px-5 py-2 text-sm font-medium text-amber-950 hover:bg-amber-100"
+            >
+              {t('reloadPage')}
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -511,6 +555,26 @@ export default function DashboardPage() {
               <PaymentFailedBanner />
             </div>
 
+            {/* 後端無法建立／對應 PostgreSQL 用戶 */}
+            {userMappingStatus === 'done' && !postgresUserId && (
+              <div
+                className="mb-8 rounded-xl border border-red-200 bg-red-50 p-6 text-left shadow-sm"
+                role="alert"
+              >
+                <h3 className="mb-2 text-lg font-semibold text-red-900">
+                  {t('userMappingFailedTitle')}
+                </h3>
+                <p className="mb-4 text-red-800">{t('userMappingFailedMessage')}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="rounded-full bg-red-700 px-5 py-2 text-sm font-medium text-white hover:bg-red-800"
+                >
+                  {t('reloadPage')}
+                </button>
+              </div>
+            )}
+
             {/* 標題和按鈕區域 */}
             <div className="mb-8 rounded-2xl bg-gray-50 px-8 py-6 shadow-lg border-2 border-gray-300">
               <div className="flex items-center justify-between">
@@ -531,7 +595,8 @@ export default function DashboardPage() {
                   </button>
                   <button
                     onClick={() => setShowNewChatbotModal(true)}
-                    className="rounded-full px-6 py-3 font-bold text-white shadow-lg transition-colors hover:opacity-90"
+                    disabled={!postgresUserId}
+                    className="rounded-full px-6 py-3 font-bold text-white shadow-lg transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ backgroundColor: '#18333D' }}
                   >
                     {t('chatbots.createButton')}
@@ -674,14 +739,28 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Chatbot 列表 */}
-            {isLoading ? (
+            {/* Chatbot 列表（mapping 失敗時不顯示列表區載入狀態） */}
+            {userMappingStatus === 'done' && !postgresUserId ? null : isLoading ? (
               <div className="py-16 text-center">
                 <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
                 <h3 className="mb-2 text-xl font-semibold text-gray-900">
                   {t('loadingTitle')}
                 </h3>
                 <p className="text-gray-600">{t('loadingMessage')}</p>
+              </div>
+            ) : chatbotsLoadError ? (
+              <div className="py-16 text-center">
+                <h3 className="mb-2 text-xl font-semibold text-gray-900">
+                  {t('chatbotsLoadFailedTitle')}
+                </h3>
+                <p className="mb-6 text-gray-600">{t('chatbotsLoadFailedMessage')}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadChatbots()}
+                  className="rounded-full bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+                >
+                  {t('reloadPage')}
+                </button>
               </div>
             ) : chatbots.length === 0 ? (
               <div className="py-16 text-center">

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { layout } from '@/config/layout';
 import HelpModal from '@/components/ui/HelpModal';
 import OverviewStats from '@/components/chatbot/v2/OverviewStats';
+import QueryLogHistory from '@/components/chatbot/v2/QueryLogHistory';
 import QACardEditor from '@/components/chatbot/v2/QACardEditor';
 import { useTranslations } from 'next-intl';
 
@@ -18,9 +19,12 @@ interface InsightManagerProps {
   topics: Topic[];
 }
 
+type InsightTab = 'overview' | 'queryLogs';
+
 export default function InsightManager({ chatbotId, topics }: InsightManagerProps) {
   const t = useTranslations('insight');
   const tCommon = useTranslations('common');
+  const [insightTab, setInsightTab] = useState<InsightTab>('overview');
   const [showHelp, setShowHelp] = useState(false);
   const [showQACardEditor, setShowQACardEditor] = useState(false);
   const [qaCardMode, setQaCardMode] = useState<'create' | 'edit'>('create');
@@ -119,6 +123,40 @@ export default function InsightManager({ chatbotId, topics }: InsightManagerProp
         </div>
       </header>
 
+      {/* 分析子分頁 */}
+      <div
+        className="flex-shrink-0 flex gap-1 px-2 pb-2"
+        role="tablist"
+        aria-label={t('title')}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={insightTab === 'overview'}
+          onClick={() => setInsightTab('overview')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            insightTab === 'overview'
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white text-label border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          {t('overview')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={insightTab === 'queryLogs'}
+          onClick={() => setInsightTab('queryLogs')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            insightTab === 'queryLogs'
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white text-label border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          {t('queryLogs.tabLabel')}
+        </button>
+      </div>
+
       {/* Content Area */}
       <div
         className="flex flex-col flex-1 overflow-hidden bg-content-bg rounded-lg overflow-y-auto"
@@ -128,11 +166,14 @@ export default function InsightManager({ chatbotId, topics }: InsightManagerProp
           paddingBottom: layout.content.padding,
         }}
       >
-        <OverviewStats
-          chatbotId={chatbotId}
-          onCreateFaq={handleCreateFaq}
-          onEditFaq={handleEditFaq}
-        />
+        {insightTab === 'overview' && (
+          <OverviewStats
+            chatbotId={chatbotId}
+            onCreateFaq={handleCreateFaq}
+            onEditFaq={handleEditFaq}
+          />
+        )}
+        {insightTab === 'queryLogs' && <QueryLogHistory chatbotId={chatbotId} />}
       </div>
 
       {/* Help Modal */}

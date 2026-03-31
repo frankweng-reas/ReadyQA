@@ -45,11 +45,21 @@ export class QueryLogsService {
 
     if (query.sessionId) where.sessionId = query.sessionId;
     if (query.ignored !== undefined) where.ignored = query.ignored;
+    if (query.zeroOnly === true) {
+      where.resultsCnt = 0;
+    }
     if (query.startDate || query.endDate) {
       where.createdAt = {};
       if (query.startDate) where.createdAt.gte = new Date(query.startDate);
       if (query.endDate) where.createdAt.lte = new Date(query.endDate);
     }
+
+    const sortField =
+      query.sortBy &&
+      ['createdAt', 'resultsCnt', 'readCnt', 'sessionId', 'query'].includes(query.sortBy)
+        ? query.sortBy
+        : 'createdAt';
+    const sortDir = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const [logs, total] = await Promise.all([
       this.prisma.queryLog.findMany({
@@ -58,7 +68,6 @@ export class QueryLogsService {
           session: {
             select: {
               id: true,
-              token: true,
             },
           },
           _count: {
@@ -68,7 +77,7 @@ export class QueryLogsService {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          [sortField]: sortDir,
         },
         skip: query.offset,
         take: query.limit,
@@ -86,8 +95,6 @@ export class QueryLogsService {
         session: {
           select: {
             id: true,
-            token: true,
-            tenantId: true,
           },
         },
         chatbot: {

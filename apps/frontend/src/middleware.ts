@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { locales, defaultLocale } from './i18n';
 
-// 建立 i18n middleware（固定繁體中文，無視瀏覽器語言）
+// i18n middleware：不偵測 Accept-Language，由 URL 前綴決定語系；未帶前綴時導向 defaultLocale
 const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
-  localePrefix: 'always', // URL 總是包含語言前綴：/zh-TW/dashboard
-  localeDetection: false, // 不依 Accept-Language 偵測，一律使用 zh-TW
+  localePrefix: 'always',
+  localeDetection: false,
 });
 
 /**
@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. 處理 i18n 路由（localeDetection: false + 僅 zh-TW，已固定繁體中文）
+  // 2. i18n 路由（/zh-TW、/en）
   const response = intlMiddleware(request);
 
   // 3. 僅在需要認證判斷的路徑才呼叫 Supabase（效能優化：跳過公開頁面）
@@ -70,29 +70,43 @@ export async function middleware(request: NextRequest) {
   }
 
   // 4. 建立 Supabase 客戶端並檢查 session（僅受保護/登入頁才執行）
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
-  );
+  // DNS/網路異常時 getSession 會拋錯；若不捕捉會導致 middleware 失敗、頁面近乎無樣式
+  let session: Awaited<
+    ReturnType<ReturnType<typeof createServerClient>['auth']['getSession']>
+  >['data']['session'] = null;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({ name, value, ...options });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({ name, value: '', ...options });
+            response.cookies.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+
+    const {
+      data: { session: s },
+    } = await supabase.auth.getSession();
+    session = s;
+  } catch (err) {
+    console.error(
+      '[middleware] Supabase getSession 失敗（請檢查網路、DNS 或 NEXT_PUBLIC_SUPABASE_URL）:',
+      err
+    );
+    session = null;
+  }
 
   const locale = pathname.split('/')[1] || defaultLocale;
 
@@ -137,12 +151,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * 略過整個 /_next/（含 dev 的 webpack-hmr、RSC 等），避免 next-intl 碰內部路徑導致 JS/CSS 異常、畫面像「沒套 Tailwind」。
+     * 勿用 .*\\..* 略過所有副檔名——會連 /chatbot-widget.js 都略過，widget 重寫會失效。
+     * _vercel：部署平台內建腳本；help／favicon：見上方 early return。
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|help).*)',
+    '/((?!api|_next/|_vercel|favicon\\.ico|help).*)',
   ],
 };

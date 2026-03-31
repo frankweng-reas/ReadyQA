@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { layout } from '@/config/layout';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { chatbotApi } from '@/lib/api/chatbot';
@@ -18,6 +18,7 @@ interface DomainWhitelist {
 }
 
 export default function PublishManager({ chatbotId }: PublishManagerProps) {
+  const locale = useLocale();
   const t = useTranslations('chatbotSidebar');
   const tPublish = useTranslations('publish');
   const tCommon = useTranslations('common');
@@ -42,10 +43,11 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
 
   // 生成 PWA URL
   const getPwaUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/zh-TW/chatbot/${chatbotId}`;
-    }
-    return `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/zh-TW/chatbot/${chatbotId}`;
+    const base =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    return `${base}/${locale}/chatbot/${chatbotId}`;
   };
 
   // 載入 chatbot 配置
@@ -78,7 +80,7 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
       : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
     
     const iframe = `<iframe
-  src="${origin}/zh-TW/chatbot/${chatbotId}"
+  src="${origin}/${locale}/chatbot/${chatbotId}"
   width="100%"
   height="600"
   frameborder="0"
@@ -86,11 +88,12 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
 </iframe>`;
     setIframeCode(iframe);
 
-    // JavaScript Widget 代碼
+    // JavaScript Widget 代碼（data-locale 供 /api/chatbot-widget 組出正確 chatbot URL；省略時預設 zh-TW）
     const bubbleImageAttr = logoPath ? `\n  data-bubble-image="${origin}${logoPath}"` : '';
     const widget = `<script 
   src="${origin}/chatbot-widget.js" 
   data-chatbot-id="${chatbotId}"
+  data-locale="${locale}"
   data-position="bottom-right"
   data-bubble-color="#ffffff"
   data-width="400px"
@@ -98,7 +101,7 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
   data-bubble-animation="bounce">
 </script>`;
     setWidgetCode(widget);
-  }, [chatbotId, logoPath]);
+  }, [chatbotId, logoPath, locale]);
 
   // 複製 URL 到剪貼板
   const copyUrlToClipboard = async () => {
@@ -352,7 +355,7 @@ export default function PublishManager({ chatbotId }: PublishManagerProps) {
                   {/* 說明文字 */}
                   <div className="mt-auto p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <p className="text-sm text-blue-800 font-medium">
-                      💡 <strong>說明：</strong>{tPublish('pwaDescription')}
+                      💡 <strong>{tPublish('noteLabel')}</strong>{tPublish('pwaDescription')}
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { layout } from '@/config/layout';
 import { useTranslations } from 'next-intl';
 import QACard from '@/components/chatbot/QACard';
@@ -13,6 +13,11 @@ import HelpModal from '@/components/ui/HelpModal';
 import { useNotification } from '@/hooks/useNotification';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { createClient } from '@/lib/supabase/client';
+import {
+  previewLocalizedHeaderTitle,
+  previewLocalizedHeaderSubtitle,
+  previewLocalizedInputPlaceholder,
+} from '@/lib/chatbot/theme-builtin-i18n';
 
 interface DesignManagerProps {
   chatbotId: string;
@@ -259,7 +264,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('❌ [handleCropComplete] errorData:', errorData);
-        throw new Error(errorData.message || '上傳失敗');
+        throw new Error(errorData.message || t('homeImageUploadErrorTitle'));
       }
 
       const result = await response.json();
@@ -273,11 +278,11 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
         }
       });
       setRefreshKey(prev => prev + 1);
-      notify.success('上傳成功', '首頁背景圖已更新');
+      notify.success(t('homeImageUploadNotifyTitle'), t('homeImageUploadNotifyMessage'));
     } catch (error) {
       console.error('上傳首頁背景圖時發生錯誤:', error);
       notify.error(
-        '上傳失敗',
+        t('homeImageUploadErrorTitle'),
         error instanceof Error ? error.message : undefined
       );
     } finally {
@@ -294,24 +299,26 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
   // 手機裝置配置
   const mobileDevice = { width: '400px', height: '680px' };
 
-  // 靜態範例數據
-  const sampleMessages = [
-    {
-      type: 'user' as const,
-      content: '你們的營業時間是？'
-    },
-    {
-      type: 'assistant' as const,
-      intro: '以下是相關的問答資訊：',
-      qa_blocks: [
-        {
-          faq_id: 'sample-1',
-          question: '營業時間',
-          answer: '我們的營業時間為：\n\n- 週一至週五：09:00 - 18:00\n- 週六：10:00 - 17:00\n- 週日及國定假日：公休'
-        }
-      ]
-    }
-  ];
+  // 預覽用範例對話（隨介面語系切換）
+  const sampleMessages = useMemo(
+    () => [
+      {
+        type: 'user' as const,
+        content: t('previewSampleUserMessage'),
+      },
+      {
+        type: 'assistant' as const,
+        qa_blocks: [
+          {
+            faq_id: 'sample-1',
+            question: t('previewSampleCardQuestion'),
+            answer: t('previewSampleCardAnswer'),
+          },
+        ],
+      },
+    ],
+    [t]
+  );
 
   // 渲染發送按鈕圖標
   const renderSendIcon = () => {
@@ -807,7 +814,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               className="font-semibold truncate"
                               style={{ fontSize: config.titleSize }}
                             >
-                              {theme.headerTitle}
+                              {previewLocalizedHeaderTitle(theme.headerTitle, t)}
                             </h3>
                           )}
                           {theme.showHeaderSubtitle && theme.headerSubtitle && (
@@ -815,7 +822,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               className="mt-1 opacity-90 truncate"
                               style={{ fontSize: config.subtitleSize }}
                             >
-                              {theme.headerSubtitle}
+                              {previewLocalizedHeaderSubtitle(theme.headerSubtitle, t)}
                             </p>
                           )}
                         </div>
@@ -863,7 +870,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               className="font-semibold truncate"
                               style={{ fontSize: config.titleSize }}
                             >
-                              {theme.headerTitle}
+                              {previewLocalizedHeaderTitle(theme.headerTitle, t)}
                             </h3>
                           )}
                           {theme.showHeaderSubtitle && theme.headerSubtitle && (
@@ -871,7 +878,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                               className="mt-1 opacity-90 truncate"
                               style={{ fontSize: config.subtitleSize }}
                             >
-                              {theme.headerSubtitle}
+                              {previewLocalizedHeaderSubtitle(theme.headerSubtitle, t)}
                             </p>
                           )}
                         </div>
@@ -1087,7 +1094,10 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     <div className="flex-1 relative">
                       <textarea
                         value=""
-                        placeholder={theme.inputPlaceholderText}
+                        placeholder={previewLocalizedInputPlaceholder(
+                          theme.inputPlaceholderText,
+                          t
+                        )}
                         className="chatbot-input-textarea w-full px-4 py-2 border rounded-3xl resize-none shadow-sm transition-all duration-300"
                         style={{
                           fontSize: '16px',
@@ -1254,7 +1264,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 </svg>
               </div>
               <span className="absolute right-full mr-3 px-3 py-2 bg-slate-900 text-white text-base font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none whitespace-nowrap z-[100]">
-                首頁設定
+                {t('homePageSettingsTitle')}
               </span>
             </button>
 
@@ -1293,7 +1303,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                 {selectedSection === 'header' ? t('headerSettingsTitle') :
                  selectedSection === 'chat' ? t('chatSettingsTitle') :
                  selectedSection === 'input' ? t('inputSettingsTitle') :
-                 selectedSection === 'home' ? '首頁設定' :
+                 selectedSection === 'home' ? t('homePageSettingsTitle') :
                  selectedSection === 'settings' ? t('advancedSettingsTitle') : ''}
               </h3>
             </div>
@@ -1397,7 +1407,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           </div>
                           <input
                             type="text"
-                            value={theme.headerTitle}
+                            value={previewLocalizedHeaderTitle(theme.headerTitle, t)}
                             onChange={(e) => updateTheme({ headerTitle: e.target.value })}
                             className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder={t('headerTitlePlaceholder')}
@@ -1419,7 +1429,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           </div>
                           <input
                             type="text"
-                            value={theme.headerSubtitle}
+                            value={previewLocalizedHeaderSubtitle(theme.headerSubtitle, t)}
                             onChange={(e) => updateTheme({ headerSubtitle: e.target.value })}
                             className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder={t('headerSubtitlePlaceholder')}
@@ -2493,7 +2503,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                     {/* 啟用首頁 */}
                     <div className="flex items-center justify-between">
                       <label className="text-base font-medium text-gray-700">
-                        啟用首頁
+                        {t('homePageEnable')}
                       </label>
                       <button
                             onClick={() => updateTheme({
@@ -2521,7 +2531,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         {/* 背景圖片上傳 */}
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-2">
-                            背景圖片（建議3:4比例的豎向圖片）
+                            {t('homePageBackgroundImageHint')}
                           </label>
                           {theme.homePageConfig?.backgroundImage ? (
                             <div className="flex items-center space-x-3">
@@ -2543,7 +2553,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 })}
                                 className="px-3 py-2 text-base text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                               >
-                                移除圖片
+                                {t('homePageRemoveImage')}
                               </button>
                             </div>
                           ) : (
@@ -2556,7 +2566,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 className="block w-full text-base text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
                               />
                               {isUploadingLogo && (
-                                <p className="mt-2 text-base text-gray-500">上傳中...</p>
+                                <p className="mt-2 text-base text-gray-500">{t('uploadingLogo')}</p>
                               )}
                             </div>
                           )}
@@ -2568,7 +2578,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                         <div className="flex items-center justify-between">
                           <label className="text-base font-medium text-gray-700">
-                            顯示 CTA 按鈕
+                            {t('homeShowCtaButton')}
                           </label>
                           <button
                             onClick={() => updateTheme({
@@ -2596,7 +2606,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                           <>
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-2">
-                                CTA 按鈕文字
+                                {t('homeCtaLabel')}
                               </label>
                               <input
                                 type="text"
@@ -2610,14 +2620,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     }
                                   }
                                 })}
-                                placeholder="造訪網站"
+                                placeholder={t('homeCtaPlaceholder')}
                                 className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               />
                             </div>
 
                             <div>
                               <label className="block text-base font-medium text-gray-700 mb-2">
-                                CTA 按鈕連結
+                                {t('homeCtaUrl')}
                               </label>
                               <input
                                 type="url"
@@ -2638,7 +2648,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                             <div>
                               <ColorInput
-                                label="CTA 按鈕文字顏色"
+                                label={t('homeCtaTextColor')}
                                 value={theme.homePageConfig?.ctaButton?.textColor || '#3a6ba7'}
                                 onChange={(value) => updateTheme({
                                   homePageConfig: {
@@ -2674,7 +2684,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 }
                               }
                             })}
-                            placeholder="FAQ"
+                            placeholder={t('faqButtonTextPlaceholder')}
                             className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
@@ -2716,7 +2726,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                         {/* FAQ 導向頁面模式選擇 */}
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-3">
-                            FAQ 導向頁面模式
+                            {t('homeFaqLandingMode')}
                           </label>
                           <div className="flex gap-2">
                             <label
@@ -2742,7 +2752,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 })}
                                 className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                               />
-                              <span className="ml-3 text-base font-medium text-gray-700">問答模式</span>
+                              <span className="ml-3 text-base font-medium text-gray-700">{t('homeFaqModeChat')}</span>
                             </label>
                             <label
                               className="flex-1 flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all"
@@ -2767,7 +2777,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 })}
                                 className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                               />
-                              <span className="ml-3 text-base font-medium text-gray-700">瀏覽模式</span>
+                              <span className="ml-3 text-base font-medium text-gray-700">{t('homeFaqModeBrowse')}</span>
                             </label>
                           </div>
                         </div>
@@ -2778,7 +2788,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
 
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-2">
-                            按鈕區域背景
+                            {t('homeButtonAreaBackground')}
                           </label>
                           <div className="space-y-3">
                             <div className="flex items-center">
@@ -2793,7 +2803,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 })}
                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                               />
-                              <span className="ml-2 text-base text-gray-700">使用漸層</span>
+                              <span className="ml-2 text-base text-gray-700">{t('homeButtonAreaUseGradient')}</span>
                             </div>
                             
                             {theme.homePageConfig?.buttonAreaUseGradient ? (
@@ -2802,7 +2812,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 <div className="flex gap-2 mb-4 min-w-0">
                                   <div className="flex-1 min-w-0">
                                     <ColorInput
-                                      label="漸層起始顏色"
+                                      label={t('gradientStartColor')}
                                       value={theme.homePageConfig?.buttonAreaGradientStartColor || '#f3f4f6'}
                                       onChange={(value) => updateTheme({
                                         homePageConfig: {
@@ -2814,7 +2824,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <ColorInput
-                                      label="漸層結束顏色"
+                                      label={t('gradientEndColor')}
                                       value={theme.homePageConfig?.buttonAreaGradientEndColor || '#e5e7eb'}
                                       onChange={(value) => updateTheme({
                                         homePageConfig: {
@@ -2827,7 +2837,7 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                 </div>
                                 
                                 <div>
-                                  <label className="block text-base text-gray-600 mb-1">漸層方向</label>
+                                  <label className="block text-base text-gray-600 mb-1">{t('gradientDirection')}</label>
                                   <select
                                     value={theme.homePageConfig?.buttonAreaGradientDirection || 'to right'}
                                     onChange={(e) => updateTheme({
@@ -2838,14 +2848,14 @@ export default function DesignManager({ chatbotId }: DesignManagerProps) {
                                     })}
                                     className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   >
-                                    <option value="to right">向右</option>
-                                    <option value="to bottom">向下</option>
-                                    <option value="to left">向左</option>
-                                    <option value="to top">向上</option>
-                                    <option value="to bottom right">向右下</option>
-                                    <option value="to bottom left">向左下</option>
-                                    <option value="to top right">向右上</option>
-                                    <option value="to top left">向左上</option>
+                                    <option value="to right">{t('toRight')}</option>
+                                    <option value="to bottom">{t('toBottom')}</option>
+                                    <option value="to left">{t('toLeft')}</option>
+                                    <option value="to top">{t('toTop')}</option>
+                                    <option value="to bottom right">{t('toBottomRight')}</option>
+                                    <option value="to bottom left">{t('toBottomLeft')}</option>
+                                    <option value="to top right">{t('toTopRight')}</option>
+                                    <option value="to top left">{t('toTopLeft')}</option>
                                   </select>
                                 </div>
                               </>

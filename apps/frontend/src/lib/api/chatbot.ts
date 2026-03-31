@@ -46,12 +46,27 @@ export const chatbotApi = {
     
     console.log('[ChatbotAPI] Fetching chatbots from:', url)
     const startTime = Date.now()
-    
-    const response = await fetch(url, {
-      headers: {
-        'Cache-Control': 'no-cache',
-      },
-    })
+
+    const controller = new AbortController()
+    const timeoutMs = 30_000
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+        signal: controller.signal,
+      })
+    } catch (e) {
+      clearTimeout(timeoutId)
+      if (e instanceof Error && e.name === 'AbortError') {
+        throw new Error(`CHATBOTS_FETCH_TIMEOUT:${timeoutMs}`)
+      }
+      throw e
+    }
+    clearTimeout(timeoutId)
 
     const duration = Date.now() - startTime
     console.log(`[ChatbotAPI] API response time: ${duration}ms`)

@@ -9,6 +9,11 @@ import { chatbotApi } from '@/lib/api/chatbot';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import QACard from './QACard';
 import { useNotification } from '@/hooks/useNotification';
+import {
+  displayLocalizedHeaderTitle,
+  previewLocalizedHeaderSubtitle,
+  previewLocalizedInputPlaceholder,
+} from '@/lib/chatbot/theme-builtin-i18n';
 
 interface ChatbotWidgetProps {
   theme?: Partial<ChatbotTheme>
@@ -63,6 +68,7 @@ export default function ChatbotWidget({
   // 翻譯
   const tCommon = useTranslations('common');
   const tKnowledge = useTranslations('knowledge');
+  const tDesign = useTranslations('design');
   const notify = useNotification();
   
   // 直接使用傳入的 theme（資料庫中已有完整資料）
@@ -751,7 +757,7 @@ export default function ChatbotWidget({
                         className="font-semibold" 
                         style={{ fontSize: config.titleSize }}
                       >
-                        {theme.headerTitle || 'AI 助手'}
+                        {displayLocalizedHeaderTitle(theme.headerTitle, tDesign)}
                       </h4>
                     )}
                     {theme.showHeaderSubtitle && theme.headerSubtitle && (
@@ -759,7 +765,7 @@ export default function ChatbotWidget({
                         className="opacity-90" 
                         style={{ fontSize: config.subtitleSize }}
                       >
-                        {theme.headerSubtitle}
+                        {previewLocalizedHeaderSubtitle(theme.headerSubtitle, tDesign)}
                       </p>
                     )}
                   </div>
@@ -810,7 +816,7 @@ export default function ChatbotWidget({
                         className="font-semibold" 
                         style={{ fontSize: config.titleSize }}
                       >
-                        {theme.headerTitle || 'AI 助手'}
+                        {displayLocalizedHeaderTitle(theme.headerTitle, tDesign)}
                       </h4>
                     )}
                     {theme.showHeaderSubtitle && theme.headerSubtitle && (
@@ -818,7 +824,7 @@ export default function ChatbotWidget({
                         className="opacity-90" 
                         style={{ fontSize: config.subtitleSize }}
                       >
-                        {theme.headerSubtitle}
+                        {previewLocalizedHeaderSubtitle(theme.headerSubtitle, tDesign)}
                       </p>
                     )}
                   </div>
@@ -1158,8 +1164,8 @@ export default function ChatbotWidget({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
-                    <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">{tKnowledge('browseNoFaqsTitle')}</h3>
+                    <p className="text-base text-gray-600">{tKnowledge('browseNoFaqsHint')}</p>
                   </div>
                 )
               ) : (
@@ -1327,8 +1333,8 @@ export default function ChatbotWidget({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">目前沒有常見問答</h3>
-                      <p className="text-base text-gray-600">切換到智能問答輸入問題</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">{tKnowledge('browseNoFaqsTitle')}</h3>
+                      <p className="text-base text-gray-600">{tKnowledge('browseNoFaqsHint')}</p>
                     </div>
                   )}
                 </>
@@ -1492,7 +1498,10 @@ export default function ChatbotWidget({
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={theme.inputPlaceholderText}
+                  placeholder={previewLocalizedInputPlaceholder(
+                    theme.inputPlaceholderText,
+                    tDesign
+                  )}
                   disabled={isInputDisabled || isRecording || isTranscribing}
                   className="chatbot-input-textarea w-full px-4 py-2 border rounded-3xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed shadow-sm transition-all duration-300"
                   style={{
