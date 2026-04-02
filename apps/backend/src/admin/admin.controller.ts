@@ -1,5 +1,5 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Patch, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
 
@@ -41,6 +41,18 @@ export class AdminController {
     return {
       success: true,
       data: tenant,
+    };
+  }
+
+  @Post('sync-es')
+  @ApiOperation({ summary: '將 PostgreSQL FAQ 全量同步到 Elasticsearch（僅 Admin）' })
+  @ApiQuery({ name: 'chatbotId', required: false, description: '指定 chatbotId 只同步單一 chatbot，省略則同步全部' })
+  async syncEs(@Query('chatbotId') chatbotId?: string) {
+    const result = await this.adminService.syncAllFaqsToEs(chatbotId);
+    return {
+      success: true,
+      data: result,
+      message: `同步完成：${result.success}/${result.total} 筆成功`,
     };
   }
 }
