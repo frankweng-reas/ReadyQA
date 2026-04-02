@@ -1,0 +1,39 @@
+# 定期對 Supabase 打一個輕量請求，降低免費專案因長期無活動被 Pause 的機率。
+# 使用 Auth 的 health 端點（不依賴任何資料表）：GET /auth/v1/health
+#
+# 必要：在 GitHub Repo → Settings → Secrets and variables → Actions 新增：
+#   SUPABASE_URL      例如 https://xxxxxxxx.supabase.co （不要結尾斜線也可）
+#   SUPABASE_ANON_KEY 專案 Settings → API → anon public key
+#
+# 注意：是否仍能 100% 免於 Pause 以 Supabase 當時政策為準；此 workflow 不適用於處理已 Pause 的專案（需至控制台手動 Restore）。
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # 約每 3 天 12:00 UTC 執行一次（可自行改成更頻或更疏）
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase Auth health
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "請在 GitHub Actions Secrets 設定 SUPABASE_URL 與 SUPABASE_ANON_KEY"
+            exit 1
+          fi
+          URL="${SUPABASE_URL%/}"
+          curl -sfS \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${URL}/auth/v1/health" \
+            | head -c 500
+          echo
+          echo "OK"
