@@ -212,5 +212,16 @@ async getOrCreateUser(dto: GetOrCreateUserDto) {
 
 ---
 
+## GitHub：`main` 已啟用分支保護（給 AI／協作）
+
+- **`main` 不可直接 push**：遠端設定了 **Require a pull request before merging**。
+- **代為提交／推送時必須**：
+  1. 從最新 `main` 建立分支，例如 `feature/簡短說明` 或 `chore/簡短說明`。
+  2. 在該分支上 `commit` 並 `git push -u origin <分支名>`。
+  3. 請使用者在 GitHub 上 **開 Pull Request** 合併進 `main`，或使用 `gh pr create`（若環境已安裝 GitHub CLI）。
+- **禁止**對使用者說「已幫你 push 到 main」除非實際流程是經 PR 合併後的結果；直接 `push origin main` 會被 GitHub 擋下。
+
+---
+
 **記住：所有顯示給用戶的文字都必須使用 t()，這是最重要的規則！**
 
