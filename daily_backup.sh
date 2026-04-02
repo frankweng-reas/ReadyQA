@@ -1,6 +1,6 @@
 #!/bin/bash
 # ReadyQA 每日備份 - 可透過 cron 自動執行
-# 備份 PostgreSQL + Elasticsearch，保留最近 7 天
+# 備份 PostgreSQL + Elasticsearch，保留最近 30 天
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,12 +32,12 @@ else
   echo "[$(date)] Elasticsearch 未運行，跳過 ES 備份" >&2
 fi
 
-# 刪除 7 天前的 PostgreSQL 備份
-find backups -name "backup_*.sql" -mtime +7 -delete
+# 刪除 30 天前的 PostgreSQL 備份
+find backups -name "backup_*.sql" -mtime +30 -delete
 
-# 刪除 7 天前的 Elasticsearch snapshot（需透過 API，不可直接刪目錄）
+# 刪除 30 天前的 Elasticsearch snapshot（需透過 API，不可直接刪目錄）
 if curl -sf "${ES_HOST}/_cluster/health" > /dev/null 2>&1; then
-  CUTOFF=$(date -d '7 days ago' +%Y%m%d 2>/dev/null || date -v-7d +%Y%m%d 2>/dev/null)
+  CUTOFF=$(date -d '30 days ago' +%Y%m%d 2>/dev/null || date -v-30d +%Y%m%d 2>/dev/null)
   SNAPSHOT_JSON=$(curl -sf "${ES_HOST}/_snapshot/${REPO_NAME}/_all?ignore_unavailable=true" 2>/dev/null)
   for snap in $(echo "$SNAPSHOT_JSON" | grep -o '"snapshot":"[^"]*"' | sed 's/"snapshot":"//;s/"$//'); do
     snap_date=$(echo "$snap" | sed 's/snapshot_\([0-9]\{8\}\).*/\1/')
