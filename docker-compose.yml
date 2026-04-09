@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: qaplus
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in project root .env (see docker.env.example)}
       POSTGRES_DB: qaplus
     ports:
       - "127.0.0.1:5432:5432"
@@ -52,7 +52,7 @@ services:
     container_name: qaplus-backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://qaplus:password@postgres:5432/qaplus?schema=public
+      DATABASE_URL: postgresql://qaplus:${POSTGRES_PASSWORD}@postgres:5432/qaplus?schema=public
       ELASTICSEARCH_HOST: http://elasticsearch:9200
       PORT: 8000
     ports:
